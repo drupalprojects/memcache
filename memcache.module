@@ -5,6 +5,7 @@ function memcache_taxonomy($op, $type, $object=NULL) {
     return;
   }
   $object = (array)$object;
+
   switch ($type) {
     case 'term':
     $key = $object['tid'];
@@ -21,7 +22,7 @@ function memcache_taxonomy($op, $type, $object=NULL) {
   switch ($op) {
     case 'delete':
     case 'update':
-    dmemcache_delete($key, 'taxonomy_get_tree', TRUE);
+    dmemcache_flush($key, 'taxonomy_get_tree');
     dmemcache_delete($key, $type);
   }
 
