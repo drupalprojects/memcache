@@ -1,0 +1,37 @@
+<?php
+
+function memcache_taxonomy($op, $type, $object=NULL) {
+  if (is_null($object)) {
+    return;
+  }
+  $object = (array)$object;
+  switch ($type) {
+    case 'term':
+    $key = $object['tid'];
+    break;
+
+    case 'vocabulary':
+    $key = $object['vid'];
+    break;
+
+    // we only know how to handle 'term' and 'vocabulary', so return otherwise.
+    default:
+    return;
+  }
+  switch ($op) {
+    case 'delete':
+    case 'update':
+    drupal_mc_delete($key, 'taxonomy_get_tree', TRUE);
+    drupal_mc_delete($key, $type);
+  }
+
+}
+
+function memcache_nodeapi($node, $op) {
+  switch ($op) {
+    case 'insert':
+    case 'update':
+    case 'delete':
+    //drupal_mc_delete($node->nid, 'node');
+  }
+}
