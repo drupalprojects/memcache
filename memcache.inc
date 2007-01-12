@@ -84,6 +84,16 @@ function dmemcache_stats($bin = 'default') {
     return $mc->getStats();
   }
 }
+/**
+$conf['memcache'][] = array(
+  '#servers' => array('localhost:11211', 'localhost:11212'),
+  '#bins'    => array('default'),
+);
+$conf['memcache'][] = array(
+  '#servers' => array('localhost:11212'),
+  '#bins'    => array('alias', 'src'),
+);
+*/
 
 /**
  * Returns an Memcache object based on the bin requested. Note that there is nothing preventing
@@ -102,6 +112,9 @@ function dmemcache_object($bin = 'default', $flush = FALSE) {
   static $caches;
 
   if ($flush) {
+    foreach ($caches as $cluster) {
+      $cluster->close();
+    }
     unset($caches);
   }
 
@@ -109,28 +122,39 @@ function dmemcache_object($bin = 'default', $flush = FALSE) {
     // initialize the static cache
     $caches = array();
 
-    if (isset($conf['memcache_servers'])) {
-      foreach ($conf['memcache_servers'] as $bin_name => $hosts) {
-        if (!isset($caches[$bin_name])) {
-          $caches[$bin_name] = new Memcache;
-        }
-        foreach ($hosts as $host => $ports) {
-          foreach ($ports as $port) {
-            // NOTE: We add the server with the persistent flag set to TRUE.
-            // According to the documentation, this will have no effect if the memcache extension
-            // is loaded dynamically. If your application is generating too many memcache 
-            // connections, you need to compile PHP with the memcache extension.
-            $caches[$bin_name]->addServer($host, $port);
+    if (isset($conf['memcache'])) {
+      // Each cluster is a list of host:port and bin groups
+      foreach ($conf['memcache'] as $cluster_config) {
+        $cluster = new Memcache;
+        $first_server = TRUE;
+        foreach ($cluster_config['#servers'] as $server) {
+          list($host, $port) = explode(':', $server);
+          if ($first_server) {
+            $cluster->connect($host, $port);
+            $first_server = FALSE;
           }
+          else {
+            $cluster->addServer($host, $port);
+          }
+        }
+
+        // Now that the $cluster has all of its servers connected and added
+        // we cycle through the bins and map this cluster to each of them.
+        // This allows the retrieval of the right cluster for each bin later.
+        // Note: It is the administrator's responsibility to make sure the $conf
+        // array is structured correctly, ie no clusters without bins and a mapping
+        // for the default bin.
+        foreach ($cluster_config['#bins'] as $bin_name) {
+          $caches[$bin_name] = &$cluster;
         }
       }
     }
-    // If $conf['memcache_servers'] was not set, we try to initialize the default server
+    // If $conf['memcache'] was not set, we try to initialize the default server
     else {
-      $mc = new Memcache;
-      $mc->connect('localhost', '11211');
-      if ($mc->getServerStatus('localhost', 11211)) {
-        $caches['default'] = $mc;
+      $cluster = new Memcache;
+      $cluster->connect('localhost', '11211');
+      if ($cluster->getServerStatus('localhost', 11211)) {
+        $caches['default'] = &$cluster;
       }
     }
   }
