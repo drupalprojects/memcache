@@ -21,8 +21,8 @@ function memcache_taxonomy($op, $type, $object=NULL) {
   switch ($op) {
     case 'delete':
     case 'update':
-    drupal_mc_delete($key, 'taxonomy_get_tree', TRUE);
-    drupal_mc_delete($key, $type);
+    dmemcache_delete($key, 'taxonomy_get_tree', TRUE);
+    dmemcache_delete($key, $type);
   }
 
 }
@@ -32,6 +32,6 @@ function memcache_nodeapi($node, $op) {
     case 'insert':
     case 'update':
     case 'delete':
-    //drupal_mc_delete($node->nid, 'node');
+    dmemcache_delete($node->nid, 'node');
   }
 }
