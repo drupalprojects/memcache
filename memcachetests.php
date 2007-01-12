@@ -70,6 +70,7 @@ printHeader();
 
 $mc = dmemcache_object();
 formatStats($mc->getStats());
+unset($conf['memcache']);
 $conf['memcache'][] = array(
   '#servers' => array('localhost:11212'),
   '#bins'    => array('default'),
@@ -121,6 +122,7 @@ print '</ol>';
 printHeader();
 
 // Set up $conf so that both available servers map to default
+unset($conf['memcache']);
 $conf['memcache'][] = array(
   '#servers' => array('localhost:11211', 'localhost:11212'),
   '#bins'    => array('default'),
@@ -207,6 +209,7 @@ $mc2 = new Memcache;
 $mc2->connect('localhost', 11212);
 
 // Set up two clusters with four bins
+unset($conf['memcache']);
 $conf['memcache'][] = array(
   '#servers' => array('localhost:11211'),
   '#bins'    => array('default', 'antwerp'),
