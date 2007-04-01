@@ -7,7 +7,7 @@
 
 /**
  *  Place an item into memcache
- * 
+ *
  * @param $key The string with with you will retrieve this item later.
  * @param $value The item to be stored.
  * @param $exp Parameter expire is expiration time in seconds. If it's 0, the item never expires
@@ -19,7 +19,7 @@
  *
  * @return bool
  */
-function dmemcache_set($key, $value, $exp = 0, $bin = 'default') {
+function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     if (!$mc->set($full_key, $value, FALSE, $exp)) {
@@ -40,7 +40,7 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'default') {
  *
  * @return The item which was originally saved or FALSE
  */
-function dmemcache_get($key, $bin = 'default') {
+function dmemcache_get($key, $bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     return $mc->get($full_key);
@@ -55,7 +55,7 @@ function dmemcache_get($key, $bin = 'default') {
  *
  * @return Returns TRUE on success or FALSE on failure.
  */
-function dmemcache_delete($key, $bin = 'default') {
+function dmemcache_delete($key, $bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     return $mc->delete($full_key);
@@ -73,112 +73,285 @@ function dmemcache_delete($key, $bin = 'default') {
  *
  * @return Returns TRUE on success or FALSE on failure.
  */
-function dmemcache_flush($bin = 'default') {
+function dmemcache_flush($bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     return $mc->flush();
   }
 }
 
-function dmemcache_stats($bin = 'default') {
+function dmemcache_stats($bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     return $mc->getStats();
   }
 }
-/**
-$conf['memcache'][] = array(
-  '#servers' => array('localhost:11211', 'localhost:11212'),
-  '#bins'    => array('default'),
-);
-$conf['memcache'][] = array(
-  '#servers' => array('localhost:11212'),
-  '#bins'    => array('alias', 'src'),
-);
-*/
 
 /**
- * Returns an Memcache object based on the bin requested. Note that there is nothing preventing
- * developers from calling this function directly to get the Memcache object. Do this if you need
- * functionality not provided by this API or if you need to use existing code. Otherwise, use
- * the dmemcache API functions provided here.
+ * Returns an Memcache object based on the bin requested. Note that there is
+ * nothing preventing developers from calling this function directly to get the
+ * Memcache object. Do this if you need functionality not provided by this API
+ * or if you need to use existing code. Otherwise, use the dmemcache (get, set,
+ * delete, flush) API functions provided here.
  *
  * @param $bin The bin which is to be used. Note that this maps to a physical server that
  *   may or may not be shared with other bins.
- * @param $flush Rebuild the bin/server mapping from the global $conf array.
+ * @param $flush Rebuild the bin/server/cache mapping.
  *
  * @return an Memcache object or FALSE.
  */
-function dmemcache_object($bin = 'default', $flush = FALSE) {
-  global $conf;
-  static $caches;
+function dmemcache_object($bin = NULL, $flush = FALSE) {
+  static $memcacheCache = array(), $memcache_servers, $memcache_bins;
 
-  if ($flush) {
-    foreach ($caches as $cluster) {
-      $cluster->close();
-    }
-    unset($caches);
+  if($flush) {
+    $memcacheCache = array();
   }
 
-  if (!isset($caches)) {
-    // initialize the static cache
-    $caches = array();
+  if (empty($memcacheCache) || empty($memcacheCache[$bin])) {
+    // $memcache_servers and $memcache_bins originate from settings.php.
+    // $memcache_servers_custom and $memcache_bins_custom get set by
+    // memcache.module. They are then merged into $memcache_servers and
+    // $memcache_bins, which are statically cached for performance.
+    if (empty($memcache_servers)) {
+      // Values from settings.php
+      $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
+      $memcache_bins    = variable_get('memcache_bins', array('cache' => 'default'));
 
-    if (isset($conf['memcache'])) {
-      // Each cluster is a list of host:port and bin groups
-      foreach ($conf['memcache'] as $cluster_config) {
-        $cluster = new Memcache;
-        $first_server = TRUE;
-        foreach ($cluster_config['#servers'] as $server) {
-          list($host, $port) = explode(':', $server);
-          if ($first_server) {
-            $cluster->connect($host, $port);
-            $first_server = FALSE;
+      // Merge overrides from memcache.module
+      $memcache_servers = array_merge($memcache_servers, array_diff(variable_get('memcache_servers_custom', array()), $memcache_servers));
+      $memcache_bins    = array_merge($memcache_bins, array_diff(variable_get('memcache_bins_custom', array()), $memcache_bins));
+    }
+
+    // If there is no cluster for this bin in $memcache_bins, cluster is 'default'.
+    $cluster = empty($memcache_bins[$bin]) ? 'default' : $memcache_bins[$bin];
+
+    // If this bin isn't in our $memcache_bins configuration array, and the
+    // 'default' cluster is already initialized, map the bin to 'cache' because
+    // we always map the 'cache' bin to the 'default' cluster.
+    if (empty($memcache_bins[$bin]) && !empty($memcacheCache['cache'])) {
+      $memcacheCache[$bin] = &$memcacheCache['cache'];
+    }
+    else {
+      // Create a new Memcache object. Each cluster gets its own Memcache object.
+      $memcache = new Memcache;
+      // A variable to track whether we've connected to the first server.
+      $init = FALSE;
+      foreach ($memcache_servers as $s => $c) {
+        if ($c == $cluster) {
+          list($host, $port) = explode(':', $s);
+
+          // This is a server that belongs to this cluster
+          if (!$init) {
+            $memcache->connect($host, $port);
+            $init = TRUE;
           }
           else {
-            $cluster->addServer($host, $port);
+            $memcache->addServer($host, $port);
           }
         }
+      }
 
-        // Now that the $cluster has all of its servers connected and added
-        // we cycle through the bins and map this cluster to each of them.
-        // This allows the retrieval of the right cluster for each bin later.
-        // Note: It is the administrator's responsibility to make sure the $conf
-        // array is structured correctly, ie no clusters without bins and a mapping
-        // for the default bin.
-        foreach ($cluster_config['#bins'] as $bin_name) {
-          $caches[$bin_name] = &$cluster;
+      // Map the current bin with the new Memcache object.
+      $memcacheCache[$bin] = $memcache;
+
+      // Now that all the servers have been mapped to this cluster, look for
+      // other bins that belong to the cluster and map them too.
+      foreach ($memcache_bins as $b => $c) {
+        if ($c == $cluster && $b != $bin) {
+          // Map this bin and cluster by reference.
+          $memcacheCache[$b] = &$memcacheCache[$bin];
         }
       }
     }
-    // If $conf['memcache'] was not set, we try to initialize the default server
-    else {
-      $cluster = new Memcache;
-      $cluster->connect('localhost', '11211');
-      if ($cluster->getServerStatus('localhost', 11211)) {
-        $caches['default'] = &$cluster;
-      }
-    }
   }
 
-  // If there is a server set up for the requested $bin, return it.
-  if (isset($caches[$bin])) {
-   return $caches[$bin];
+  return $memcacheCache[$bin];
+}
+
+
+
+function dmemcache_key($key, $bin = 'cache') {
+  return urlencode($bin) . '::' . urlencode($key);
+}
+
+
+/** Implementation of cache.inc with memcache logic included **/
+
+/**
+ * Return data from the persistent cache.
+ *
+ * @param $key
+ *   The cache ID of the data to retrieve.
+ * @param $table
+ *   The table $table to store the data in. Valid core values are 'cache_filter',
+ *   'cache_menu', 'cache_page', or 'cache' for the default cache.
+ */
+function cache_get($key, $table = 'cache') {
+  global $user;
+
+  // Garbage collection necessary when enforcing a minimum cache lifetime
+  $cache_flush = variable_get('cache_flush', 0);
+  if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= time())) {
+    // Time to flush old cache data
+    db_query("DELETE FROM {%s} WHERE expire != %d AND expire <= %d", $table, CACHE_PERMANENT, $cache_flush);
+    variable_set('cache_flush', 0);
   }
-  // Otherwise, return the first server listed.
-  else {
-    $tmp = $caches;
-    return array_shift($tmp);
+
+  $cache = dmemcache_get($key, $table);
+  if (empty($cache)) {
+    $cache = db_fetch_object(db_query("SELECT data, created, headers, expire FROM {%s} WHERE cid = '%s'", $table, $key));
   }
-  return FALSE;
+  if (isset($cache->data)) {
+    // If the data is permanent or we're not enforcing a minimum cache lifetime
+    // always return the cached data.
+    if ($cache->expire == CACHE_PERMANENT || !variable_get('cache_lifetime', 0)) {
+      $cache->data = db_decode_blob($cache->data);
+    }
+    // If enforcing a minimum cache lifetime, validate that the data is
+    // currently valid for this user before we return it by making sure the
+    // cache entry was created before the timestamp in the current session's
+    // cache timer. The cache variable is loaded into the $user object by
+    // sess_read() in session.inc.
+    else {
+      if ($user->cache > $cache->created) {
+        // This cache data is too old and thus not valid for us, ignore it.
+        return 0;
+      }
+      else {
+        $cache->data = db_decode_blob($cache->data);
+      }
+    }
+    return $cache;
+  }
+  return 0;
 }
 
 /**
- * Build a key that is urlencoded (better whitespace handling) and namespaced with the bin.
+ * Store data in the persistent cache.
  *
- * @param $key The base key that identifies an object.
- * @param $bin The bin in which the object resides or will reside.
+ * The persistent cache is split up into four database
+ * tables. Contributed modules can add additional tables.
  *
- * @return A string that will ultimately be used as the actual key.
+ * 'cache_page': This table stores generated pages for anonymous
+ * users. This is the only table affected by the page cache setting on
+ * the administrator panel.
+ *
+ * 'cache_menu': Stores the cachable part of the users' menus.
+ *
+ * 'cache_filter': Stores filtered pieces of content. This table is
+ * periodically cleared of stale entries by cron.
+ *
+ * 'cache': Generic cache storage table.
+ *
+ * The reasons for having several tables are as follows:
+ *
+ * - smaller tables allow for faster selects and inserts
+ * - we try to put fast changing cache items and rather static
+ *   ones into different tables. The effect is that only the fast
+ *   changing tables will need a lot of writes to disk. The more
+ *   static tables will also be better cachable with MySQL's query cache
+ *
+ * @param $cid
+ *   The cache ID of the data to store.
+ * @param $table
+ *   The table $table to store the data in. Valid core values are 'cache_filter',
+ *   'cache_menu', 'cache_page', or 'cache'.
+ * @param $data
+ *   The data to store in the cache. Complex data types must be serialized first.
+ * @param $expire
+ *   One of the following values:
+ *   - CACHE_PERMANENT: Indicates that the item should never be removed unless
+ *     explicitly told to using cache_clear_all() with a cache ID.
+ *   - CACHE_TEMPORARY: Indicates that the item should be removed at the next
+ *     general cache wipe.
+ *   - A Unix timestamp: Indicates that the item should be kept at least until
+ *     the given time, after which it behaves like CACHE_TEMPORARY.
+ * @param $headers
+ *   A string containing HTTP header information for cached pages.
  */
-function dmemcache_key($key, $bin = 'default') {
-  return urlencode($bin) . '::' . urlencode($key);
+function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL) {
+  db_lock_table($table);
+  db_query("UPDATE {%s} SET data = %b, created = %d, expire = %d, headers = '%s' WHERE cid = '%s'", $table, $data, time(), $expire, $headers, $cid);
+  if (!db_affected_rows()) {
+    @db_query("INSERT INTO {%s} (cid, data, created, expire, headers) VALUES ('%s', %b, %d, %d, '%s')", $table, $cid, $data, time(), $expire, $headers);
+  }
+  db_unlock_tables();
+  if ($expire === CACHE_PERMANENT && $headers === NULL) {
+    dmemcache_set(dmemcache_key($cid, $table), $data, 0, $table);
+  }
+}
+
+/**
+ *
+ * Expire data from the cache. If called without arguments, expirable
+ * entries will be cleared from the cache_page table.
+ *
+ * @param $cid
+ *   If set, the cache ID to delete. Otherwise, all cache entries that can
+ *   expire are deleted.
+ *
+ * @param $table
+ *   If set, the table $table to delete from. Mandatory
+ *   argument if $cid is set.
+ *
+ * @param $wildcard
+ *   If set to TRUE, the $cid is treated as a substring
+ *   to match rather than a complete ID. The match is a right hand
+ *   match. If '*' is given as $cid, the table $table will be emptied.
+ */
+function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
+  global $user;
+
+  // Memcache logic is simpler because memcache doesn't have a minimum cache
+  // lifetime consideration (it handles it internally), and doesn't support
+  // wildcards.
+  $bin = empty($table) ? 'cache' : $table;
+  if (empty($cid)) {
+    dmemcache_flush($table);
+  }
+  else {
+    dmemcache_delete($cid, $table);
+  }
+
+  if (!isset($cid) && !isset($table)) {
+    cache_clear_all(NULL, 'cache_page');
+    return;
+  }
+
+  if (empty($cid)) {
+    if (variable_get('cache_lifetime', 0)) {
+      // We store the time in the current user's $user->cache variable which
+      // will be saved into the sessions table by sess_write(). We then
+      // simulate that the cache was flushed for this user by not returning
+      // cached data that was cached before the timestamp.
+      $user->cache = time();
+
+      $cache_flush = variable_get('cache_flush', 0);
+      if ($cache_flush == 0) {
+        // This is the first request to clear the cache, start a timer.
+        variable_set('cache_flush', time());
+      }
+      else if (time() > ($cache_flush + variable_get('cache_lifetime', 0))) {
+        // Clear the cache for everyone, cache_flush_delay seconds have
+        // passed since the first request to clear the cache.
+        db_query("DELETE FROM {%s} WHERE expire != %d AND expire < %d", $table, CACHE_PERMANENT, time());
+        variable_set('cache_flush', 0);
+      }
+    }
+    else {
+      // No minimum cache lifetime, flush all temporary cache entries now.
+      db_query("DELETE FROM {%s} WHERE expire != %d AND expire < %d", $table, CACHE_PERMANENT, time());
+    }
+  }
+  else {
+    if ($wildcard) {
+      if ($cid == '*') {
+        db_query("DELETE FROM {%s}", $table);
+      }
+      else {
+        db_query("DELETE FROM {%s} WHERE cid LIKE '%s%%'", $table, $cid);
+      }
+    }
+    else {
+      db_query("DELETE FROM {%s} WHERE cid = '%s'", $table, $cid);
+    }
+  }
 }
