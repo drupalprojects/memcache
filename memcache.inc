@@ -101,7 +101,7 @@ function dmemcache_stats($bin = 'cache') {
 function dmemcache_object($bin = NULL, $flush = FALSE) {
   static $memcacheCache = array(), $memcache_servers, $memcache_bins;
 
-  if($flush) {
+  if ($flush) {
     foreach ($memcacheCache as $cluster) {
       $cluster->close();
     }
@@ -137,16 +137,20 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
       $memcache = new Memcache;
       // A variable to track whether we've connected to the first server.
       $init = FALSE;
+
+      // Link all the servers to this cluster.
       foreach ($memcache_servers as $s => $c) {
         if ($c == $cluster) {
           list($host, $port) = explode(':', $s);
 
-          // This is a server that belongs to this cluster
+          // This is a server that belongs to this cluster.
           if (!$init) {
+            // First server gets the connect.
             $memcache->connect($host, $port);
             $init = TRUE;
           }
           else {
+            // Subsequent servers gett addServer.
             $memcache->addServer($host, $port);
           }
         }
