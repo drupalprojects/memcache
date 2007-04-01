@@ -89,11 +89,11 @@ function dmemcache_stats($bin = 'cache') {
  * Returns an Memcache object based on the bin requested. Note that there is
  * nothing preventing developers from calling this function directly to get the
  * Memcache object. Do this if you need functionality not provided by this API
- * or if you need to use existing code. Otherwise, use the dmemcache (get, set,
+ * or if you need to use legacy code. Otherwise, use the dmemcache (get, set,
  * delete, flush) API functions provided here.
  *
- * @param $bin The bin which is to be used. Note that this maps to a physical server that
- *   may or may not be shared with other bins.
+ * @param $bin The bin which is to be used.
+ *
  * @param $flush Rebuild the bin/server/cache mapping.
  *
  * @return an Memcache object or FALSE.
@@ -102,6 +102,9 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
   static $memcacheCache = array(), $memcache_servers, $memcache_bins;
 
   if($flush) {
+    foreach ($memcacheCache as $cluster) {
+      $cluster->close();
+    }
     $memcacheCache = array();
   }
 
