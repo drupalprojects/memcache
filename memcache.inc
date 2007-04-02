@@ -146,31 +146,35 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           // This is a server that belongs to this cluster.
           if (!$init) {
             // First server gets the connect.
-            $memcache->connect($host, $port);
-            $init = TRUE;
+            if (@$memcache->connect($host, $port)) {
+              // Only set init to true if a connection was made.
+              $init = TRUE;
+            }
           }
           else {
             // Subsequent servers gett addServer.
-            $memcache->addServer($host, $port);
+            @$memcache->addServer($host, $port);
           }
         }
       }
 
-      // Map the current bin with the new Memcache object.
-      $memcacheCache[$bin] = $memcache;
+      if ($init) {
+        // Map the current bin with the new Memcache object.
+        $memcacheCache[$bin] = $memcache;
 
-      // Now that all the servers have been mapped to this cluster, look for
-      // other bins that belong to the cluster and map them too.
-      foreach ($memcache_bins as $b => $c) {
-        if ($c == $cluster && $b != $bin) {
-          // Map this bin and cluster by reference.
-          $memcacheCache[$b] = &$memcacheCache[$bin];
+        // Now that all the servers have been mapped to this cluster, look for
+        // other bins that belong to the cluster and map them too.
+        foreach ($memcache_bins as $b => $c) {
+          if ($c == $cluster && $b != $bin) {
+            // Map this bin and cluster by reference.
+            $memcacheCache[$b] = &$memcacheCache[$bin];
+          }
         }
       }
     }
   }
 
-  return $memcacheCache[$bin];
+  return empty($memcacheCache[$bin]) ? FALSE : $memcacheCache[$bin];
 }
 
 
