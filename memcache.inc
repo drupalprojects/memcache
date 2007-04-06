@@ -22,7 +22,7 @@
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
-    if (!$mc->set($full_key, $value, FALSE, $exp)) {
+    if (!$mc->set($full_key, $value, TRUE, $exp)) {
       watchdog('memcache', 'Failed to set key: ' . $full_key, WATCHDOG_ERROR);
     }
     else {
@@ -43,7 +43,8 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
 function dmemcache_get($key, $bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
-    return $mc->get($full_key);
+    $result = $mc->get($full_key);
+    return $result;
   }
 }
 
@@ -178,13 +179,14 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 }
 
 function dmemcache_key($key, $bin = 'cache') {
-  static $prefix = NULL;
+  static $prefix;
   // memcache_key_prefix can be set in settings.php to support site namespaces
   // in a multisite environment.
-  if (is_null($prefix)) {
+  if (empty($prefix)) {
     $prefix = variable_get('memcache_key_prefix', '');
   }
-  return $prefix . urlencode($bin) . '::' . urlencode($key);
+  $full_key = ($prefix ? $prefix. '-' : '') . $bin . '-' . $key;
+  return urlencode($full_key);
 }
 
 
@@ -290,7 +292,7 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   }
   db_unlock_tables();
   if ($expire === CACHE_PERMANENT && $headers === NULL) {
-    dmemcache_set(dmemcache_key($cid, $table), $data, 0, $table);
+    dmemcache_set($cid, $data, 0, $table);
   }
 }
 
