@@ -5,7 +5,7 @@ function memcache_init() {
     // update.php relies on standard error handler
   }
   else {
-    drupal_add_js('misc/jquery.js');
+    drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
     register_shutdown_function('memcache_shutdown');
   }
 }
@@ -36,13 +36,7 @@ function memcache_shutdown() {
     if (!empty($stats)) {
       $output = theme('item_list', $stats);
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
-      print '<script type="text/javascript">
-        $(document).ready(function() {
-          $("body").append("'. str_replace(array("\r", "\n", "<", ">", "&"),
-                                           array('\r', '\n', '\x3c', '\x3e', '\x26'),
-                                           addslashes($output)) .'");
-        });
-      </script>';
+      print '<div id="memcache-devel">'. $output.'</div>';
     }
   }
 }
