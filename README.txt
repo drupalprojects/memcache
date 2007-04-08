@@ -1,29 +1,48 @@
+## INSTALLATION ##
+
 To install, move memcache.inc to your DRUPAL/includes directory (where the other *.inc files live).
 
-Then patch bootstrap.inc using the bootstrap.patch file.
+The memcahce.inc file is intended to be used instead of cache.inc, utilizing Drupal's pluggable cache system. To make this happen, you need to update $conf in settings.php to tell Drupal which cache_inc file to use:
 
-In your settings.php file you need to map out your memcache servers. Here is an example:
-
-Example 1.
  $conf = array(
-   'memcache_servers' => array('default' => array('localhost' => array(11211)),
-    ),
+   'memcache_inc' => './includes/memcache.inc',
  );
 
-Example 1 will map a server at localhost:11211 which will be used as the default. It is good to
-always specify a default and you may consider making it the biggest memory allocation.
+## SERVERS ##
 
-Example 1.
- $conf = array(
-   'memcache_servers' => array('default' => array('12.34.56.78' => array(11211, 11212, 11213)),
-                               'cache'   => array('98.76.54.32' => array(33433)),
-    ),
- );
+The available memcached servers are specified in $conf in settings.php. If you do not specify any servers, memcache.inc assumes that you have a memcached instance running on localhost:11211. If this is true, and it is the only memcached instance you wish to use, no further configuration is required.
 
-Example 2 maps three allocations for 'default' at 12.34.56.78:11211, 12.34.56.78:11212, and
-12.34.56.78:11213. These should act as a pool, meaning Memcache's failover should utilize all
-three for the 'default' bin.
+If you have more than one memcached instance running, you need to add two arrays to $conf; memcache_servers and memcache_bins. The arrays follow this pattern:
 
-WARNING: Local tests show that failover is not working yet!
+'memcache_servers' => array(host1:port => cluster, host2:port => cluster, hostN:port => cluster)
 
-Then, a server is allocated to the 'cache' bin (98.76.54.32:33433). This means that anything get or set with the bin 'cache' will go there instead of to the other (default).
+'memcache_bins' => array(bin1 => cluster, bin2 => cluster, binN => cluster)
+
+The bin/cluster/server model can be described as follows:
+
+- Servers are memcached instances identified by host:port.
+- Bins are groups of data that get cached together and map 1:1 to the $table param in cache_set. Examples from Drupal core are cache_filter, cache_menu. The default is 'cache'.
+- Clusters are groups of servers that act as a pool.
+- many bins can be assigned to a cluster.
+- The default cluster is 'default'.
+
+Here is an example configuration that has two clusters, 'default' and 'cluster2'. Five memcached instances are divided up between the two clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other bins go to 'default'.
+
+$conf = array(
+  'cache_inc' => './includes/memcache.inc',
+  'memcache_servers' => array('localhost:11211' => 'default', 
+                              'localhost:11212' => 'default', 
+                              '123.45.67.890:11211' => 'default', 
+                              '123.45.67.891:11211' => 'cluster2', 
+                              '123.45.67.892:11211' => 'cluster2'),
+
+  'memcache_bins' => array('cache' => 'default', 'cache_filter' => 'cluster2', 'cache_menu' => 'cluster2'),
+);
+
+## PATCHES ##
+
+No patches need to be applied. The patches that are currently part of the DRUPAL-5--1.dev release should not be applied and will not be part of the final release. Instead, a new module will be created, advanced_cache, which will offer these patches as an advanced caching option for sites, with or without memcache. 
+
+## MEMCACHE ADMIN ##
+
+A module offering a UI for memcache is on the way. It will provide stats, a way to clear the cache, and an interface to organize servers/bins/clusters.
