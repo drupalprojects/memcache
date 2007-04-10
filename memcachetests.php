@@ -7,6 +7,15 @@
  * on localhost:11211 and localhost:11212
  */
 
+// dummy implementations to keep memcache.inc happy
+define('WATCHDOG_ERROR', 2);
+function variable_get($name, $default) {
+  return $default;
+}
+function watchdog($type, $message, $severity = WATCHDOG_NOTICE, $link = NULL) {
+}
+
+
 include_once './includes/memcache.inc';
 
 print "<h1>Memcache configuration details</h1>";
