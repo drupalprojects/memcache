@@ -8,7 +8,7 @@ Drupal's pluggable cache system. To make this happen, you need to update
 $conf in settings.php to tell Drupal which cache_inc file to use:
 
  $conf = array(
-   'memcache_inc' => './includes/memcache.inc',
+   'cache_inc' => './includes/memcache.inc',
  );
 
 ## SERVERS ##
