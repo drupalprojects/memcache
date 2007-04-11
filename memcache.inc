@@ -2,7 +2,7 @@
 // $ID$
 
 global $memcache_statistics;
-$memcache_statistics = array('get' => 0, 'set' => 0, 'hit' => 0);
+$memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
 
 /*
  * A memcache API for Drupal.
@@ -24,7 +24,7 @@ $memcache_statistics = array('get' => 0, 'set' => 0, 'hit' => 0);
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   global $memcache_statistics;
-  $memcache_statistics['set']++;
+  $memcache_statistics['set'][] = $key;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     if (!$mc->set($full_key, $value, TRUE, $exp)) {
@@ -47,12 +47,12 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
  */
 function dmemcache_get($key, $bin = 'cache') {
   global $memcache_statistics;
-  $memcache_statistics['get']++;
+  $memcache_statistics['get'][] = $key;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
-      $memcache_statistics['hit']++;
+      $memcache_statistics['hit'][] = $key;
     }
     return $result;
   }
@@ -303,6 +303,9 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   db_unlock_tables();
   if ($expire === CACHE_PERMANENT && $headers === NULL) {
     dmemcache_set($cid, $data, 0, $table);
+  }
+  elseif ($expire > time() && $headers === NULL) {
+    dmemcache_set($cid, $data, $expire, $table);
   }
 }
 

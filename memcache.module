@@ -31,7 +31,7 @@ function memcache_shutdown() {
   if ($user->uid == 1) {
     $stats = array();
     foreach ($memcache_statistics as $stat => $val) {
-      $stats[] = "<strong>$stat:</strong> $val";
+      $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
     }
     if (!empty($stats)) {
       $output = theme('item_list', $stats);
