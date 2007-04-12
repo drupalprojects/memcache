@@ -68,7 +68,7 @@ function sess_write($key, $value) {
     $in_db = db_num_rows($result);
   }
   
-  if(!$in_memcache) { 
+  if(!$in_memcache && $user->uid) { 
     // Prepare the information to be saved
     $info = new stdClass;
     $info->sid = $key;
@@ -79,17 +79,11 @@ function sess_write($key, $value) {
     $info->timestamp = time();
     $put_in_memcache = dmemcache_set($key, $info, ini_get('session.gc_maxlifetime'), 'session');
   }
-  
-  
-  
+
   // First time the browser sends back the cookie, save to both db and memcache in case of memcache failure
   if((!$in_db && !$in_memcache) && ($user->uid || $value || count($_COOKIE))) {
       db_query("INSERT INTO {sessions} (sid, uid, cache, hostname, session, timestamp) VALUES ('%s', %d, %d, '%s', '%s', %d)", $key, $user->uid, $user->cache, $_SERVER["REMOTE_ADDR"], $value, time());
   } else {
-  	//TODO look at this again. Do we need to update memcache for any reason?  on logout we'll just remove the memcache object
-  	//For now, if memcache is running and the user object is there, why not ignore this for speed?
-    //db_query("UPDATE {sessions} SET uid = %d, cache = %d, hostname = '%s', session = '%s', timestamp = %d WHERE sid = '%s'", $user->uid, $user->cache, $_SERVER["REMOTE_ADDR"], $value, time(), $key);
-   
     // On memcache_set failure, we update the database 
     if(!$in_memcache && !$put_in_memcache) {
       db_query("UPDATE {sessions} SET uid = %d, cache = %d, hostname = '%s', session = '%s', timestamp = %d WHERE sid = '%s'", $user->uid, $user->cache, $_SERVER["REMOTE_ADDR"], $value, time(), $key);
