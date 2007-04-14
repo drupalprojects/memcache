@@ -16,7 +16,7 @@ function memcache_init() {
  * Displays memcache stats in the footer.
  */
 function memcache_shutdown() {
-  global $user, $memcache_statistics;
+  global $user, $_memcache_statistics;
 
   $output = '';
 
@@ -30,7 +30,7 @@ function memcache_shutdown() {
 
   if ($user->uid == 1) {
     $stats = array();
-    foreach ($memcache_statistics as $stat => $val) {
+    foreach ($_memcache_statistics as $stat => $val) {
       $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
     }
     if (!empty($stats)) {

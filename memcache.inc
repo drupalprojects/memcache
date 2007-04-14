@@ -1,8 +1,8 @@
 <?php
 // $ID$
 
-global $memcache_statistics;
-$memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
+global $_memcache_statistics;
+$_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
 
 /*
  * A memcache API for Drupal.
@@ -23,8 +23,8 @@ $memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array(
  * @return bool
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
-  global $memcache_statistics;
-  $memcache_statistics['set'][] = $key;
+  global $_memcache_statistics;
+  $_memcache_statistics['set'][] = $key;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     if (!$mc->set($full_key, $value, TRUE, $exp)) {
@@ -46,13 +46,13 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
  * @return The item which was originally saved or FALSE
  */
 function dmemcache_get($key, $bin = 'cache') {
-  global $memcache_statistics;
-  $memcache_statistics['get'][] = $key;
+  global $_memcache_statistics;
+  $_memcache_statistics['get'][] = $key;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
-      $memcache_statistics['hit'][] = $key;
+      $_memcache_statistics['hit'][] = $key;
     }
     return $result;
   }
