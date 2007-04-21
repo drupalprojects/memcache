@@ -1,8 +1,8 @@
 <?php
 // $ID$
 
-global $_memcache_statistics;
-$_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
+global $memcache_statistics;
+$memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
 
 /*
  * A memcache API for Drupal.
@@ -23,8 +23,8 @@ $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array
  * @return bool
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
-  global $_memcache_statistics;
-  $_memcache_statistics['set'][] = $key;
+  global $memcache_statistics;
+  $memcache_statistics['set'][] = $key;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     if (!$mc->set($full_key, $value, TRUE, $exp)) {
@@ -46,13 +46,13 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
  * @return The item which was originally saved or FALSE
  */
 function dmemcache_get($key, $bin = 'cache') {
-  global $_memcache_statistics;
-  $_memcache_statistics['get'][] = $key;
+  global $memcache_statistics;
+  $memcache_statistics['get'][] = $key;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
-      $_memcache_statistics['hit'][] = $key;
+      $memcache_statistics['hit'][] = $key;
     }
     return $result;
   }
@@ -157,7 +157,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           // This is a server that belongs to this cluster.
           if (!$init) {
             // First server gets the connect.
-            if (@$memcache->connect($host, $port)) {
+            if (@$memcache->addServer($host, $port)) {
               // Only set init to true if a connection was made.
               $init = TRUE;
             }
@@ -222,30 +222,38 @@ function cache_get($key, $table = 'cache') {
     variable_set('cache_flush', 0);
   }
 
-  $cache = dmemcache_get($key, $table);
-  if (empty($cache)) {
-    $cache = db_fetch_object(db_query("SELECT data, created, headers, expire FROM {%s} WHERE cid = '%s'", $table, $key));
+  // If we have a memcache hit for this, return it.
+  if ($cache = dmemcache_get($key, $table)) {
+    return $cache;
   }
-  if (isset($cache->data)) {
-    // If the data is permanent or we're not enforcing a minimum cache lifetime
-    // always return the cached data.
-    if ($cache->expire == CACHE_PERMANENT || !variable_get('cache_lifetime', 0)) {
-      $cache->data = unserialize(db_decode_blob($cache->data));
-    }
-    // If enforcing a minimum cache lifetime, validate that the data is
-    // currently valid for this user before we return it by making sure the
-    // cache entry was created before the timestamp in the current session's
-    // cache timer. The cache variable is loaded into the $user object by
-    // sess_read() in session.inc.
-    else {
-      if ($user->cache > $cache->created) {
-        // This cache data is too old and thus not valid for us, ignore it.
-        return 0;
-      }
-      else {
+
+  // Look for a database cache hit.
+  if ($cache = db_fetch_object(db_query("SELECT data, created, headers, expire FROM {%s} WHERE cid = '%s'", $table, $key))) {
+    if (isset($cache->data)) {
+      // If the data is permanent or we're not enforcing a minimum cache lifetime
+      // always return the cached data.
+      if ($cache->expire == CACHE_PERMANENT || !variable_get('cache_lifetime', 0)) {
         $cache->data = unserialize(db_decode_blob($cache->data));
       }
+      // If enforcing a minimum cache lifetime, validate that the data is
+      // currently valid for this user before we return it by making sure the
+      // cache entry was created before the timestamp in the current session's
+      // cache timer. The cache variable is loaded into the $user object by
+      // sess_read() in session.inc.
+      else {
+        if ($user->cache > $cache->created) {
+          // This cache data is too old and thus not valid for us, ignore it.
+          return 0;
+        }
+        else {
+          $cache->data = unserialize(db_decode_blob($cache->data));
+        }
+      }
     }
+
+    // By calling cache_set with an extra paramater to signify no db storage,
+    // we can lazy instantiate memcache that just comes online.
+    cache_set($key, $table, $cache->data, $cache->expire, $cache->headers, FALSE);
     return $cache;
   }
   return 0;
@@ -293,19 +301,33 @@ function cache_get($key, $table = 'cache') {
  *     the given time, after which it behaves like CACHE_TEMPORARY.
  * @param $headers
  *   A string containing HTTP header information for cached pages.
+ * @param $db_storage
+ *   This boolean is unique to the memcache.inc implementation of cache set.
+ *   It allows us to do a cache_set and not write to the database, but only
+ *   to memcache.
  */
-function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL) {
-  db_lock_table($table);
-  db_query("UPDATE {%s} SET data = %b, created = %d, expire = %d, headers = '%s' WHERE cid = '%s'", $table, serialize($data), time(), $expire, $headers, $cid);
-  if (!db_affected_rows()) {
-    @db_query("INSERT INTO {%s} (cid, data, created, expire, headers) VALUES ('%s', %b, %d, %d, '%s')", $table, $cid, serialize($data), time(), $expire, $headers);
+function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL, $db_storage = TRUE) {
+  // Create new cache object.
+  $cache = new stdClass;
+  $cache->cid = $cid;
+  $cache->data = $data;
+  $cache->created = time();
+  $cache->expire = $expire;
+  $cache->headers = $headers;
+
+  if ($db_storage) {
+    // Save to the database
+    db_lock_table($table);
+    db_query("UPDATE {%s} SET data = %b, created = %d, expire = %d, headers = '%s' WHERE cid = '%s'", $table, serialize($data), $cache->created, $expire, $headers, $cid);
+    if (!db_affected_rows()) {
+      @db_query("INSERT INTO {%s} (cid, data, created, expire, headers) VALUES ('%s', %b, %d, %d, '%s')", $table, $cid, serialize($data), $cache->created, $expire, $headers);
+    }
+    db_unlock_tables();
   }
-  db_unlock_tables();
-  if ($expire === CACHE_PERMANENT && $headers === NULL) {
-    dmemcache_set($cid, $data, 0, $table);
-  }
-  elseif ($expire > time() && $headers === NULL) {
-    dmemcache_set($cid, $data, $expire, $table);
+
+  // Save to memcache
+  if ($expire == CACHE_PERMANENT || $expire > time()) {
+    dmemcache_set($cid, $cache, $expire, $table);
   }
 }
 
