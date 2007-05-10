@@ -128,10 +128,6 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
       // Values from settings.php
       $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
       $memcache_bins    = variable_get('memcache_bins', array('cache' => 'default'));
-
-      // Merge overrides from memcache.module
-      $memcache_servers = array_merge($memcache_servers, array_diff(variable_get('memcache_servers_custom', array()), $memcache_servers));
-      $memcache_bins    = array_merge($memcache_bins, array_diff(variable_get('memcache_bins_custom', array()), $memcache_bins));
     }
 
     // If there is no cluster for this bin in $memcache_bins, cluster is 'default'.
