@@ -228,12 +228,15 @@ function cache_get($key, $table = 'cache') {
   }
 
   // Look for a database cache hit.
-  if ($cache = db_fetch_object(db_query("SELECT data, created, headers, expire FROM {%s} WHERE cid = '%s'", $table, $key))) {
+  if ($cache = db_fetch_object(db_query("SELECT data, created, headers, expire, serialized FROM {%s} WHERE cid = '%s'", $table, $key))) {
     if (isset($cache->data)) {
       // If the data is permanent or we're not enforcing a minimum cache lifetime
       // always return the cached data.
       if ($cache->expire == CACHE_PERMANENT || !variable_get('cache_lifetime', 0)) {
-        $cache->data = unserialize(db_decode_blob($cache->data));
+        $cache->data = db_decode_blob($cache->data);
+        if ($cache->serialized) {
+          $cache->data = unserialize($cache->data);
+        }
       }
       // If enforcing a minimum cache lifetime, validate that the data is
       // currently valid for this user before we return it by making sure the
@@ -246,7 +249,10 @@ function cache_get($key, $table = 'cache') {
           return 0;
         }
         else {
-          $cache->data = unserialize(db_decode_blob($cache->data));
+          $cache->data = db_decode_blob($cache->data);
+          if ($cache->serialized) {
+            $cache->data = unserialize($cache->data);
+          }
         }
       }
     }
@@ -316,11 +322,16 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   $cache->headers = $headers;
 
   if ($db_storage) {
+    $serialized = 0;
+    if (is_object($data) || is_array($data)) {
+      $data = serialize($data);
+      $serialized = 1;
+    }
     // Save to the database
     db_lock_table($table);
-    db_query("UPDATE {%s} SET data = %b, created = %d, expire = %d, headers = '%s' WHERE cid = '%s'", $table, serialize($data), $cache->created, $expire, $headers, $cid);
+    db_query("UPDATE {$table} SET data = %b, created = %d, expire = %d, headers = '%s', serialized = %d WHERE cid = '%s'", $data, time(), $expire, $headers, $serialized, $cid);
     if (!db_affected_rows()) {
-      @db_query("INSERT INTO {%s} (cid, data, created, expire, headers) VALUES ('%s', %b, %d, %d, '%s')", $table, $cid, serialize($data), $cache->created, $expire, $headers);
+      @db_query("INSERT INTO {$table} (cid, data, created, expire, headers, serialized) VALUES ('%s', %b, %d, %d, '%s', %d)", $cid, $data, time(), $expire, $headers, $serialized);
     }
     db_unlock_tables();
   }
