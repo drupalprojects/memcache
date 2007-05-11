@@ -1,3 +1,5 @@
+// $Id$
+
 // Global Killswitch
 if (Drupal.jsEnabled) {
 $(document).ready(function() {

@@ -1,5 +1,5 @@
 <?php
-// $ID$
+// $Id$
 
 global $_memcache_statistics;
 $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());

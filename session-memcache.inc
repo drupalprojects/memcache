@@ -126,7 +126,7 @@ function sess_regenerate() {
 
 /**
  * Counts how many users have sessions. Can count either anonymous sessions, authenticated sessions, or both.
- * Would be insane slow with memcached as we would need to retrieve at least the stats of all object. 
+ * Would be insane slow with memcached as we would need to retrieve at least the stats of all object.
  * Not implemented.
  */
 function sess_count($timestamp = 0, $anonymous = true) {

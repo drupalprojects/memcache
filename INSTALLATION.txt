@@ -1,7 +1,9 @@
+// $Id$
+
 Fedora memcache + drupal walkthrough
 
 1) Have a look at the background reading
-  
+
   A - http://www.danga.com/memcached/	  (cache daemon)
 
   B - http://pecl.php.net/package/memcache  (PHP integration for memcache)
@@ -26,13 +28,13 @@ Fedora memcache + drupal walkthrough
  1010  yum install php-devel
  1011  rpmbuild --rebuild php-pecl-memcache-2.0.4-1.rf.src.rpm
 
-3) Installed RPMS 
+3) Installed RPMS
 
 [root@yoursite ~]# rpm -Uvh /usr/src/redhat/RPMS/x86_64/memcached-1.2.1-4.rf.x86_64.rpm /usr/src/redhat/RPMS/x86_64/php-pecl-memcache-2.0.4-1.rf.x86_64.rpm
 Preparing...                ########################################### [100%]
    1:php-pecl-memcache      ########################################### [ 50%]
    2:memcached              ########################################### [100%]
-[root@yoursite ~]#                     
+[root@yoursite ~]#
 
 4) Verify configuration. Change if required.
 
@@ -51,7 +53,7 @@ Starting Distributed memory caching (memcached):           [  OK  ]
 [root@yoursite ~]# service httpd restart
 Stopping httpd:                                            [  OK  ]
 Starting httpd:                                            [  OK  ]
-[root@yoursite ~]#                
+[root@yoursite ~]#
 
   Check phpinfo() for memcached status. Mine said
 
@@ -85,7 +87,7 @@ whole $cfg.  The example below uses the default localhost:11211 server.
     $conf = array(
       'memcache_inc' => './includes/memcache.inc',
     );
-    [simon@yoursite memcache]$   
+    [simon@yoursite memcache]$
 
 8) Enable the drupal module from /admin/build/modules (it's in the "Other"
 section)
