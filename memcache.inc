@@ -365,7 +365,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   // lifetime consideration (it handles it internally), and doesn't support
   // wildcards.
   $bin = empty($table) ? 'cache' : $table;
-  if (empty($cid)) {
+  if (empty($cid) || $cid == '*') {
     dmemcache_flush($table);
   }
   else {
