@@ -1,3 +1,5 @@
+// $Id$
+
 ## INSTALLATION ##
 
 To install, move memcache.inc to your DRUPAL/includes directory (where the
@@ -48,14 +50,14 @@ bins go to 'default'.
 
 $conf = array(
   'cache_inc' => './includes/memcache.inc',
-  'memcache_servers' => array('localhost:11211' => 'default', 
-                              'localhost:11212' => 'default', 
-                              '123.45.67.890:11211' => 'default', 
-                              '123.45.67.891:11211' => 'cluster2', 
+  'memcache_servers' => array('localhost:11211' => 'default',
+                              'localhost:11212' => 'default',
+                              '123.45.67.890:11211' => 'default',
+                              '123.45.67.891:11211' => 'cluster2',
                               '123.45.67.892:11211' => 'cluster2'),
 
-  'memcache_bins' => array('cache' => 'default', 
-                           'cache_filter' => 'cluster2', 
+  'memcache_bins' => array('cache' => 'default',
+                           'cache_filter' => 'cluster2',
                            'cache_menu' => 'cluster2'),
 );
 
