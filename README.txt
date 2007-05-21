@@ -2,15 +2,14 @@
 
 ## INSTALLATION ##
 
-To install, move memcache.inc to your DRUPAL/includes directory (where the
-other *.inc files live).
-
 The memcache.inc file is intended to be used instead of cache.inc, utilizing
 Drupal's pluggable cache system. To make this happen, you need to update
 $conf in settings.php to tell Drupal which cache_inc file to use:
 
  $conf = array(
-   'cache_inc' => './includes/memcache.inc',
+   // The path to wherever memcache.inc is. The easiest is to simply point it
+   // to the copy in your module's directory.
+   'cache_inc' => './sites/all/modules/memcache/memcache.inc',
  );
 
 ## SERVERS ##
