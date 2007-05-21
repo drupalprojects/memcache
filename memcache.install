@@ -2,7 +2,7 @@
 // $Id$
 
 /**
- * Add serialized field to cache tables
+ * Add serialized field to cache tables.
  */
 function memcache_install() {
   switch ($GLOBALS['db_type']) {

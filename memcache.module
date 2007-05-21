@@ -11,6 +11,9 @@ function memcache_init() {
   }
 }
 
+function memcache_perm() {
+  return array('access memcache statistics');
+}
 
 /**
  * See memcache_init() which registers this function as a shutdown function.
@@ -29,7 +32,7 @@ function memcache_shutdown() {
     }
   }
 
-  if ($user->uid == 1) {
+  if (user_access('access memcache statistics')) {
     $stats = array();
     foreach ($_memcache_statistics as $stat => $val) {
       $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
