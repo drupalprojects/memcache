@@ -6,7 +6,6 @@ function memcache_init() {
     // update.php relies on standard error handler
   }
   else {
-    drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
     register_shutdown_function('memcache_shutdown');
   }
 }
@@ -21,6 +20,7 @@ function memcache_perm() {
  */
 function memcache_shutdown() {
   global $user, $_memcache_statistics;
+  drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
 
   $output = '';
 
