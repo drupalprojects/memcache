@@ -94,7 +94,7 @@ function dmemcache_flush($bin = 'cache') {
 
 function dmemcache_stats($bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
-    return $mc->getStats();
+    return $mc->getExtendedStats();
   }
 }
 
