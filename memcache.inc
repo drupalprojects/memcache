@@ -92,9 +92,9 @@ function dmemcache_flush($bin = 'cache') {
   }
 }
 
-function dmemcache_stats($bin = 'cache') {
+function dmemcache_stats($bin = 'cache', $type = '') {
   if ($mc = dmemcache_object($bin)) {
-    return $mc->getExtendedStats();
+    return $mc->getExtendedStats($type);
   }
 }
 
