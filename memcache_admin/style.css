@@ -1,0 +1,15 @@
+/* $Id$ */
+
+div.memcache_data pre {
+  position: absolute;
+  width: 400px;
+  padding: 4px;
+  background: #ccc;
+  border: 1px solid #333;
+  display:block;
+}
+
+div.memcache_data p {
+  margin: 0px;
+  padding: 10px;
+}

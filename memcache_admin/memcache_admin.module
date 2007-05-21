@@ -1,0 +1,150 @@
+<?php
+// $Id$
+
+
+function memcache_admin_help($section) {
+  switch ($section) {
+    case 'admin/modules#description' :
+      return t('Memcache Admin section - provides a User Interface for the Memcache module');
+  }
+}
+
+
+function memcache_admin_menu($may_cache) {
+  $items = array();
+
+  if ($may_cache) { 
+    $items[] = array(
+      'path' => 'admin/settings/memcache',
+      'callback' => 'memcache_admin_stats',
+      'title' => t('Memcache'),
+      'access' => user_access('access memcache statistics'),
+      'description' => t('View the statistics for this site\'s memcache and generate new settings.'),
+    );
+  }
+  
+  else {
+    $memache_servers = variable_get('memcache_servers', array());
+    $clusters = array();
+    foreach($memache_servers as $server => $cluster) {
+      $clusters[$cluster]['servers'][] = $server;
+      $clusters[$cluster]['bin'] = _memcache_admin_get_bin_for_cluster($cluster);
+    }
+    
+    $count = 0;
+    foreach($clusters as $cluster => $cluster_info) {
+      if ($cluster_info['bin']) {
+        $items[] = array(
+          'path' => 'admin/settings/memcache/' . $cluster,
+          'type' =>  MENU_LOCAL_TASK,
+          'callback' => 'memcache_admin_stats',
+          'callback arguments' => array($cluster),
+          'title' => $cluster,
+          'access' => user_access('access memcache statistics'),
+          'weight' => $count,
+        );
+        $count++;
+      }
+    }
+    
+    
+    if (arg(3)) {
+      $count = 0;
+      foreach(array('default', 'reset', 'malloc', 'maps', 'cachedump', 'slabs', 'items', 'sizes') as $type) {
+        $items[] = array(
+          'path' => 'admin/settings/memcache/' . arg(3) . '/' . $type,
+          'type' => $type == 'default' ?  MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+          'callback' => 'memcache_admin_stats',
+          'callback arguments' => array(arg(3), $type),
+          'title' => $type,
+          'access' => user_access('access memcache statistics'),
+          'weight' => $count,
+        );
+        
+        $count++;
+      }
+    }
+  }
+  
+  return $items;  
+}
+
+
+
+
+
+function memcache_admin_stats($cluster = NULL, $type = 'default') {
+  $bin = _memcache_admin_get_bin_for_cluster($cluster);
+  $output = t('Please select a cluster');
+  
+  if ($bin) {
+    if ($type == 'default') {
+      $type = '';
+    }
+    
+    $stats = dmemcache_stats($bin, $type);
+    
+    if (is_array($stats) && count($stats)) {
+      $output = "";
+      
+      foreach ($stats as $server => $stats) {
+        if ($stats) {
+          $output .= theme('memcache_admin_stats_table', $server, $stats);
+        }
+        
+        else {
+          drupal_set_message(t('Unable to connect to server: %server', array('%server' => $server)), 'error');
+        }
+      }
+    }
+    
+    else {
+      $output = '';
+      drupal_set_message(t('There seem to be no stats for this bin...'), 'error');
+    }
+  }
+
+  
+  return $output;
+}
+
+
+
+function theme_memcache_admin_stats_table($server, $stats) {
+  $rows = array();
+  
+  foreach ($stats as $key => $value) {
+    if (is_array($value)) {
+      drupal_add_css(drupal_get_path('module', 'memcache_admin') . '/style.css');
+      $id = 'memcache_'.$key;
+      
+      $value  = '<div class="memcache_data" id="'.$id.'">';
+      $value .= '<pre>' . serialize($value) . '</pre>';
+      $value .= '<p>Hover here for data</p>';
+      $value .= '</div>';
+      
+      drupal_add_js(drupal_get_path('module', 'memcache_admin') . '/hover_script.js');
+    }
+    
+    $row = array();
+    $row[] = array('data' => $key);
+    $row[] = array('data' => $value);
+    
+    $rows[] = $row;
+  }
+  
+  return theme('table', array('Property', 'Value'), $rows, array(), $server);
+}
+
+
+
+function _memcache_admin_get_bin_for_cluster($cluster) {
+  static $cluster_map = array();
+  
+  if (!isset($cluster_map[$cluster])) {
+    $memache_bins = variable_get('memcache_bins', array());
+    $cluster_map[$cluster] = array_search($cluster, $memache_bins);
+  }
+  
+  return $cluster_map[$cluster];
+}
