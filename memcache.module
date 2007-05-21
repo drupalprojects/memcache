@@ -20,7 +20,6 @@ function memcache_perm() {
  */
 function memcache_shutdown() {
   global $user, $_memcache_statistics;
-  drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
 
   $output = '';
 
@@ -33,6 +32,7 @@ function memcache_shutdown() {
   }
 
   if (user_access('access memcache statistics')) {
+    drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
     $stats = array();
     foreach ($_memcache_statistics as $stat => $val) {
       $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
