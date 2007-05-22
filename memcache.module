@@ -40,7 +40,7 @@ function memcache_shutdown() {
     if (!empty($stats)) {
       $output = theme('item_list', $stats);
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
-      print '<div id="memcache-devel">'. $output.'</div>';
+      print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output.'</div>';
     }
   }
 }
