@@ -77,20 +77,20 @@ function memcache_admin_stats($cluster = NULL, $type = 'default') {
     if (is_array($stats) && count($stats)) {
       $output = "";
 
-      foreach ($stats as $server => $stats) {
-        if ($stats) {
-          $output .= theme('memcache_admin_stats_table', $server, $stats);
+      foreach ($stats as $server => $values) {
+        if (is_array($values)) {
+          $output .= theme('memcache_admin_stats_table', $server, $values);
         }
 
         else {
-          drupal_set_message(t('Unable to connect to server: %server', array('%server' => $server)), 'error');
+          drupal_set_message(t('Unable to connect to server: %server', array('%server' => $server)));
         }
       }
     }
 
     else {
       $output = '';
-      drupal_set_message(t('There seem to be no stats for this bin...'), 'error');
+      drupal_set_message(t('There seem to be no stats for this bin...'));
     }
   }
 
@@ -104,25 +104,18 @@ function theme_memcache_admin_stats_table($server, $stats) {
 
   foreach ($stats as $key => $value) {
     if (is_array($value)) {
-      drupal_add_css(drupal_get_path('module', 'memcache_admin') . '/style.css');
-      $id = 'memcache_'.$key;
-
-      $value  = '<div class="memcache_data" id="'.$id.'">';
-      $value .= '<pre>' . serialize($value) . '</pre>';
-      $value .= '<p>Hover here for data</p>';
-      $value .= '</div>';
-
-      drupal_add_js(drupal_get_path('module', 'memcache_admin') . '/hover_script.js');
+      $rs = array();
+      foreach ($value as $k => $v) {
+        $rs[] = array($k, $v);
+      }
+      $rows[] = array($key, theme('table', array('',''), $rs));
     }
-
-    $row = array();
-    $row[] = array('data' => $key);
-    $row[] = array('data' => $value);
-
-    $rows[] = $row;
+    else {
+      $rows[] = array($key, $value);
+    }
   }
 
-  return theme('table', array('Property', 'Value'), $rows, array(), $server);
+  return theme('table', array(t('Property'), t('Value')), $rows, array(), $server);
 }
 
 
