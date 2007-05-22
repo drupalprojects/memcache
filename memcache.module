@@ -6,11 +6,13 @@ function memcache_init() {
     // update.php relies on standard error handler
   }
   else {
-    drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
     register_shutdown_function('memcache_shutdown');
   }
 }
 
+function memcache_perm() {
+  return array('access memcache statistics');
+}
 
 /**
  * See memcache_init() which registers this function as a shutdown function.
@@ -29,7 +31,8 @@ function memcache_shutdown() {
     }
   }
 
-  if ($user->uid == 1) {
+  if (user_access('access memcache statistics')) {
+    drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
     $stats = array();
     foreach ($_memcache_statistics as $stat => $val) {
       $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
@@ -37,7 +40,7 @@ function memcache_shutdown() {
     if (!empty($stats)) {
       $output = theme('item_list', $stats);
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
-      print '<div id="memcache-devel">'. $output.'</div>';
+      print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output.'</div>';
     }
   }
 }
