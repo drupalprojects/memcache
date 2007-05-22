@@ -1,0 +1,137 @@
+<?php
+// $Id$
+
+function memcache_admin_menu($may_cache) {
+  $items = array();
+
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/settings/memcache',
+      'callback' => 'memcache_admin_stats',
+      'title' => t('Memcache'),
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'access' => user_access('access memcache statistics'),
+      'description' => t("View the statistics for this site's memcache and generate new settings."),
+    );
+  }
+
+  else {
+    $memache_servers = variable_get('memcache_servers', array());
+    $clusters = array();
+    foreach($memache_servers as $server => $cluster) {
+      $clusters[$cluster]['servers'][] = $server;
+      $clusters[$cluster]['bin'] = _memcache_admin_get_bin_for_cluster($cluster);
+    }
+
+    $count = 0;
+    foreach($clusters as $cluster => $cluster_info) {
+      if ($cluster_info['bin']) {
+
+        $items[] = array(
+          'path' => 'admin/settings/memcache/' . $cluster,
+          'type' =>  MENU_LOCAL_TASK,
+          'callback' => 'memcache_admin_stats',
+          'callback arguments' => array($cluster),
+          'title' => $cluster,
+          'access' => user_access('access memcache statistics'),
+          'weight' => $count,
+        );
+
+        $count++;
+      }
+    }
+
+
+    if ($arg = arg(3)) {
+      $count = 0;
+      foreach(array('default', 'reset', 'malloc', 'maps', 'cachedump', 'slabs', 'items', 'sizes') as $type) {
+        $items[] = array(
+          'path' => 'admin/settings/memcache/' . $arg . '/' . $type,
+          'type' => $type == 'default' ?  MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+          'callback' => 'memcache_admin_stats',
+          'callback arguments' => array($arg, $type),
+          'title' => $type,
+          'access' => user_access('access memcache statistics'),
+          'weight' => $count,
+        );
+
+        $count++;
+      }
+    }
+  }
+
+  return $items;
+}
+
+function memcache_admin_stats($cluster = NULL, $type = 'default') {
+  $bin = _memcache_admin_get_bin_for_cluster($cluster);
+  $output = t('Please select a cluster');
+
+  if ($bin) {
+    if ($type == 'default') {
+      $type = '';
+    }
+
+    $stats = dmemcache_stats($bin, $type);
+
+    if (is_array($stats) && count($stats)) {
+      $output = "";
+
+      foreach ($stats as $server => $values) {
+        if (is_array($values)) {
+          $output .= theme('memcache_admin_stats_table', $server, $values);
+        }
+
+        else {
+          drupal_set_message(t('Unable to connect to server: %server', array('%server' => $server)));
+        }
+      }
+    }
+
+    else {
+      $output = '';
+      drupal_set_message(t('There seem to be no stats for this bin...'));
+    }
+  }
+
+  return $output;
+}
+
+
+
+function theme_memcache_admin_stats_table($server, $stats) {
+  $rows = array();
+
+  foreach ($stats as $key => $value) {
+    if (is_array($value)) {
+      $rs = array();
+      foreach ($value as $k => $v) {
+        $rs[] = array($k, $v);
+      }
+      $rows[] = array($key, theme('table', array('',''), $rs));
+    }
+    else {
+      $rows[] = array($key, $value);
+    }
+  }
+
+  return theme('table', array(t('Property'), t('Value')), $rows, array(), $server);
+}
+
+
+
+function _memcache_admin_get_bin_for_cluster($cluster) {
+  static $cluster_map = array();
+
+  if (!isset($cluster_map[$cluster])) {
+    $memache_bins = variable_get('memcache_bins', array());
+    if ($mapping = array_search($cluster, $memache_bins)) {
+      $cluster_map[$cluster] = $mapping;
+    }
+    else {
+      $cluster_map[$cluster] = 'default';
+    }
+  }
+
+  return $cluster_map[$cluster];
+}
