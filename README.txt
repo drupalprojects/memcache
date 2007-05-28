@@ -124,6 +124,30 @@ you are updating to this version, run update.php. Either installing the module
 or running update.php will add the needed column, Uninstalling the module will
 remove the column.
 
+## TROUBLESHOOTING ##
+
+PROBLEM:
+Warning: require_once(a) [function.require-once]: failed to open stream:
+No such file or directory in /includes/bootstrap.inc on line 853
+
+SOLUTION:
+This error occurs after you apply the DRUPAL-5-cache-serialize.patch because
+the code in the patch now expects the cached variables to be unserialized
+but they are still serialized in the cache. Clear the cache table:
+
+mysql> TRUNCATE cache;
+Query OK, 0 rows affected (0.01 sec)
+
+PROBLEM:
+Fatal error: Cannot use string offset as an array in includes/menu.inc on line 452
+
+SOLUTION:
+Similar to the error above, this occurs after applying the
+DRUPAL-5-cache-serialize.patch due to the conflict between the existing
+cached menu and what the patched code is expecting. Clear cache_menu:
+
+mysql> TRUNCATE cache_menu;
+Query OK, 0 rows affected (0.33 sec)
 
 ## MEMCACHE ADMIN ##
 
