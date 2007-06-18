@@ -1,5 +1,4 @@
 ; $Id$
 name = Memcache Admin
 description = Adds a User Interface to monitor the Memcache for this site.
-version = VERSION
 dependencies = memcache
