@@ -111,6 +111,16 @@ $conf = array(
                            'cache_filter' => 'cluster2',
                            'cache_menu' => 'cluster2'),
 );
+## PREFIXING ##
+  	 
+If you want to have multiple Drupal installations share memcached instances,
+you need to include a unique prefix for each Drupal installation in the $conf
+array of settings.php:
+  	 
+$conf = array(
+  ...
+  'memcache_key_prefix' => 'something_unique',
+);
 
 ## PATCHES ##
 
