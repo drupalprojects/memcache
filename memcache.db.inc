@@ -131,12 +131,11 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
       $serialized = 1;
     }
     // Save to the database
-    db_lock_table($table);
-    db_query("UPDATE {$table} SET data = %b, created = %d, expire = %d, headers = '%s', serialized = %d WHERE cid = '%s'", $data, time(), $expire, $headers, $serialized, $cid);
-    if (!db_affected_rows()) {
-      @db_query("INSERT INTO {$table} (cid, data, created, expire, headers, serialized) VALUES ('%s', %b, %d, %d, '%s', %d)", $cid, $data, time(), $expire, $headers, $serialized);
-    }
-    db_unlock_tables();
+    db_query("
+       INSERT INTO {$table} (data, created, expire, headers, serialized, cid) VALUES (%b, %d, %d, '%s', %d, '%s') ON DUPLICATE KEY
+       UPDATE data = %b, created = %d, expire = %d, headers = '%s', serialized = %d WHERE cid = '%s'",
+       $data, time(), $expire, $headers, $serialized, $cid,
+       $data, time(), $expire, $headers, $serialized, $cid);
   }
 
   // Save to memcache
