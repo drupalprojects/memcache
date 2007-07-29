@@ -40,15 +40,14 @@ function memcache_admin_menu($may_cache) {
       }
     }
 
-
-    if ($arg = arg(3)) {
+    if ($cluster = arg(3)) {
       $count = 0;
       foreach(array('default', 'reset', 'malloc', 'maps', 'cachedump', 'slabs', 'items', 'sizes') as $type) {
         $items[] = array(
-          'path' => 'admin/settings/memcache/' . $arg . '/' . $type,
+          'path' => 'admin/settings/memcache/' . $cluster . '/' . $type,
           'type' => $type == 'default' ?  MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
           'callback' => 'memcache_admin_stats',
-          'callback arguments' => array($arg, $type),
+          'callback arguments' => array($cluster, $type),
           'title' => $type,
           'access' => user_access('access memcache statistics'),
           'weight' => $count,
@@ -57,20 +56,18 @@ function memcache_admin_menu($may_cache) {
         $count++;
       }
     }
+    else {
+      drupal_goto('admin/settings/memcache/default');
+    }
   }
 
   return $items;
 }
 
-function memcache_admin_stats($cluster = NULL, $type = 'default') {
+function memcache_admin_stats($cluster = 'default', $type = 'default') {
   $bin = _memcache_admin_get_bin_for_cluster($cluster);
-  $output = t('Please select a cluster');
 
   if ($bin) {
-    if ($type == 'default') {
-      $type = '';
-    }
-
     $stats = dmemcache_stats($bin, $type);
 
     if (is_array($stats) && count($stats)) {
@@ -80,7 +77,6 @@ function memcache_admin_stats($cluster = NULL, $type = 'default') {
         if (is_array($values)) {
           $output .= theme('memcache_admin_stats_table', $server, $values);
         }
-
         else {
           drupal_set_message(t('Unable to connect to server: %server', array('%server' => $server)));
         }
@@ -89,7 +85,7 @@ function memcache_admin_stats($cluster = NULL, $type = 'default') {
 
     else {
       $output = '';
-      drupal_set_message(t('There seem to be no stats for this bin...'));
+      drupal_set_message(t('No available statistics for this bin.'));
     }
   }
 

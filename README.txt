@@ -88,9 +88,12 @@ or the 11211 instance. The page cache will be in 11212.
 
 $conf = array(
   ...
+  // Important to define a default cluster in both the servers
+  // and in the bins. This links them together.
   'memcache_servers' => array('localhost:11211' => 'default',
                               'localhost:11212' => 'pages'),
-  'memcache_bins' => array('cache_page' => 'pages'),
+  'memcache_bins' => array('cache' => 'default',
+                           'cache_page' => 'pages'),
 );
 
 Here is an example configuration that has two clusters, 'default' and

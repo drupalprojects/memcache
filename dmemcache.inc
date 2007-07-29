@@ -101,6 +101,14 @@ function dmemcache_flush($bin = 'cache') {
 }
 
 function dmemcache_stats($bin = 'cache', $type = '') {
+  // resolve requests for 'default' type to ''
+  if ($type == 'default') {
+    $type = '';
+  }
+  // resolve requests for 'default' bin to 'cache'.
+  if ($bin == 'default') {
+    $bin = 'cache';
+  }
   if ($mc = dmemcache_object($bin)) {
     return $mc->getExtendedStats($type);
   }
