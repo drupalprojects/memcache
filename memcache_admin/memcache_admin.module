@@ -8,13 +8,13 @@ function memcache_admin_menu($may_cache) {
     $items[] = array(
       'path' => 'admin/settings/memcache',
       'callback' => 'memcache_admin_stats',
-      'title' => t('Memcache'),
+      'title' => t('Memcache administration'),
       'access' => user_access('access memcache statistics'),
       'description' => t("View the statistics for this site's memcache and generate new settings."),
     );
   }
 
-  else {
+  else if (arg(0) == 'admin' && arg(1) == 'settings' && arg(2) == 'memcache') {
     $memache_servers = variable_get('memcache_servers', array());
     $clusters = array();
     foreach($memache_servers as $server => $cluster) {
