@@ -9,7 +9,6 @@ function memcache_admin_menu($may_cache) {
       'path' => 'admin/settings/memcache',
       'callback' => 'memcache_admin_stats',
       'title' => t('Memcache'),
-      'type' => MENU_DEFAULT_LOCAL_TASK,
       'access' => user_access('access memcache statistics'),
       'description' => t("View the statistics for this site's memcache and generate new settings."),
     );
