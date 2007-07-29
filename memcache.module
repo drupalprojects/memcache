@@ -6,7 +6,10 @@ function memcache_init() {
     // update.php relies on standard error handler
   }
   else {
-    register_shutdown_function('memcache_shutdown');
+    if (user_access('access memcache statistics')) {
+      drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
+      register_shutdown_function('memcache_shutdown');
+    }
   }
 }
 
@@ -21,8 +24,6 @@ function memcache_perm() {
 function memcache_shutdown() {
   global $user, $_memcache_statistics;
 
-  $output = '';
-
   // Try not to break non html pages.
   if (function_exists('drupal_get_headers')) {
     $headers = drupal_get_headers();
@@ -32,7 +33,6 @@ function memcache_shutdown() {
   }
 
   if (user_access('access memcache statistics')) {
-    drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
     $stats = array();
     foreach ($_memcache_statistics as $stat => $val) {
       $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);

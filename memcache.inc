@@ -47,7 +47,7 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
-  $cache->data = $data;
+  $cache->data = is_object($data) ? memcache_clone($data) : $data;
   $cache->created = time();
   $cache->expire = $expire;
   $cache->headers = $headers;
@@ -91,4 +91,13 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   else {
     dmemcache_delete($cid, $table);
   }
+}
+
+/**
+ * Provide a substitute clone() function for PHP4. This is a copy of drupal_clone
+ * because common.inc isn't included early enough in the bootstrap process to
+ * be able to depend on drupal_clone.
+ */
+function memcache_clone($object) {
+  return version_compare(phpversion(), '5.0') < 0 ? $object : clone($object);
 }
