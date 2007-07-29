@@ -11,7 +11,7 @@ function memcache_install() {
   switch ($GLOBALS['db_type']) {
     case 'pgsql':
       foreach ($alltables as $table) {
-        db_add_column($ret, $table, 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
+        db_add_column($ret, $table, 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       }
       break;
     case 'mysql':
@@ -32,7 +32,6 @@ function memcache_uninstall() {
 
   switch ($GLOBALS['db_type']) {
     case 'pgsql':
-    break;
     case 'mysql':
     case 'mysqli':
       foreach ($alltables as $table) {
@@ -50,21 +49,21 @@ function memcache_update_1() {
 
   switch ($GLOBALS['db_type']) {
     case 'pgsql':
-      db_add_column($ret, 'cache', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
-      db_add_column($ret, 'cache_filter', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
-      db_add_column($ret, 'cache_page', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
-      db_add_column($ret, 'cache_menu', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
+      db_add_column($ret, 'cache', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
+      db_add_column($ret, 'cache_filter', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
+      db_add_column($ret, 'cache_page', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
+      db_add_column($ret, 'cache_menu', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       if (db_table_exists('cache_views')) {
-        db_add_column($ret, 'cache_views', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
+        db_add_column($ret, 'cache_views', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       }
       if (db_table_exists('cache_blocks')) {
-        db_add_column($ret, 'cache_blocks', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
+        db_add_column($ret, 'cache_blocks', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       }
       if (db_table_exists('cache_content')) {
-        db_add_column($ret, 'cache_content', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
+        db_add_column($ret, 'cache_content', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       }
       if (db_table_exists('cache_reptag')) {
-        db_add_column($ret, 'cache_reptag', 'serialized', 'int(1)', array('default' => "'0'", 'not null' => TRUE));
+        db_add_column($ret, 'cache_reptag', 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       }
       break;
     case 'mysql':
