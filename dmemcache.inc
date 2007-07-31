@@ -203,7 +203,6 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 }
 
 function dmemcache_key($key, $bin = 'cache') {
-  global $_memcache_statistics;
   static $prefix;
   // memcache_key_prefix can be set in settings.php to support site namespaces
   // in a multisite environment.
