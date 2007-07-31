@@ -119,7 +119,7 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
-  $cache->data = $data;
+  $cache->data = is_object($data) ? memcache_clone($data) : $data;
   $cache->created = time();
   $cache->expire = $expire;
   $cache->headers = $headers;
