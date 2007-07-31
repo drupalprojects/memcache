@@ -1,5 +1,9 @@
 // $Id$
 
+For instructions on how to compile memcached on Debian Etch, see here:
+http://www.lullabot.com/articles/how_install_memcache_debian_etch
+
+
 Fedora memcache + drupal walkthrough
 
 1) Have a look at the background reading
@@ -85,9 +89,14 @@ whole $cfg.  The example below uses the default localhost:11211 server.
 
     [simon@yoursite memcache]$ tail -3 ../../sites/default/settings.php
     $conf = array(
-      'memcache_inc' => './includes/memcache.inc',
+      'memcache_inc' => './sites/all/modules/memcache/memcache.inc',
     );
     [simon@yoursite memcache]$
 
 8) Enable the drupal module from /admin/build/modules (it's in the "Other"
-section)
+section) Note that the memcache module only provides some debug output for
+administrators to help you see what memcache is doing. It is non-essential
+to the functioning of your site, and can be turned off on a production site.
+
+9) Also see the memcache_admin module (distributed with this package) to monitor
+memcache statistics.
