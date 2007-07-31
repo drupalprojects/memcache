@@ -1,20 +1,48 @@
 <?php
 // $Id$
 
+/**
+ * For the collection of memcache stats. This small .js file makes sure that the
+ * HTML displaying the stats is inside of the <body> part of the HTML
+ * document.
+ */
+function memcache_admin_init() {
+  if (strstr($_SERVER['PHP_SELF'], 'update.php') || strstr($_GET['q'], 'autocomplete')) {
+    // update.php relies on standard error handler
+  }
+  else {
+    drupal_add_js(drupal_get_path('module', 'memcache_admin'). '/memcache.js');
+    register_shutdown_function('memcache_admin_shutdown');
+  }
+}
+
+function memcache_admin_perm() {
+  return array('access memcache statistics');
+}
+
 function memcache_admin_menu($may_cache) {
   $items = array();
 
   if ($may_cache) {
     $items[] = array(
       'path' => 'admin/settings/memcache',
+      'title' => t('Memcache'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('memcache_admin_admin_settings'),
+      'access' => user_access('administer site configuration'),
+      'type' => MENU_NORMAL_ITEM
+    );
+    $items[] = array(
+      'path' => 'admin/logs/memcache',
       'callback' => 'memcache_admin_stats',
-      'title' => t('Memcache administration'),
+      'title' => t('Memcache status'),
       'access' => user_access('access memcache statistics'),
       'description' => t("View the statistics for this site's memcache and generate new settings."),
+      'weight' => 1,
     );
   }
 
-  else if (arg(0) == 'admin' && arg(1) == 'settings' && arg(2) == 'memcache') {
+  else if (arg(0) == 'admin' && arg(1) == 'logs' && arg(2) == 'memcache') {
     $memache_servers = variable_get('memcache_servers', array());
     $clusters = array();
     foreach($memache_servers as $server => $cluster) {
@@ -57,11 +85,20 @@ function memcache_admin_menu($may_cache) {
       }
     }
     else {
-      drupal_goto('admin/settings/memcache/default');
+      drupal_goto('admin/logs/memcache/default');
     }
   }
 
   return $items;
+}
+
+function memcache_admin_admin_settings() {
+  $form['show_memcache_statistics'] = array('#type' => 'checkbox',
+    '#title' => t('Show memcache statistics at the bottom of each page'),
+    '#default_value' => variable_get('show_memcache_statistics', 1),
+    '#description' => t("These statistics will be visible to users with the 'access memcache statistics' permission."),
+  );
+  return system_settings_form($form);
 }
 
 function memcache_admin_stats($cluster = 'default', $type = 'default') {
@@ -129,4 +166,33 @@ function _memcache_admin_get_bin_for_cluster($cluster) {
   }
 
   return $cluster_map[$cluster];
+}
+
+/**
+ * See memcache_admin_init() which registers this function as a shutdown function.
+ * Displays memcache stats in the footer.
+ */
+function memcache_admin_shutdown() {
+  global $user, $_memcache_statistics;
+
+  // Try not to break non html pages.
+  if (function_exists('drupal_get_headers')) {
+    $headers = drupal_get_headers();
+    if(strstr($headers, 'xml') || strstr($headers, 'javascript') || strstr($headers, 'plain')) {
+      return;
+    }
+  }
+
+  if (variable_get('show_memcache_statistics', TRUE) && user_access('access memcache statistics')) {
+    $stats = array();
+
+    foreach ($_memcache_statistics as $stat => $val) {
+      $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
+    }
+    if (!empty($stats)) {
+      $output = theme('item_list', $stats);
+      // this makes sure all of the HTML is within the <body> even though this <script> is outside it
+      print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output. '</div>';
+    }
+  }
 }

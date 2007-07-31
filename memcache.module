@@ -1,46 +1,4 @@
 <?php
 // $Id$
 
-function memcache_init() {
-  if (strstr($_SERVER['PHP_SELF'], 'update.php') || strstr($_GET['q'], 'autocomplete')) {
-    // update.php relies on standard error handler
-  }
-  else {
-    if (user_access('access memcache statistics')) {
-      drupal_add_js(drupal_get_path('module', 'memcache'). '/memcache.js');
-      register_shutdown_function('memcache_shutdown');
-    }
-  }
-}
-
-function memcache_perm() {
-  return array('access memcache statistics');
-}
-
-/**
- * See memcache_init() which registers this function as a shutdown function.
- * Displays memcache stats in the footer.
- */
-function memcache_shutdown() {
-  global $user, $_memcache_statistics;
-
-  // Try not to break non html pages.
-  if (function_exists('drupal_get_headers')) {
-    $headers = drupal_get_headers();
-    if(strstr($headers, 'xml') || strstr($headers, 'javascript') || strstr($headers, 'plain')) {
-      return;
-    }
-  }
-
-  if (user_access('access memcache statistics')) {
-    $stats = array();
-    foreach ($_memcache_statistics as $stat => $val) {
-      $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
-    }
-    if (!empty($stats)) {
-      $output = theme('item_list', $stats);
-      // this makes sure all of the HTML is within the <body> even though this <script> is outside it
-      print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output.'</div>';
-    }
-  }
-}
+// purposefully empty. An exercise in minimalistic programming.
