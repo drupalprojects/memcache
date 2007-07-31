@@ -55,7 +55,7 @@ function memcache_admin_menu($may_cache) {
       if ($cluster_info['bin']) {
 
         $items[] = array(
-          'path' => 'admin/settings/memcache/' . $cluster,
+          'path' => 'admin/logs/memcache/' . $cluster,
           'type' =>  MENU_LOCAL_TASK,
           'callback' => 'memcache_admin_stats',
           'callback arguments' => array($cluster),
@@ -191,6 +191,7 @@ function memcache_admin_shutdown() {
     }
     if (!empty($stats)) {
       $output = theme('item_list', $stats);
+
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
       print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output. '</div>';
     }
