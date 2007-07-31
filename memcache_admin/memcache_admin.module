@@ -7,11 +7,14 @@
  * document.
  */
 function memcache_admin_init() {
-  if (strstr($_SERVER['PHP_SELF'], 'update.php') || strstr($_GET['q'], 'autocomplete')) {
+  global $user;
+  if (($user->uid == 0) || strstr($_SERVER['PHP_SELF'], 'update.php') || strstr($_GET['q'], 'autocomplete')) {
     // update.php relies on standard error handler
   }
   else {
-    drupal_add_js(drupal_get_path('module', 'memcache_admin'). '/memcache.js');
+    if ($user->uid) {
+      drupal_add_js(drupal_get_path('module', 'memcache_admin'). '/memcache.js');
+    }
     register_shutdown_function('memcache_admin_shutdown');
   }
 }
@@ -173,7 +176,7 @@ function _memcache_admin_get_bin_for_cluster($cluster) {
  * Displays memcache stats in the footer.
  */
 function memcache_admin_shutdown() {
-  global $user, $_memcache_statistics;
+  global $_memcache_statistics;
 
   // Try not to break non html pages.
   if (function_exists('drupal_get_headers')) {
@@ -183,7 +186,7 @@ function memcache_admin_shutdown() {
     }
   }
 
-  if (variable_get('show_memcache_statistics', TRUE) && user_access('access memcache statistics')) {
+  if (variable_get('show_memcache_statistics', TRUE) && function_exists('user_access') && user_access('access memcache statistics')) {
     $stats = array();
 
     foreach ($_memcache_statistics as $stat => $val) {
