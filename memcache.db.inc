@@ -141,9 +141,10 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   }
 
   // Save to memcache
-  if ($expire == CACHE_PERMANENT || $expire > $time) {
-    dmemcache_set($cid, $cache, $expire, $table);
+  if ($expire == CACHE_TEMPORARY) {
+    $expire = variable_get('cache_lifetime', 2591999);
   }
+  dmemcache_set($cid, $cache, $expire, $table);
 }
 
 /**

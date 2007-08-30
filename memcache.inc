@@ -55,13 +55,10 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
   $cache->headers = $headers;
 
   // Save to memcache
-  if ($expire == CACHE_PERMANENT || $expire > $time) {
-    dmemcache_set($cid, $cache, $expire, $table);
+  if ($expire == CACHE_TEMPORARY) {
+    $expire = variable_get('cache_lifetime', 2591999);
   }
-  else if ($expire == CACHE_TEMPORARY) {
-    // A compromise for CACHE_TEMPORARY: Cache for three minutes.
-    dmemcache_set($cid, $cache, 180, $table);
-  }
+  dmemcache_set($cid, $cache, $expire, $table);
 }
 
 /**
