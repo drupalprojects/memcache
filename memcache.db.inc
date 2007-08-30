@@ -116,11 +116,13 @@ function cache_get($key, $table = 'cache') {
  *   to memcache.
  */
 function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL, $db_storage = TRUE) {
+  $time = time();
+
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
   $cache->data = is_object($data) ? memcache_clone($data) : $data;
-  $cache->created = time();
+  $cache->created = $time;
   $cache->expire = $expire;
   $cache->headers = $headers;
 
@@ -134,12 +136,12 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
     db_query("
        INSERT INTO {$table} (data, created, expire, headers, serialized, cid) VALUES (%b, %d, %d, '%s', %d, '%s') ON DUPLICATE KEY
        UPDATE data = %b, created = %d, expire = %d, headers = '%s', serialized = %d",
-       $data, time(), $expire, $headers, $serialized, $cid,
-       $data, time(), $expire, $headers, $serialized, $cid);
+       $data, $time, $expire, $headers, $serialized, $cid,
+       $data, $time, $expire, $headers, $serialized, $cid);
   }
 
   // Save to memcache
-  if ($expire == CACHE_PERMANENT || $expire > time()) {
+  if ($expire == CACHE_PERMANENT || $expire > $time) {
     dmemcache_set($cid, $cache, $expire, $table);
   }
 }

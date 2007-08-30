@@ -44,16 +44,18 @@ function cache_get($key, $table = 'cache') {
  *   to memcache.
  */
 function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL) {
+  $time = time();
+
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
   $cache->data = is_object($data) ? memcache_clone($data) : $data;
-  $cache->created = time();
+  $cache->created = $time;
   $cache->expire = $expire;
   $cache->headers = $headers;
 
   // Save to memcache
-  if ($expire == CACHE_PERMANENT || $expire > time()) {
+  if ($expire == CACHE_PERMANENT || $expire > $time) {
     dmemcache_set($cid, $cache, $expire, $table);
   }
   else if ($expire == CACHE_TEMPORARY) {
