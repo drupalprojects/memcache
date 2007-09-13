@@ -89,7 +89,7 @@ whole $cfg.  The example below uses the default localhost:11211 server.
 
     [simon@yoursite memcache]$ tail -3 ../../sites/default/settings.php
     $conf = array(
-      'memcache_inc' => './sites/all/modules/memcache/memcache.inc',
+      'cache_inc' => './sites/all/modules/memcache/memcache.inc',
     );
     [simon@yoursite memcache]$
 
