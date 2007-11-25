@@ -11,15 +11,15 @@ function memcache_install() {
   switch ($GLOBALS['db_type']) {
     case 'pgsql':
       foreach ($alltables as $table) {
-        db_query("DELETE FROM $table");
+        db_query("DELETE FROM {{$table}}");
         db_add_column($ret, $table, 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
       }
       break;
     case 'mysql':
     case 'mysqli':
       foreach ($alltables as $table) {
-        db_query("DELETE FROM $table");
-        db_query("ALTER TABLE {$table} ADD serialized int(1) NOT NULL default '0'");
+        db_query("DELETE FROM {{$table}}");
+        db_query("ALTER TABLE {{$table}} ADD serialized int(1) NOT NULL default '0'");
       }
       break;
   }
@@ -37,7 +37,7 @@ function memcache_uninstall() {
     case 'mysql':
     case 'mysqli':
       foreach ($alltables as $table) {
-        db_query("ALTER TABLE {$table} DROP serialized");
+        db_query("ALTER TABLE {{$table}} DROP serialized");
       }
       break;
   }
