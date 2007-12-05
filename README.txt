@@ -6,7 +6,7 @@ These are the broad steps you need to take in order to use this software. Order
 is important.
 
 1. Install the memcached binaries on your server. See http://www.lullabot.com/articles/how_install_memcache_debian_etch
-2. Install the PECL memcache extension for PHP.
+2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or higher or you will experience errors.
 3. Put your site into offline mode.
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
@@ -160,6 +160,13 @@ cached menu and what the patched code is expecting. Clear cache_menu:
 
 mysql> TRUNCATE cache_menu;
 Query OK, 0 rows affected (0.33 sec)
+
+PROBLEM:
+Error:
+Failed to set key: Failed to set key: cache_page-......
+
+SOLUTION:
+Upgrade your PECL library to PECL package (2.2.1) (or higher).
 
 ## MEMCACHE ADMIN ##
 
