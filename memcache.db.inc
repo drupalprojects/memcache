@@ -133,15 +133,20 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
     // Save to the database
     db_query("
        INSERT INTO {$table} (data, created, expire, headers, serialized, cid) VALUES (%b, %d, %d, '%s', %d, '%s') ON DUPLICATE KEY
-       UPDATE data = %b, created = %d, expire = %d, headers = '%s', serialized = %d WHERE cid = '%s'",
+       UPDATE data = %b, created = %d, expire = %d, headers = '%s', serialized = %d",
        $data, time(), $expire, $headers, $serialized, $cid,
-       $data, time(), $expire, $headers, $serialized, $cid);
+       $data, time(), $expire, $headers, $serialized);
   }
 
   // Save to memcache
   if ($expire == CACHE_PERMANENT || $expire > time()) {
     dmemcache_set($cid, $cache, $expire, $table);
   }
+  else if ($expire == CACHE_TEMPORARY) {
+    // A compromise for CACHE_TEMPORARY: Cache for three minutes.
+    dmemcache_set($cid, $cache, 180, $table);
+  }
+
 }
 
 /**
