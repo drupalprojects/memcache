@@ -44,22 +44,21 @@ function cache_get($key, $table = 'cache') {
  *   to memcache.
  */
 function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL) {
+  $time = time();
+
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
   $cache->data = is_object($data) ? memcache_clone($data) : $data;
-  $cache->created = time();
+  $cache->created = $time;
   $cache->expire = $expire;
   $cache->headers = $headers;
 
   // Save to memcache
-  if ($expire == CACHE_PERMANENT || $expire > time()) {
-    dmemcache_set($cid, $cache, $expire, $table);
+  if ($expire == CACHE_TEMPORARY) {
+    $expire = variable_get('cache_lifetime', 2591999);
   }
-  else if ($expire == CACHE_TEMPORARY) {
-    // A compromise for CACHE_TEMPORARY: Cache for three minutes.
-    dmemcache_set($cid, $cache, 180, $table);
-  }
+  dmemcache_set($cid, $cache, $expire, $table);
 }
 
 /**
@@ -86,7 +85,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   // wildcards.
   $bin = empty($table) ? 'cache' : $table;
   if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
-    # don't do anything if cid is unset. this matches the default drupal behavior...
+    // don't do anything if cid is unset. this matches the default drupal behavior...
     if ($wildcard && $cid != '*') {
       if (variable_get('memcache_debug', FALSE)) {
         // call watchdog, since you probably didn't want to flush the entire bin.

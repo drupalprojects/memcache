@@ -5,8 +5,8 @@
 These are the broad steps you need to take in order to use this software. Order
 is important.
 
-1. Install the memcached binaries on your server.
-2. Install the PECL memcache extension for PHP.
+1. Install the memcached binaries on your server. See http://www.lullabot.com/articles/how_install_memcache_debian_etch
+2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or higher or you will experience errors.
 3. Put your site into offline mode.
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
@@ -16,9 +16,9 @@ is important.
 7. Start at least one instance of memcached on your server.
 8. Edit settings.php to configure the servers, clusters and bins that memcache
    is supposed to use.
-9. Edit settings.php to include either memcache.inc or memcache.db.inc.
-10. Optionally, edit settings.php to include memcache-session.inc
-11. Bring your site back online.
+9. Edit settings.php to include either memcache.inc or memcache.db.inc. For
+   example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.db.inc';
+10. Bring your site back online.
 
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
@@ -89,9 +89,12 @@ or the 11211 instance. The page cache will be in 11212.
 
 $conf = array(
   ...
+  // Important to define a default cluster in both the servers
+  // and in the bins. This links them together.
   'memcache_servers' => array('localhost:11211' => 'default',
                               'localhost:11212' => 'pages'),
-  'memcache_bins' => array('cache_page' => 'pages'),
+  'memcache_bins' => array('cache' => 'default',
+                           'cache_page' => 'pages'),
 );
 
 Here is an example configuration that has two clusters, 'default' and
@@ -112,11 +115,11 @@ $conf = array(
                            'cache_menu' => 'cluster2'),
 );
 ## PREFIXING ##
-  	 
+
 If you want to have multiple Drupal installations share memcached instances,
 you need to include a unique prefix for each Drupal installation in the $conf
 array of settings.php:
-  	 
+
 $conf = array(
   ...
   'memcache_key_prefix' => 'something_unique',
@@ -158,6 +161,13 @@ cached menu and what the patched code is expecting. Clear cache_menu:
 
 mysql> TRUNCATE cache_menu;
 Query OK, 0 rows affected (0.33 sec)
+
+PROBLEM:
+Error:
+Failed to set key: Failed to set key: cache_page-......
+
+SOLUTION:
+Upgrade your PECL library to PECL package (2.2.1) (or higher).
 
 ## MEMCACHE ADMIN ##
 

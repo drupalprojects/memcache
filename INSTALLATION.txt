@@ -1,7 +1,13 @@
+// $Id$
+
+For instructions on how to compile memcached on Debian Etch, see here:
+http://www.lullabot.com/articles/how_install_memcache_debian_etch
+
+
 Fedora memcache + drupal walkthrough
 
 1) Have a look at the background reading
-  
+
   A - http://www.danga.com/memcached/	  (cache daemon)
 
   B - http://pecl.php.net/package/memcache  (PHP integration for memcache)
@@ -26,13 +32,13 @@ Fedora memcache + drupal walkthrough
  1010  yum install php-devel
  1011  rpmbuild --rebuild php-pecl-memcache-2.0.4-1.rf.src.rpm
 
-3) Installed RPMS 
+3) Installed RPMS
 
 [root@yoursite ~]# rpm -Uvh /usr/src/redhat/RPMS/x86_64/memcached-1.2.1-4.rf.x86_64.rpm /usr/src/redhat/RPMS/x86_64/php-pecl-memcache-2.0.4-1.rf.x86_64.rpm
 Preparing...                ########################################### [100%]
    1:php-pecl-memcache      ########################################### [ 50%]
    2:memcached              ########################################### [100%]
-[root@yoursite ~]#                     
+[root@yoursite ~]#
 
 4) Verify configuration. Change if required.
 
@@ -51,7 +57,7 @@ Starting Distributed memory caching (memcached):           [  OK  ]
 [root@yoursite ~]# service httpd restart
 Stopping httpd:                                            [  OK  ]
 Starting httpd:                                            [  OK  ]
-[root@yoursite ~]#                
+[root@yoursite ~]#
 
   Check phpinfo() for memcached status. Mine said
 
@@ -83,9 +89,17 @@ whole $cfg.  The example below uses the default localhost:11211 server.
 
     [simon@yoursite memcache]$ tail -3 ../../sites/default/settings.php
     $conf = array(
-      'memcache_inc' => './includes/memcache.inc',
+      'cache_inc' => './sites/all/modules/memcache/memcache.inc',
     );
-    [simon@yoursite memcache]$   
+    [simon@yoursite memcache]$
 
 8) Enable the drupal module from /admin/build/modules (it's in the "Other"
-section)
+section) Note that the memcache module only provides some debug output for
+administrators to help you see what memcache is doing. It is non-essential
+to the functioning of your site, and can be turned off on a production site.
+
+It is, however, *vital* that you enable the module at least once because it runs
+hook_install and adds the serialized column to all of your cache tables.
+
+9) Also see the memcache_admin module (distributed with this package) to monitor
+memcache statistics.

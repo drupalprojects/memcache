@@ -116,11 +116,13 @@ function cache_get($key, $table = 'cache') {
  *   to memcache.
  */
 function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL, $db_storage = TRUE) {
+  $time = time();
+
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
-  $cache->data = $data;
-  $cache->created = time();
+  $cache->data = is_object($data) ? memcache_clone($data) : $data;
+  $cache->created = $time;
   $cache->expire = $expire;
   $cache->headers = $headers;
 
@@ -134,19 +136,15 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
     db_query("
        INSERT INTO {$table} (data, created, expire, headers, serialized, cid) VALUES (%b, %d, %d, '%s', %d, '%s') ON DUPLICATE KEY
        UPDATE data = %b, created = %d, expire = %d, headers = '%s', serialized = %d",
-       $data, time(), $expire, $headers, $serialized, $cid,
-       $data, time(), $expire, $headers, $serialized);
+       $data, $time, $expire, $headers, $serialized, $cid,
+       $data, $time, $expire, $headers, $serialized, $cid);
   }
 
   // Save to memcache
-  if ($expire == CACHE_PERMANENT || $expire > time()) {
-    dmemcache_set($cid, $cache, $expire, $table);
+  if ($expire == CACHE_TEMPORARY) {
+    $expire = variable_get('cache_lifetime', 2591999);
   }
-  else if ($expire == CACHE_TEMPORARY) {
-    // A compromise for CACHE_TEMPORARY: Cache for three minutes.
-    dmemcache_set($cid, $cache, 180, $table);
-  }
-
+  dmemcache_set($cid, $cache, $expire, $table);
 }
 
 /**
@@ -170,10 +168,10 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
 function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   global $user;
 
+  $bin = empty($table) ? 'cache' : $table;
   // Memcache logic is simpler because memcache doesn't have a minimum cache
   // lifetime consideration (it handles it internally), and doesn't support
   // wildcards.
-  $bin = empty($table) ? 'cache' : $table;
   if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
     # don't do anything if cid is unset. this matches the default drupal behavior...
     if ($wildcard && $cid != '*') {
@@ -233,4 +231,13 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       db_query("DELETE FROM {%s} WHERE cid = '%s'", $table, $cid);
     }
   }
+}
+
+/**
+ * Provide a substitute clone() function for PHP4. This is a copy of drupal_clone
+ * because common.inc isn't included early enough in the bootstrap process to
+ * be able to depend on drupal_clone.
+ */
+function memcache_clone($object) {
+  return version_compare(phpversion(), '5.0') < 0 ? $object : clone($object);
 }
