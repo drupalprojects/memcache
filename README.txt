@@ -10,8 +10,9 @@ is important.
 3. Put your site into offline mode.
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
-6. Apply the DRUPAL-5-cache-serialize.patch that comes with the module to your
-   Drupal installation.
+6. Apply the DRUPAL-5-x-cache-serialize.patch from the patches folder that
+   comes with the module.  Version specific, so use DRUPAL-5-6-cache-serialize.patch
+   if you are running Drupal 5.6.
 7. Start at least one instance of memcached on your server.
 8. Edit settings.php to configure the servers, clusters and bins that memcache
    is supposed to use.
