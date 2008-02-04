@@ -21,7 +21,7 @@ function cache_get($key, $table = 'cache') {
   $cache_flush = variable_get('cache_flush', 0);
   if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= time())) {
     // Time to flush old cache data
-    db_query("DELETE FROM {%s} WHERE expire != %d AND expire <= %d", $table, CACHE_PERMANENT, $cache_flush);
+    db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire <= %d", CACHE_PERMANENT, $cache_flush);
     variable_set('cache_flush', 0);
   }
 
@@ -31,7 +31,7 @@ function cache_get($key, $table = 'cache') {
   }
 
   // Look for a database cache hit.
-  if ($cache = db_fetch_object(db_query("SELECT data, created, headers, expire, serialized FROM {%s} WHERE cid = '%s'", $table, $key))) {
+  if ($cache = db_fetch_object(db_query("SELECT data, created, headers, expire, serialized FROM {". $table ."} WHERE cid = '%s'", $key))) {
     if (isset($cache->data)) {
       // If the data is permanent or we're not enforcing a minimum cache lifetime
       // always return the cached data.
@@ -132,9 +132,10 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
       $data = serialize($data);
       $serialized = 1;
     }
+
     // Save to the database
     db_query("
-       INSERT INTO {$table} (data, created, expire, headers, serialized, cid) VALUES (%b, %d, %d, '%s', %d, '%s') ON DUPLICATE KEY
+       INSERT INTO {".$table."} (data, created, expire, headers, serialized, cid) VALUES (%b, %d, %d, '%s', %d, '%s') ON DUPLICATE KEY
        UPDATE data = %b, created = %d, expire = %d, headers = '%s', serialized = %d",
        $data, $time, $expire, $headers, $serialized, $cid,
        $data, $time, $expire, $headers, $serialized, $cid);
@@ -209,26 +210,26 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       else if (time() > ($cache_flush + variable_get('cache_lifetime', 0))) {
         // Clear the cache for everyone, cache_flush_delay seconds have
         // passed since the first request to clear the cache.
-        db_query("DELETE FROM {%s} WHERE expire != %d AND expire < %d", $table, CACHE_PERMANENT, time());
+        db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, time());
         variable_set('cache_flush', 0);
       }
     }
     else {
       // No minimum cache lifetime, flush all temporary cache entries now.
-      db_query("DELETE FROM {%s} WHERE expire != %d AND expire < %d", $table, CACHE_PERMANENT, time());
+      db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, time());
     }
   }
   else {
     if ($wildcard) {
       if ($cid == '*') {
-        db_query("DELETE FROM {%s}", $table);
+        db_query("DELETE FROM {". $table ."}");
       }
       else {
-        db_query("DELETE FROM {%s} WHERE cid LIKE '%s%%'", $table, $cid);
+        db_query("DELETE FROM {". $table ."} WHERE cid LIKE '%s%%'", $cid);
       }
     }
     else {
-      db_query("DELETE FROM {%s} WHERE cid = '%s'", $table, $cid);
+      db_query("DELETE FROM {". $table ."} WHERE cid = '%s'", $cid);
     }
   }
 }
