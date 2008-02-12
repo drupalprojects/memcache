@@ -166,7 +166,7 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
 function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   global $user;
 
-  $bin = empty($table) ? 'cache' : $table;
+  $bin = empty($table) ? 'cache_page' : $table;
   // Memcache logic is simpler because memcache doesn't have a minimum cache
   // lifetime consideration (it handles it internally), and doesn't support
   // wildcards.
