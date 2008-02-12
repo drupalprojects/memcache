@@ -1,0 +1,27 @@
+Index: blockcache.module
+===================================================================
+--- blockcache.module	(revision 1624)
++++ blockcache.module	(working copy)
+@@ -247,13 +247,13 @@
+   $cached = cache_get($cache_name, 'cache_block');
+   if ($cached && ($cached->expire == CACHE_TEMPORARY || $cached->expire > time())) {
+     // fetch block from cache
+-    $block = unserialize($cached->data);
++    $block = $cached->data;
+   }
+   else {
+     // cache block
+     $r = db_fetch_object(db_query('SELECT * FROM {bc_blocks} WHERE my_delta = %d', $delta));
+     $block = module_invoke($r->module, 'block', 'view', $r->mod_delta);
+-    $cache = serialize($block);
++    $cache = $block;
+     $expire = is_numeric(variable_get('bc_life_'.$delta, '')) ? time() + variable_get('bc_life_'.$delta, '') : CACHE_TEMPORARY;
+     cache_set($cache_name, 'cache_block', $cache, $expire);
+     
+@@ -331,4 +331,4 @@
+  */
+ function blockcache_version(){
+   return str_replace(array('$RCSf'.'ile:', ',v', '$Re'.'vision: ', '$Da'.'te: ', '$'), '', '<p style="font-size:x-small">$RCSfile$ version: <b>$Revision$</b>, $Date$</p>');
+-}
+\ No newline at end of file
++}
