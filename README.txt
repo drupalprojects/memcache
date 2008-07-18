@@ -169,6 +169,9 @@ Failed to set key: Failed to set key: cache_page-......
 SOLUTION:
 Upgrade your PECL library to PECL package (2.2.1) (or higher).
 
+WARNING: 
+Zlib compression at the php.ini level and Memcache conflict. See http://drupal.org/node/273824
+
 ## MEMCACHE ADMIN ##
 
 A module offering a UI for memcache is on the way. It will provide stats, a
