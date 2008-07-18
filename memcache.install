@@ -12,7 +12,7 @@ function memcache_install() {
     case 'pgsql':
       foreach ($alltables as $table) {
         db_query("DELETE FROM {{$table}}");
-        db_add_column($ret, $table, 'serialized', 'integer', array('default' => "'0'", 'not null' => TRUE));
+        db_query("ALTER TABLE {{$table}} ADD serialized smallint NOT NULL default '0'");
       }
       break;
     case 'mysql':
