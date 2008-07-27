@@ -144,7 +144,9 @@ function memcache_admin_stats($cluster = 'default', $type = 'default') {
               $values['limit_maxbytes'] = format_size($values['limit_maxbytes']);
 
               //Custom Entries
-              $values['hit_percentage'] = number_format(100.0 * $values['get_hits'] / $values['cmd_get'], 2) . '%';
+              $values['hit_percentage'] = ($values['cmd_get'] > 0) 
+                ? number_format(100.0 * $values['get_hits'] / $values['cmd_get'], 2) . '%' 
+                : '0';
 
               $mem_used = $values['bytes'] / $values['limit_maxbytes'];
               $values['mem_used'] = number_format(100.0 * $mem_used, 2) . '%';
