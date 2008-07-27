@@ -1,0 +1,26 @@
+? imagecache-DRUPAL-5--1-6.patch
+Index: imagecache.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/imagecache/imagecache.module,v
+retrieving revision 1.19.2.37
+diff -u -p -r1.19.2.37 imagecache.module
+--- imagecache.module	20 Jun 2008 00:16:48 -0000	1.19.2.37
++++ imagecache.module	27 Jul 2008 13:30:32 -0000
+@@ -280,7 +280,7 @@ function _imagecache_get_presets($reset 
+     // Grab from cache saves building the array.
+     // Plus it's a frequently used table.
+     $cache = cache_get('imagecache:presets', 'cache');
+-    $presets = unserialize($cache->data);
++    $presets = $cache->data;
+     // If the preset is not an array, cache_clear_all has been called 
+     // there no/invalid data in the cache. Fall through and repopulate cache;
+     if (is_array($presets)) {
+@@ -294,7 +294,7 @@ function _imagecache_get_presets($reset 
+   while ($row = db_fetch_array($result)) {
+     $presets[$row['presetid']] = $row['presetname'];
+   }
+-  cache_set('imagecache:presets', 'cache', serialize($presets));
++  cache_set('imagecache:presets', 'cache', $presets);
+   // Clear the content.module cache (refreshes the list of formatters provided by imagefield.module).
+   if (module_exists('content')) {
+     content_clear_type_cache();

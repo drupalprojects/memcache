@@ -1,0 +1,44 @@
+? imagecache-DRUPAL-5--2-1.patch
+Index: imagecache.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/imagecache/imagecache.module,v
+retrieving revision 1.68.2.7
+diff -u -p -r1.68.2.7 imagecache.module
+--- imagecache.module	20 Jun 2008 00:21:42 -0000	1.68.2.7
++++ imagecache.module	27 Jul 2008 13:32:40 -0000
+@@ -140,7 +140,7 @@ function imagecache_action_definitions($
+   static $actions;
+   if (!isset($actions) || $reset) {
+     if (!$reset && ($cache = cache_get('imagecache_actions')) && !empty($cache->data)) {
+-      $actions = unserialize($cache->data);
++      $actions = $cache->data;
+     }
+     else {
+       foreach (module_implements('imagecache_actions') as $module) {
+@@ -153,7 +153,7 @@ function imagecache_action_definitions($
+         };
+       }
+       uasort($actions, '_imagecache_definitions_sort');
+-      cache_set('imagecache_actions', 'cache', serialize($actions));
++      cache_set('imagecache_actions', 'cache', $actions);
+     }
+   }
+   return $actions;
+@@ -741,7 +741,7 @@ function imagecache_presets($reset = fal
+ 
+   // Grab from cache or build the array.
+   if ($cache = cache_get('imagecache:presets', 'cache')) {
+-    $presets = unserialize($cache->data);
++    $presets = $cache->data;
+   }
+   else {
+     $result = db_query('SELECT * FROM {imagecache_preset} ORDER BY presetname');
+@@ -749,7 +749,7 @@ function imagecache_presets($reset = fal
+       $presets[$preset['presetid']] = $preset;
+       $presets[$preset['presetid']]['actions'] = imagecache_preset_actions($preset);
+     }
+-    cache_set('imagecache:presets', 'cache', serialize($presets));
++    cache_set('imagecache:presets', 'cache', $presets);
+   }
+   return $presets;
+ }
