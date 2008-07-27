@@ -1,0 +1,68 @@
+? location-DRUPAL-5--3-0-test1.patch
+Index: location.inc
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/location/location.inc,v
+retrieving revision 1.85
+diff -u -p -r1.85 location.inc
+--- location.inc	23 Jul 2008 22:20:28 -0000	1.85
++++ location.inc	27 Jul 2008 13:04:06 -0000
+@@ -403,7 +403,7 @@ function _location_supported_countries()
+ 
+   // Try first to load from cache, it's much faster than the scan below.
+   if ($cache = cache_get('location:supported-countries', 'cache_location')) {
+-    $supported_countries = unserialize($cache->data);
++    $supported_countries = $cache->data;
+   }
+   else {
+     // '<ISO two-letter code>' => '<English name for country>'
+@@ -414,7 +414,7 @@ function _location_supported_countries()
+         $supported_countries[$cc] = $name;
+       }
+     }
+-    cache_set('location:supported-countries', 'cache_location', serialize($supported_countries));
++    cache_set('location:supported-countries', 'cache_location', $supported_countries);
+   }
+   return $supported_countries;
+ }
+@@ -430,14 +430,14 @@ function location_get_provinces($country
+     return $provinces[$country];
+   }
+   if ($cache = cache_get("provinces:$country", 'cache_location')) {
+-    $provinces[$country] = unserialize($cache->data);
++    $provinces[$country] = $cache->data;
+     return $provinces[$country];
+   }
+   location_load_country($country);
+   $func = 'location_province_list_'. $country;
+   if (function_exists($func)) {
+     $provinces[$country] = $func();
+-    cache_set("provinces:$country", 'cache_location', serialize($provinces[$country]));
++    cache_set("provinces:$country", 'cache_location', $provinces[$country]);
+     return $provinces[$country];
+   }
+   return array();
+Index: contrib/location_search/location_search.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/location/contrib/location_search/location_search.module,v
+retrieving revision 1.4
+diff -u -p -r1.4 location_search.module
+--- contrib/location_search/location_search.module	24 Jul 2008 15:42:53 -0000	1.4
++++ contrib/location_search/location_search.module	27 Jul 2008 13:04:07 -0000
+@@ -882,7 +882,7 @@ function _location_nearby_postalcodes($l
+     $search_results[$result_row->country . $result_row->zip] = array('city' => $result_row->city, 'province' => $result_row->state, 'distance' => $result_row->distance);
+   }
+ 
+-  cache_set('location_prox_search:'. round($lon, 3) .':'. round($lat, 3) .':'. $distance, 'cache_location', serialize($search_results));
++  cache_set('location_prox_search:'. round($lon, 3) .':'. round($lat, 3) .':'. $distance, 'cache_location', $search_results);
+ 
+   return $search_results;
+ }
+@@ -927,7 +927,7 @@ function _location_search_results_from_c
+     if ($distance <= $previous_search_radius) {
+ 
+       $cached_search_results = cache_get($result_row->cid, 'cache_location');
+-      $cached_search_results = unserialize($cached_search_results->data);
++      $cached_search_results = $cached_search_results->data;
+       // If the cached-search had the exact same search-radius, just return the entire search result's
+       // array from before,
+       // otherwise, go through the distance-sorted search results and pick them out until the distances
