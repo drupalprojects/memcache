@@ -1,0 +1,17 @@
+? user_activity-DRUPAL-5--1-0.patch
+Index: user_activity.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/user_activity/user_activity.module,v
+retrieving revision 1.1.2.12
+diff -u -p -r1.1.2.12 user_activity.module
+--- user_activity.module	18 Jul 2008 08:51:22 -0000	1.1.2.12
++++ user_activity.module	27 Jul 2008 13:11:12 -0000
+@@ -187,7 +187,7 @@ function user_activity_exit($destination
+       //Store the index
+       user_activity_index_store($user, $index);
+       //generate cache
+-      cache_set($cid, 'cache', serialize($index), CACHE_TEMPORARY);
++      cache_set($cid, 'cache', $index, CACHE_TEMPORARY);
+     }
+   }
+ }
