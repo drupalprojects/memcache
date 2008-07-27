@@ -1,0 +1,51 @@
+? date-DRUPAL-5--1-8.patch
+Index: date.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/date/Attic/date.module,v
+retrieving revision 1.32.2.55
+diff -u -p -r1.32.2.55 date.module
+--- date.module	3 Dec 2007 16:26:21 -0000	1.32.2.55
++++ date.module	27 Jul 2008 12:57:13 -0000
+@@ -533,7 +533,7 @@ function date_granularity_array($field) 
+ 
+ function date_get_formats($field) {
+   if ($cached = cache_get('date_formats:'. $field['field_name'] .':'. $field['widget']['type'], 'cache') && $cached->data) {
+-    $formats = unserialize($cached->data);
++    $formats = $cached->data;
+ 
+     // are we up-to-date with current site-wide format ?
+     if ($field['widget']['input_format'] != 'site-wide' || $formats['input']['site-wide'] == variable_get('date_format_short', 'm/d/Y - H:i')) {
+@@ -555,7 +555,7 @@ function date_set_formats($field) {
+   $granularity = date_granularity_array($field);
+ 
+   $formats = date_formats($format, $granularity);
+-  cache_set('date_formats:'. $field['field_name'] .':'. $field['widget']['type'], 'cache', serialize($formats), CACHE_PERMANENT);
++  cache_set('date_formats:'. $field['field_name'] .':'. $field['widget']['type'], 'cache', $formats, CACHE_PERMANENT);
+   return $formats;
+ }
+ 
+Index: date_views.inc
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/date/Attic/date_views.inc,v
+retrieving revision 1.22.2.28
+diff -u -p -r1.22.2.28 date_views.inc
+--- date_views.inc	28 Dec 2007 02:06:41 -0000	1.22.2.28
++++ date_views.inc	27 Jul 2008 12:57:13 -0000
+@@ -645,7 +645,7 @@ function date_views_browser_get_views($r
+   if (empty($date_views_browser_views) || $reset) {
+     $cid = 'date_browser_views';
+     if (!$reset && $cached = cache_get($cid, 'cache_views')) {
+-      $date_views_browser_views = unserialize($cached->data);
++      $date_views_browser_views = $cached->data;
+     }
+     else {
+       $date_views_browser_views = array();
+@@ -664,7 +664,7 @@ function date_views_browser_get_views($r
+       while ($view = db_fetch_object($result)) {
+         $date_views_browser_views[$view->name] = $view;
+       }
+-      cache_set($cid, 'cache_views', serialize($date_views_browser_views));
++      cache_set($cid, 'cache_views', $date_views_browser_views);
+     }
+   }
+   return $date_views_browser_views;
