@@ -20,9 +20,10 @@ function cache_get($key, $table = 'cache') {
   // Garbage collection necessary when enforcing a minimum cache lifetime
   $cache_flush = variable_get('cache_flush', 0);
   if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= time())) {
-    // Time to flush old cache data
-    db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire <= %d", CACHE_PERMANENT, $cache_flush);
+    // Time to flush old cache data. Reset the variable first so that other processes
+    // don't try to delete as well.
     variable_set('cache_flush', 0);
+    db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire <= %d", CACHE_PERMANENT, $cache_flush);
   }
 
   // If we have a memcache hit for this, return it.
