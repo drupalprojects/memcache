@@ -1,0 +1,49 @@
+Index: update_status.module
+===================================================================
+--- update_status.module	(revision 3749)
++++ update_status.module	(working copy)
+@@ -706,7 +706,7 @@
+     }
+   }
+   asort($projects);
+-  cache_set('update_status_projects', 'cache', serialize($projects), time() + (60 * 60));
++  cache_set('update_status_projects', 'cache', $projects, time() + (60 * 60));
+   return $projects;
+ }
+ 
+@@ -1186,7 +1186,7 @@
+       $projects[$project]['reason'] = t('No available releases found');
+     }
+   }
+-  cache_set('update_status_data', 'cache', serialize($projects), time() + (60 * 60));
++  cache_set('update_status_data', 'cache', $projects, time() + (60 * 60));
+   return $projects;
+ }
+ 
+@@ -1412,7 +1412,7 @@
+   if ($data) {
+     $parser = new update_status_xml_parser;
+     $available = $parser->parse($data);
+-    cache_set('update_status_info', 'cache', serialize($available), time() + (60 * 60 * 24));
++    cache_set('update_status_info', 'cache', $available, time() + (60 * 60 * 24));
+     variable_set('update_status_last', time());
+     watchdog('update_status', t('Fetched information about all available new releases and updates.'), WATCHDOG_NOTICE, l(t('view'), 'admin/logs/updates'));
+   }
+@@ -1485,7 +1485,7 @@
+ 
+   if (!$needs_refresh && ($cache = cache_get('update_status_info', 'cache'))
+       && $cache->expire > time()) {
+-    $available = unserialize($cache->data);
++    $available = $cache->data;
+   }
+   elseif ($needs_refresh || $refresh) {
+     $available = update_status_refresh();
+@@ -1645,7 +1645,7 @@
+   else {
+     $cache = cache_get($cid, 'cache');
+     if (!empty($cache->data) && $cache->expire > time()) {
+-      $projects = unserialize($cache->data);
++      $projects = $cache->data;
+     }
+   }
+   return $projects;
