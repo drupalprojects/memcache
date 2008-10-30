@@ -53,7 +53,7 @@ function sess_write($key, $value) {
   $session->session = $value;
   $session->timestamp = time();
 
-  if ($user->uid && $user->from_cache !== TRUE) {
+  if ($user->uid || $value) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
     dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
     if ($user->uid && $user->access < time() - 300) {
