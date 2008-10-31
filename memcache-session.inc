@@ -4,6 +4,9 @@
 /**
  * @file
  * User session handling functions.
+ *
+ * This has known problems and has not been tested under Drupal 6.
+ *
  */
 
 function sess_open($save_path, $session_name) {

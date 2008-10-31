@@ -7,15 +7,18 @@ require_once 'dmemcache.inc';
 
 /**
  * Return data from the persistent cache.
+ * 
+ * Data may be stored as either plain text or as serialized data.
+ * cache_get() will automatically return unserialized objects and arrays.
  *
- * @param $key
+ * @param $cid
  *   The cache ID of the data to retrieve.
  * @param $table
  *   The table $table to store the data in. Valid core values are 'cache_filter',
  *   'cache_menu', 'cache_page', or 'cache' for the default cache.
  */
-function cache_get($key, $table = 'cache') {
-  return dmemcache_get($key, $table);
+function cache_get($cid, $table = 'cache') {
+  return dmemcache_get($cid, $table);
 }
 
 /**
@@ -23,11 +26,13 @@ function cache_get($key, $table = 'cache') {
  *
  * @param $cid
  *   The cache ID of the data to store.
+ * @param $data
+ *   The data to store in the cache. Complex data types will be automatically
+ *   serialized before insertion. Strings will be stored as plain text and 
+ *   not serialized.
  * @param $table
  *   The table $table to store the data in. Valid core values are 'cache_filter',
  *   'cache_menu', 'cache_page', or 'cache'.
- * @param $data
- *   The data to store in the cache. Complex data types must be serialized first.
  * @param $expire
  *   One of the following values:
  *   - CACHE_PERMANENT: Indicates that the item should never be removed unless
@@ -38,19 +43,15 @@ function cache_get($key, $table = 'cache') {
  *     the given time, after which it behaves like CACHE_TEMPORARY.
  * @param $headers
  *   A string containing HTTP header information for cached pages.
- * @param $db_storage
- *   This boolean is unique to the memcache.inc implementation of cache set.
- *   It allows us to do a cache_set and not write to the database, but only
- *   to memcache.
  */
-function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL) {
-  $time = time();
+function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL) {
+  $created = time();
 
   // Create new cache object.
   $cache = new stdClass;
   $cache->cid = $cid;
   $cache->data = is_object($data) ? memcache_clone($data) : $data;
-  $cache->created = $time;
+  $cache->created = $created;
   $cache->expire = $expire;
   $cache->headers = $headers;
 
@@ -64,7 +65,7 @@ function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $he
 /**
  *
  * Expire data from the cache. If called without arguments, expirable
- * entries will be cleared from the cache_page table.
+ * entries will be cleared from the cache_page and cache_block tables.
  *
  * @param $cid
  *   If set, the cache ID to delete. Otherwise, all cache entries that can
