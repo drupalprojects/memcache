@@ -5,7 +5,10 @@
 These are the broad steps you need to take in order to use this software. Order
 is important.
 
-1. Install the memcached binaries on your server. See http://www.lullabot.com/articles/how_install_memcache_debian_etch
+1. Install the memcached binaries on your server. See 
+
+http://www.lullabot.com/articles/how_install_memcache_debian_etch
+
 2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or higher or you will experience errors.
 3. Put your site into offline mode.
 4. Download and install the memcache module.
@@ -125,42 +128,7 @@ $conf = array(
   'memcache_key_prefix' => 'something_unique',
 );
 
-## PATCHES ##
-
-The DRUPAL-5-cache-serialize.patch must be applied to your Drupal installation
-for this software to work. The patch depends on a column that needs to get added
-to all of the existing cache tables for your site. This column has been
-introduced in the DRUPAL-6 development branch so this patch is future-safe if
-you ever upgrade to DRUPAL-6. To actually add the column to your database, you
-need to either install the memcache.module, or, if it is already installed and
-you are updating to this version, run update.php. Either installing the module
-or running update.php will add the needed column, Uninstalling the module will
-remove the column.
-
 ## TROUBLESHOOTING ##
-
-PROBLEM:
-Warning: require_once(a) [function.require-once]: failed to open stream:
-No such file or directory in /includes/bootstrap.inc on line 853
-
-SOLUTION:
-This error occurs after you apply the DRUPAL-5-cache-serialize.patch because
-the code in the patch now expects the cached variables to be unserialized
-but they are still serialized in the cache. Clear the cache table:
-
-mysql> TRUNCATE cache;
-Query OK, 0 rows affected (0.01 sec)
-
-PROBLEM:
-Fatal error: Cannot use string offset as an array in includes/menu.inc on line 452
-
-SOLUTION:
-Similar to the error above, this occurs after applying the
-DRUPAL-5-cache-serialize.patch due to the conflict between the existing
-cached menu and what the patched code is expecting. Clear cache_menu:
-
-mysql> TRUNCATE cache_menu;
-Query OK, 0 rows affected (0.33 sec)
 
 PROBLEM:
 Error:
@@ -174,5 +142,5 @@ Zlib compression at the php.ini level and Memcache conflict. See http://drupal.o
 
 ## MEMCACHE ADMIN ##
 
-A module offering a UI for memcache is on the way. It will provide stats, a
+A module offering a UI for memcache is included. It provides stats, a
 way to clear the cache, and an interface to organize servers/bins/clusters.
