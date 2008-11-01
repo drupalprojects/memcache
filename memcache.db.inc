@@ -3,7 +3,10 @@
 
 require_once 'dmemcache.inc';
 
-/** Implementation of cache.inc with memcache logic included **/
+/** 
+ * @file
+ * Implementation of cache.inc with memcache logic included.
+ **/
 
 /**
  * Return data from the persistent cache. Data may be stored as either plain text or as serialized data.
@@ -17,6 +20,7 @@ require_once 'dmemcache.inc';
  */
 function cache_get($cid, $table = 'cache') {
   global $user;
+  global $memcache_online;
 
   // Garbage collection necessary when enforcing a minimum cache lifetime
   $cache_flush = variable_get('cache_flush', 0);
@@ -28,7 +32,7 @@ function cache_get($cid, $table = 'cache') {
   }
 
   // If we have a memcache hit for this, return it.
-  if ($cache = dmemcache_get($cid, $table)) {
+  if ($memcache_online !== FALSE && $cache = dmemcache_get($cid, $table)) {
     return $cache;
   }
 
@@ -64,7 +68,9 @@ function cache_get($cid, $table = 'cache') {
 
     // By calling cache_set with an extra paramater to signify no db storage,
     // we can lazy instantiate memcache that just comes online.
-    cache_set($cid, $cache->data, $table, $cache->expire, $cache->headers, FALSE);
+    if ($memcache_online) {
+      cache_set($cid, $cache->data, $table, $cache->expire, $cache->headers, FALSE);
+    }
     return $cache;
   }
   return 0;
@@ -120,6 +126,7 @@ function cache_get($cid, $table = 'cache') {
  *   to memcache.
  */
 function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL, $db_storage = TRUE) {
+  global $memcache_online;
   $created = time();
 
   // Create new cache object.
@@ -147,7 +154,9 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
     // 2591199 seconds = about 1 month
     $expire = variable_get('cache_lifetime', 2591999);
   }
-  dmemcache_set($cid, $cache, $expire, $table);
+  if ($memcache_online !== FALSE) {
+    dmemcache_set($cid, $cache, $expire, $table);
+  }
 }
 
 /**

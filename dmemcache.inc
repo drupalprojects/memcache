@@ -128,6 +128,7 @@ function dmemcache_stats($bin = 'cache', $type = '') {
  * @return an Memcache object or FALSE.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
+  global $memcache_online;
   static $memcacheCache = array(), $memcache_servers, $memcache_bins;
 
   if ($flush) {
@@ -171,9 +172,13 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           // This is a server that belongs to this cluster.
           if (!$init) {
             // First server gets the connect.
-            if (@$memcache->addServer($host, $port)) {
+            if (@$memcache->connect($host, $port)) {
               // Only set init to true if a connection was made.
               $init = TRUE;
+              $memcache_online = TRUE;
+            }
+            else {
+              $memcache_online = FALSE;
             }
           }
           else {
