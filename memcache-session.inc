@@ -134,7 +134,7 @@ function sess_user_load($session) {
   if ($session && $session->uid > 0) {
     $user = dmemcache_get($session->uid, 'users');
     if (!$user->uid && $user->uid != 0) {
-      $user = db_fetch_object(db_query("SELECT u.* FROM {user} u WHERE u.uid = %d", $session->uid));
+      $user = db_fetch_object(db_query("SELECT u.* FROM {users} u WHERE u.uid = %d", $session->uid));
       $user = drupal_unpack($user);
       $user->session = empty($session->session) ? '' : $session->session;
 
