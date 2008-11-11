@@ -158,7 +158,7 @@ function sess_user_load($session) {
   }
   // We didn't find the client's record (session has expired), or they are an anonymous user.
   else  {
-    $session = isset($user->session) ? $user->session : '';
+    $session = isset($session->session) ? $session->session : '';
     $user = drupal_anonymous_user($session);
   }
   
