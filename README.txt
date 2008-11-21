@@ -13,15 +13,12 @@ http://www.lullabot.com/articles/how_install_memcache_debian_etch
 3. Put your site into offline mode.
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
-6. Apply the DRUPAL-5-x-cache-serialize.patch from the patches folder that
-   comes with the module.  Version specific, so use DRUPAL-5-6-cache-serialize.patch
-   if you are running Drupal 5.6.
-7. Start at least one instance of memcached on your server.
-8. Edit settings.php to configure the servers, clusters and bins that memcache
+6. Start at least one instance of memcached on your server.
+7. Edit settings.php to configure the servers, clusters and bins that memcache
    is supposed to use.
-9. Edit settings.php to include either memcache.inc or memcache.db.inc. For
+8. Edit settings.php to include either memcache.inc or memcache.db.inc. For
    example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.db.inc';
-10. Bring your site back online.
+9. Bring your site back online.
 
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
@@ -127,6 +124,33 @@ $conf = array(
   ...
   'memcache_key_prefix' => 'something_unique',
 );
+
+## SESSIONS ##
+
+Here is a sample config that uses memcache for sessions. Note you MUST have
+a session and a users bin set up for memcached sessions to work.
+
+$conf = array(
+  'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
+  'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
+  'memcache_servers' => array(
+    'localhost:11211' => 'default',
+    'localhost:11212' => 'filter',
+    'localhost:11213' => 'menu',
+    'localhost:11214' => 'page',
+    'localhost:11215' => 'session',
+    'localhost:11216' => 'users',
+  ),
+  'memcache_bins' => array(
+    'cache' => 'default',
+    'cache_filter' => 'filter',
+    'cache_menu' => 'menu',
+    'cache_page' => 'page',
+    'session' => 'session',
+    'users' => 'users',
+  ),
+);
+
 
 ## TROUBLESHOOTING ##
 

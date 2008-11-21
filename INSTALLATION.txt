@@ -98,8 +98,5 @@ section) Note that the memcache module only provides some debug output for
 administrators to help you see what memcache is doing. It is non-essential
 to the functioning of your site, and can be turned off on a production site.
 
-It is, however, *vital* that you enable the module at least once because it runs
-hook_install and adds the serialized column to all of your cache tables.
-
 9) Also see the memcache_admin module (distributed with this package) to monitor
 memcache statistics.

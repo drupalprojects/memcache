@@ -4,9 +4,6 @@
 /**
  * @file
  * User session handling functions.
- *
- * This has known problems and has not been tested under Drupal 6.
- *
  */
 
 function sess_open($save_path, $session_name) {
@@ -39,28 +36,54 @@ function sess_read($key) {
   return $user->session;
 }
 
+/**
+ * Write a session to session storage.
+ * 
+ * We have the following cases to handle.
+ * 1. Anonymous user
+ *   1a. Without session data.
+ *   1b. With session data.
+ *   1c. Session saving has been turned off programatically 
+ *       (see session_save_session()).
+ * 2. Authenticated user.
+ *   2a. Without session data.
+ *   2b. With session data.
+ *   2c. Session saving has been turned off programatically 
+ *       (see session_save_session()).
+ *
+ * @param $key
+ *   The session ID.
+ * @param $value
+ *   Any data to store in the session.
+ * @return
+ *   TRUE.
+ */
 function sess_write($key, $value) {
   global $user;
 
-  // If the client doesn't have a session, and one isn't being created ($value), do nothing.
-  if (empty($_COOKIE[session_name()]) && empty($value)) {
+  // If the client doesn't have a session, and one isn't being created ($value),
+  // do nothing. If session saving has been turned off, do nothing.
+  // Cases 1a, 1c, and 2c are covered here.
+  if ((empty($_COOKIE[session_name()]) && empty($value)) || !session_save_session()) {
     return TRUE;
   }
 
-  // Prepare the information to be saved
+  // Prepare the information to be saved.
   $session = new stdClass;
   $session->sid = $key;
   $session->uid = $user->uid;
-  $session->cache = $user->cache;
-  $session->hostname = $_SERVER["REMOTE_ADDR"];
+  $session->cache = isset($user->cache) ? $user->cache : '';
+  $session->hostname = ip_address();
   $session->session = $value;
   $session->timestamp = time();
 
-  if ($user->uid && $user->from_cache !== TRUE) {
+  // If this is an authenticated user, or there is something to save in the
+  // session, write it to memcache. Cases 1b, 2a, and 2b are covered here.
+  if ($user->uid || !empty($user->$value)) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
     dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
-    if ($user->uid && $user->access < time() - 300) {
-      db_query("UPDATE {users} SET access = %d WHERE uid = %d", time(), $user->uid);
+    if ($user->uid && $session->timestamp - $user->access > variable_get('session_write_interval', 360)) {
+      db_query('UPDATE {users} SET access = %d WHERE uid = %d', $session->timestamp, $user->uid);
     }
   }
 
@@ -84,7 +107,7 @@ function sess_regenerate() {
   session_regenerate_id();
   $key = session_id();
 
-  // Grab the user's information that is cached with the anonymous key
+  // Grab the user's information that is cached with the anonymous key.
   $info = dmemcache_get($old_session_id, 'session');
 
   // Update it.
@@ -131,14 +154,51 @@ function sess_gc($lifetime) {
   return TRUE;
 }
 
+/**
+ * Determine whether to save session data of the current request.
+ *
+ * This function allows the caller to temporarily disable writing of session data,
+ * should the request end while performing potentially dangerous operations, such as
+ * manipulating the global $user object.  See http://drupal.org/node/218104 for usage
+ *
+ * @param $status
+ *   Disables writing of session data when FALSE, (re-)enables writing when TRUE.
+ * @return
+ *   FALSE if writing session data has been disabled. Otherwise, TRUE.
+ */
+function session_save_session($status = NULL) {
+  static $save_session = TRUE;
+  if (isset($status)) {
+    $save_session = $status;
+  }
+  return ($save_session);
+}
+
+/**
+ * Create the user object.
+ *
+ * @param $session
+ *   The session object (see sess_write() for the structure).
+ * @return $user
+ *   The user object.
+ */
 function sess_user_load($session) {
-  $user = new stdClass;  
-  // We found the client's session record and they are an authenticated user
-  if ($session && $session->uid > 0) {
+  // We found the client's session record and they are an authenticated user.
+  if ($session && $session->uid != 0) {
     $user = dmemcache_get($session->uid, 'users');
-    if (!$user->uid && $user->uid != 0) {
-      $user = db_fetch_object(db_query("SELECT u.* FROM {users} u WHERE u.uid = %d", $session->uid));
+    // If the 'users' memcache bin has gone is unavailable, $user will be NULL.
+    // If the cached user was not found in the 'users' memcache bin, $user will be FALSE.
+    // In either of these cases, the user must be retrieved from the database.
+    if (!$user->uid && isset($session->uid) && $session->uid != 0) {
+      $user = db_fetch_object(db_query('SELECT u.* FROM {users} u WHERE u.uid = %d', $session->uid));
+      
       $user = drupal_unpack($user);
+      // Normally we would join the session and user tables. But we already have the
+      // session information. So add that in.
+      $user->sid = $session->sid;
+      $user->cache = $session->cache;
+      $user->hostname = $session->hostname;
+      $user->timestamp = $session->timestamp;
       $user->session = empty($session->session) ? '' : $session->session;
 
       // Add roles element to $user
@@ -150,10 +210,15 @@ function sess_user_load($session) {
       }
     }
     else if ($user->uid) {
+      // Got a user object from 'users' memcache bin. Mark it in case modules want
+      // to know if this use was created from memcache.
       $user->from_cache = TRUE;
       $user->session = empty($session->session) ? '' : $session->session;
     }
     else {
+      // We will only get here when the session has a nonzero uid, a user object was 
+      // successfully retrieved from the 'users' bin, and that user's object's uid is 0.
+      // Not sure why this would ever happen. Leaving former comment in:
       // This is a rare case that we have a session cached, but no session user object cached.
       // This usually only happens if you kill memcached and restart it.
       $user = drupal_anonymous_user($session->session);
