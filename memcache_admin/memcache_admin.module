@@ -83,10 +83,8 @@ function memcache_admin_menu() {
         );
         $sub_count++;
       }
-
     }
   }
-  
 
   return $items;
 }
