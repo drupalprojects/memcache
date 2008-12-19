@@ -86,12 +86,13 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
  *   match. If '*' is given as $cid, the table $table will be emptied.
  */
 function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
-   // If cid and table are not set, we should flush the cache_page table.
-   if (!isset($cid) && !isset($table)) {
-     $cid = '*';
-     $wildcard = TRUE;
-     $table = 'cache_page';
-   }
+  // Default behavior for when cache_clear_all() is called without parameters
+  // is to clear all of the expirable entries in the block and page caches.
+  if (!isset($cid) && !isset($table)) {
+    cache_clear_all('*', 'cache_block', TRUE);
+    cache_clear_all('*', 'cache_page', TRUE);
+    return;
+  }
   if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
     // don't do anything if cid is unset. this matches the default drupal behavior...
     if ($wildcard && $cid != '*') {
