@@ -67,6 +67,11 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
  * Expire data from the cache. If called without arguments, expirable
  * entries will be cleared from the cache_page and cache_block tables.
  *
+ * Memcache logic is simpler than the core cache because memcache doesn't have
+ * a minimum cache lifetime consideration (it handles it internally), and 
+ * doesn't support wildcards.  Wildcard flushes result in the entire table
+ * being flushed.
+ *
  * @param $cid
  *   If set, the cache ID to delete. Otherwise, all cache entries that can
  *   expire are deleted.
@@ -81,10 +86,12 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
  *   match. If '*' is given as $cid, the table $table will be emptied.
  */
 function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
-  // Memcache logic is simpler because memcache doesn't have a minimum cache
-  // lifetime consideration (it handles it internally), and doesn't support
-  // wildcards.
-  $bin = empty($table) ? 'cache_page' : $table;
+   // If cid and table are not set, we should flush the cache_page table.
+   if (!isset($cid) && !isset($table)) {
+     $cid = '*';
+     $wildcard = TRUE;
+     $table = 'cache_page';
+   }
   if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
     // don't do anything if cid is unset. this matches the default drupal behavior...
     if ($wildcard && $cid != '*') {
