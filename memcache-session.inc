@@ -81,12 +81,15 @@ function sess_write($key, $value) {
 
   // If this is an authenticated user, or there is something to save in the
   // session, write it to memcache. Cases 1b, 2a, and 2b are covered here.
-  if ($user->uid || !empty($user->$value)) {
+  if ($user->uid || !empty($value)) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
-    dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
-    if ($user->uid && $session->timestamp - $user->access > variable_get('session_write_interval', 360)) {
+    if ($user->uid && $session->timestamp - $user->access > variable_get('session_write_interval', 1)) {
       db_query('UPDATE {users} SET access = %d WHERE uid = %d', $session->timestamp, $user->uid);
+      // Update the user access time so that the dmemcache_set() call
+      // caches the updated time.
+      $user->access = $session->timestamp;
     }
+    dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
   }
 
   return TRUE;
