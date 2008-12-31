@@ -9,7 +9,8 @@ is important.
 
 http://www.lullabot.com/articles/how_install_memcache_debian_etch
 
-2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or higher or you will experience errors.
+2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or 
+   higher or you will experience errors.
 3. Put your site into offline mode.
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
@@ -27,12 +28,18 @@ Either the memcache.inc or the memcache.db.inc file is intended to be used
 instead of cache.inc, utilizing Drupal's pluggable cache system. The .db.inc
 variant saves all data to the database as well, so the site will still have
 the performance benefits of cache even if you take your memcache offline. The
-site should not ever break due to memcache not being available... it is only
+site should not ever break due to memcache not being available...it is only
 a question of whether caching is still available or not. The memcache.inc file
 doesn't save any data to the database and thus has the biggest potential for
 increasing your site's performance. If you use this file it is important to
 have enough memory allocated to memcache to store everything (including the page
 cache), otherwise the cache misses will negate the benefit of the cache hits.
+
+Note that memcache.db.inc supports minimum cache lifetime settings while
+memcache.inc does not. For the difference, see these diagrams:
+
+http://www.lullabot.com/files/memcache-inc.png
+http://www.lullabot.com/files/memcache-db-inc.png
 
 Update $conf in settings.php to tell Drupal which cache_inc file to use:
 
@@ -63,7 +70,11 @@ If you have more than one memcached instance running, you need to add two
 arrays to $conf; memcache_servers and memcache_bins. The arrays follow this
 pattern:
 
-'memcache_servers' => array(host1:port => cluster, host2:port => cluster, hostN:port => cluster)
+'memcache_servers' => array(
+  host1:port => cluster, 
+  host2:port => cluster, 
+  hostN:port => cluster
+)
 
 'memcache_bins' => array(bin1 => cluster, bin2 => cluster, binN => cluster)
 
@@ -162,7 +173,8 @@ SOLUTION:
 Upgrade your PECL library to PECL package (2.2.1) (or higher).
 
 WARNING: 
-Zlib compression at the php.ini level and Memcache conflict. See http://drupal.org/node/273824
+Zlib compression at the php.ini level and Memcache conflict. 
+See http://drupal.org/node/273824
 
 ## MEMCACHE ADMIN ##
 
