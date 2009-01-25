@@ -139,7 +139,7 @@ $conf = array(
 ## SESSIONS ##
 
 Here is a sample config that uses memcache for sessions. Note you MUST have
-a session and a users bin set up for memcached sessions to work.
+a session and a users server set up for memcached sessions to work.
 
 $conf = array(
   'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
