@@ -39,8 +39,9 @@ function sess_read($key) {
 function sess_write($key, $value) {
   global $user;
 
-  // If the client doesn't have a session, and one isn't being created ($value), do nothing.
-  if (empty($_COOKIE[session_name()]) && empty($value)) {
+  // If the client doesn't have a session, and one isn't being created ($value),
+  // do nothing.  If session saving has been turned off, do nothing.
+  if ((empty($_COOKIE[session_name()]) && empty($value)) || !session_save_session()) {
     return TRUE;
   }
 
@@ -163,4 +164,25 @@ function sess_user_load($session) {
   }
   
   return $user;
+}
+
+/**
+ * Determine whether to save session data of the current request.
+ *
+ * This function allows the caller to temporarily disable writing of session 
+ * data, should the request end while performing potentially dangerous 
+ * operations, such as manipulating the global $user object.
+ *
+ * @param $status
+ *   Disables writing of session data when FALSE, (re-)enables writing when 
+ *   TRUE.
+ *
+ * @return FALSE if writing session data has been disabled. Otherwise, TRUE.
+ */
+function session_save_session($status = NULL) {
+  static $save_session = TRUE;
+  if (isset($status)) {
+    $save_session = $status;
+  }
+  return ($save_session);
 }
