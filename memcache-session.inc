@@ -24,16 +24,22 @@ function sess_read($key) {
   // So we are moving session closure before destructing objects.
   register_shutdown_function('session_write_close');
 
-  // Handle the case of first time visitors and clients that don't store cookies (eg. web crawlers).
+  // Handle the case of first time visitors and clients that don't store 
+  // cookies (eg. web crawlers).
   if (!isset($_COOKIE[session_name()])) {
     $user = drupal_anonymous_user();
     return '';
   }
 
-  // Otherwise, if the session is still active, we have a record of the client's session in memcache.
+  // Otherwise, if the session is still active, we have a record of the 
+  // client's session in memcache.
   $session = dmemcache_get($key, 'session');
-
+  
   $user = sess_user_load($session);
+
+  // Record whether this session contains data so that in sess_write() it can 
+  // be determined whether to skip a write.
+  $user->session_data_present_at_load = !empty($session->session);
 
   return $user->session;
 }
@@ -47,6 +53,8 @@ function sess_read($key) {
  *   1b. With session data.
  *   1c. Session saving has been turned off programatically
  *       (see session_save_session()).
+ *   1d. Without session data but had session data at the beginning of the request
+ *       (thus a write must be made to clear stored session data).
  * 2. Authenticated user.
  *   2a. Without session data.
  *   2b. With session data.
@@ -80,8 +88,12 @@ function sess_write($key, $value) {
   $session->timestamp = time();
 
   // If this is an authenticated user, or there is something to save in the
-  // session, write it to memcache. Cases 1b, 2a, and 2b are covered here.
-  if ($user->uid || !empty($value)) {
+  // session, or this is an anonymous user who currently has nothing in the 
+  // session but did have something in session storage, write it to memcache.
+  // If $user->session_data_present_at_load is not set, the current user
+  // was created during this request and it's safest to do a write. 
+  // Cases 1b, 1d, 2a, and 2b are covered here.
+  if ($user->uid || !empty($value) || empty($value) && (!isset($user->session_data_present_at_load) || $user->session_data_present_at_load)) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
     if ($user->uid && $session->timestamp - $user->access > variable_get('session_write_interval', 360)) {
       db_query('UPDATE {users} SET access = %d WHERE uid = %d', $session->timestamp, $user->uid);
@@ -89,6 +101,11 @@ function sess_write($key, $value) {
       // caches the updated time.
       $user->access = $session->timestamp;
     }
+    // Data stored in session is stored in session memcache; no need
+    // to duplicate it in users memcache.
+    unset($user->session);
+    unset($user->session_data_present_at_load);
+    
     dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
   }
 
