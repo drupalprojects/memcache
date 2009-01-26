@@ -59,7 +59,11 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   if ($expire == CACHE_TEMPORARY) {
     $expire = variable_get('cache_lifetime', 2591999);
   }
-  dmemcache_set($cid, $cache, $expire, $table);
+  // We manually track the expire time in $cache->expire.  When the object
+  // expires, we only allow one request to rebuild it to avoid cache stampedes.
+  // Other requests for the expired object while it is still being rebuilt get
+  // the expired object.
+  dmemcache_set($cid, $cache, 0, $table);
 }
 
 /**

@@ -12,6 +12,12 @@
 global $_memcache_statistics;
 $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
 
+// When a cached object expires, we only allow one request to rebuild the 
+// object.  The following define determines how long (in seconds) the request 
+// can hold the semaphore before it is assumed the request aborted and another
+// request is allowed to obtain the semaphore.
+define('CACHE_STAMPEDE_SEMAPHORE', 15);
+
 /*
  * A memcache API for Drupal.
  */
@@ -62,7 +68,17 @@ function dmemcache_get($key, $bin = 'cache') {
     $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
-      $_memcache_statistics['hit'][] = $key;
+      // We check $result->expire to see if the object has expired.  If so, we
+      // try and grab a lock.  If we get the lock, we return FALSE instead of
+      // the cached object which should cause it to be rebuilt.  If we do not
+      // get the lock, we return the cached object.  The goal here is to avoid
+      // cache stampedes. 
+      if ($result->expire && $result->expire <= time() && $mc->add($full_key .'_semaphore', '', FALSE, CACHE_STAMPEDE_SEMAPHORE)) {
+        $result = FALSE;
+      }
+      else {
+        $_memcache_statistics['hit'][] = $key;
+      }
     }
     return $result;
   }
