@@ -35,8 +35,8 @@ increasing your site's performance. If you use this file it is important to
 have enough memory allocated to memcache to store everything (including the page
 cache), otherwise the cache misses will negate the benefit of the cache hits.
 
-Note that memcache.db.inc supports minimum cache lifetime settings while
-memcache.inc does not. For the difference, see these diagrams:
+Note that memcache.db.inc support a global minimum cache lifetime, whereas
+memcache.inc tracks the minimum cache lifetime on a per-table basis:
 
 http://www.lullabot.com/files/memcache-inc.png
 http://www.lullabot.com/files/memcache-db-inc.png

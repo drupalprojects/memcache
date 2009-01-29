@@ -18,7 +18,25 @@ require_once 'dmemcache.inc';
  *   'cache_menu', 'cache_page', or 'cache' for the default cache.
  */
 function cache_get($cid, $table = 'cache') {
-  return dmemcache_get($cid, $table);
+  // Determine when the current table was last flushed.
+  $cache_flush = variable_get("cache_flush_$table", 0);
+  // Retrieve the item from the cache.
+  $cache = dmemcache_get($cid, $table);
+  if (is_object($cache)) {
+    $cache_tables = $_SESSION['cache_flush'];
+    // Items cached before the cache was last flushed are no longer valid.
+    $cache_lifetime = variable_get('cache_lifetime', 0);
+    if ($cache_lifetime && $cache->created && $cache_flush &&
+        ($cache->created < $cache_flush) &&
+        ((time() - $cache->created >= $cache_lifetime)) ||
+        (is_array($cache_tables) && $cache_tables[$table] &&
+        $cache_tables[$table] > $cache->created)) {
+      // Cache item expired, return NULL.
+      return 0;
+    }
+    return $cache;
+  }
+  return 0;
 }
 
 /**
@@ -57,7 +75,7 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
 
   // Save to memcache
   if ($expire == CACHE_TEMPORARY) {
-    $expire = variable_get('cache_lifetime', 2591999);
+    $expire = 2591999;
   }
   // We manually track the expire time in $cache->expire.  When the object
   // expires, we only allow one request to rebuild it to avoid cache stampedes.
@@ -107,7 +125,29 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
     }
   }
   else if ($cid == '*' || $wildcard === TRUE) {
-    dmemcache_flush($table);
+    if (variable_get('cache_lifetime', 0)) {
+      // Update the timestamp of the last global flushing of this table.  When
+      // retrieving data from this table, we will compare the cache creation
+      // time minus the cache_flush time to the cache_lifetime to determine
+      // whether or not the cached item is still valid.
+      variable_set("cache_flush_$table", time());
+
+      // We store the time in the current user's session which is saved into
+      // the sessions table by sess_write().  We then simulate that the cache
+      // was flushed for this user by not returning cached data to this user
+      // that was cached before the timestamp.
+      if (is_array($_SESSION['cache_flush'])) {
+        $cache_tables = $_SESSION['cache_flush'];
+      }
+      else {
+        $cache_tables = array();
+      }
+      $cache_tables[$table] = time();
+      $_SESSION['cache_flush'] = $cache_tables;
+    }
+    else {
+      dmemcache_flush($table);
+    }
   }
   else {
     dmemcache_delete($cid, $table);
