@@ -37,7 +37,7 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
     if (!$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
-      watchdog('memcache', 'Failed to set key: ' . $full_key, WATCHDOG_ERROR);
+      return FALSE;
     }
     else {
       return TRUE;
