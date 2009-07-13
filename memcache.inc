@@ -23,7 +23,7 @@ function cache_get($cid, $table = 'cache') {
   // Retrieve the item from the cache.
   $cache = dmemcache_get($cid, $table);
   if (is_object($cache)) {
-    $cache_tables = $_SESSION['cache_flush'];
+    $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
     // Items cached before the cache was last flushed are no longer valid.
     $cache_lifetime = variable_get('cache_lifetime', 0);
     if ($cache_lifetime && $cache->created && $cache_flush &&

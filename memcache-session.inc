@@ -1,6 +1,8 @@
 <?php
 // $Id$
 
+require_once dirname(__FILE__) . '/dmemcache.inc';
+
 /**
  * @file
  * User session handling functions.
