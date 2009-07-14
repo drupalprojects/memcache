@@ -107,6 +107,8 @@ function sess_write($key, $value) {
     // to duplicate it in users memcache.
     unset($user->session);
     unset($user->session_data_present_at_load);
+    // Store the session id so we can locate the session with the user id.
+    $user->sid = $key;
     
     dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
   }
@@ -163,9 +165,14 @@ function sess_destroy_sid($sid) {
 }
 
 /**
- * End a specific user's session. Not implemented.
+ * End a specific user's session.
  */
 function sess_destroy_uid($uid) {
+  $user = dmemcache_get($uid, 'users');
+  if (is_object($user) && isset($user->sid)) {
+    dmemcache_delete($user->sid, 'session');
+  }
+  dmemcache_delete($uid, 'users');
 }
 
 function sess_gc($lifetime) {
