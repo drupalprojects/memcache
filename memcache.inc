@@ -70,13 +70,22 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   $cache->cid = $cid;
   $cache->data = is_object($data) ? memcache_clone($data) : $data;
   $cache->created = $created;
-  $cache->expire = $expire;
   $cache->headers = $headers;
-
-  // Save to memcache
   if ($expire == CACHE_TEMPORARY) {
-    $expire = 2591999;
+    // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
+    // until the next flush.
+    $expire = time() + 2591999;
   }
+  // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
+  else if ($expire != CACHE_PERMANENT && $expire < 2592000) {
+    // Expire is expressed in seconds, convert to the proper future timestamp
+    // as expected in dmemcache_get().
+    $cache->expire = time() + $expire;
+  }
+  else {
+    $cache->expire = $expire;
+  }
+
   // We manually track the expire time in $cache->expire.  When the object
   // expires, we only allow one request to rebuild it to avoid cache stampedes.
   // Other requests for the expired object while it is still being rebuilt get
