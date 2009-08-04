@@ -74,7 +74,7 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   if ($expire == CACHE_TEMPORARY) {
     // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
     // until the next flush.
-    $expire = time() + 2591999;
+    $cache->expire = time() + 2591999;
   }
   // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
   else if ($expire != CACHE_PERMANENT && $expire < 2592000) {
