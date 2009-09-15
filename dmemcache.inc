@@ -71,7 +71,7 @@ function dmemcache_get($key, $bin = 'cache') {
       // can be adjusted by setting the memcache_stampede_semaphore variable.
       // TODO: Can we log when a sempahore expires versus being intentionally
       // freed to track when this is happening?
-      if ($result->expire && $result->expire <= time() && $mc->add($full_key .'_semaphore', '', FALSE, variable_get('memcache_stampede_semaphore', 15))) {
+      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && $mc->add($full_key .'_semaphore', '', FALSE, variable_get('memcache_stampede_semaphore', 15))) {
         $result = FALSE;
       }
       else {
@@ -124,7 +124,16 @@ function dmemcache_stats($bin = 'cache', $type = '') {
     $bin = 'cache';
   }
   if ($mc = dmemcache_object($bin)) {
-    return $mc->getExtendedStats($type);
+    // The PHP Memcache extension 3.x version throws an error if the stats
+    // type is NULL or not in {reset, malloc, slabs, cachedump, items, sizes}.
+    // If $type is 'default', then no parameter should be passed to the 
+    // Memcache memcache_get_extended_stats() function.
+    if ($type == 'default' || $type == '') {
+      return $mc->getExtendedStats();
+    }
+    else {
+      return $mc->getExtendedStats($type);
+    }
   }
 }
 
