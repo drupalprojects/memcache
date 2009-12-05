@@ -5,44 +5,43 @@
 These are the broad steps you need to take in order to use this software. Order
 is important.
 
-1. Install the memcached binaries on your server. See http://www.lullabot.com/articles/how_install_memcache_debian_etch
-2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or higher or you will experience errors.
+1. Install the memcached binaries on your server. See 
+
+http://www.lullabot.com/articles/how_install_memcache_debian_etch
+
+2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or 
+   higher or you will experience errors.
 3. Put your site into offline mode.
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
-6. Apply the DRUPAL-5-x-cache-serialize.patch from the patches folder that
-   comes with the module.  Version specific, so use DRUPAL-5-6-cache-serialize.patch
-   if you are running Drupal 5.6.
-7. Start at least one instance of memcached on your server.
-8. Edit settings.php to configure the servers, clusters and bins that memcache
+6. Start at least one instance of memcached on your server.
+7. Edit settings.php to configure the servers, clusters and bins that memcache
    is supposed to use.
-9. Edit settings.php to include either memcache.inc or memcache.db.inc. For
-   example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.db.inc';
-10. Bring your site back online.
+8. Edit settings.php to include cache.inc, memcache.inc.  For example:
+     include_once('./includes/cache.inc');
+     include_once('./sites/all/modules/memcache/memcache.inc');
+9. Edit settings.php to make memcache the default caching class:
+     $conf['cache_default_class'] = 'MemCacheDrupal';
+9. Bring your site back online.
 
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
 
-Either the memcache.inc or the memcache.db.inc file is intended to be used
-instead of cache.inc, utilizing Drupal's pluggable cache system. The .db.inc
-variant saves all data to the database as well, so the site will still have
-the performance benefits of cache even if you take your memcache offline. The
-site should not ever break due to memcache not being available... it is only
-a question of whether caching is still available or not. The memcache.inc file
-doesn't save any data to the database and thus has the biggest potential for
-increasing your site's performance. If you use this file it is important to
-have enough memory allocated to memcache to store everything (including the page
-cache), otherwise the cache misses will negate the benefit of the cache hits.
+At this time, only memcache.inc is available in Drupal 7.  The memcache.inc.db
+file has not yet been ported.
 
-Update $conf in settings.php to tell Drupal which cache_inc file to use:
+http://www.lullabot.com/files/memcache-inc.png
 
- $conf = array(
-   // The path to wherever memcache.inc is. The easiest is to simply point it
-   // to the copy in your module's directory.
-   'cache_inc' => './sites/all/modules/memcache/memcache.inc',
-   // or
-   // 'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
- );
+In Drupal 7+, you no longer should set cache_inc in settings.php.  Instead, you
+will have to manually include 'cache.inc' and 'memcache.inc', then update $conf
+to tell Drupal to default to memcache for caching:
+
+  // the path to the core cache file
+  include_once('./includes/cache.inc');
+  // the path to the memcache cache file
+  include_once('./sites/all/modules/memcache/memcache.inc');
+  // make MemCacheDrupal the default cache class
+  $conf['cache_default_class'] = 'MemCacheDrupal';
 
 ## SERVERS ##
 
@@ -63,7 +62,11 @@ If you have more than one memcached instance running, you need to add two
 arrays to $conf; memcache_servers and memcache_bins. The arrays follow this
 pattern:
 
-'memcache_servers' => array(host1:port => cluster, host2:port => cluster, hostN:port => cluster)
+'memcache_servers' => array(
+  host1:port => cluster, 
+  host2:port => cluster, 
+  hostN:port => cluster
+)
 
 'memcache_bins' => array(bin1 => cluster, bin2 => cluster, binN => cluster)
 
@@ -102,8 +105,10 @@ Here is an example configuration that has two clusters, 'default' and
 clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other
 bins go to 'default'.
 
+include_once('./includes/cache.inc');
+include_once('./sites/all/modules/memcache/memcache.inc');
 $conf = array(
-  'cache_inc' => './includes/memcache.inc',
+  'cache_default_class' = 'MemCacheDrupal',
   'memcache_servers' => array('localhost:11211' => 'default',
                               'localhost:11212' => 'default',
                               '123.45.67.890:11211' => 'default',
@@ -125,42 +130,38 @@ $conf = array(
   'memcache_key_prefix' => 'something_unique',
 );
 
-## PATCHES ##
+## SESSIONS ##
 
-The DRUPAL-5-cache-serialize.patch must be applied to your Drupal installation
-for this software to work. The patch depends on a column that needs to get added
-to all of the existing cache tables for your site. This column has been
-introduced in the DRUPAL-6 development branch so this patch is future-safe if
-you ever upgrade to DRUPAL-6. To actually add the column to your database, you
-need to either install the memcache.module, or, if it is already installed and
-you are updating to this version, run update.php. Either installing the module
-or running update.php will add the needed column, Uninstalling the module will
-remove the column.
+Here is a sample config that uses memcache for sessions. Note you MUST have
+a session and a users server set up for memcached sessions to work.
+
+NOTE: Session.inc is not yet ported to Drupal 7.
+
+include_once('./includes/cache.inc');
+include_once('./sites/all/modules/memcache/memcache.inc');
+$conf = array(
+  'cache_default_class' = 'MemCacheDrupal',
+  'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
+  'memcache_servers' => array(
+    'localhost:11211' => 'default',
+    'localhost:11212' => 'filter',
+    'localhost:11213' => 'menu',
+    'localhost:11214' => 'page',
+    'localhost:11215' => 'session',
+    'localhost:11216' => 'users',
+  ),
+  'memcache_bins' => array(
+    'cache' => 'default',
+    'cache_filter' => 'filter',
+    'cache_menu' => 'menu',
+    'cache_page' => 'page',
+    'session' => 'session',
+    'users' => 'users',
+  ),
+);
+
 
 ## TROUBLESHOOTING ##
-
-PROBLEM:
-Warning: require_once(a) [function.require-once]: failed to open stream:
-No such file or directory in /includes/bootstrap.inc on line 853
-
-SOLUTION:
-This error occurs after you apply the DRUPAL-5-cache-serialize.patch because
-the code in the patch now expects the cached variables to be unserialized
-but they are still serialized in the cache. Clear the cache table:
-
-mysql> TRUNCATE cache;
-Query OK, 0 rows affected (0.01 sec)
-
-PROBLEM:
-Fatal error: Cannot use string offset as an array in includes/menu.inc on line 452
-
-SOLUTION:
-Similar to the error above, this occurs after applying the
-DRUPAL-5-cache-serialize.patch due to the conflict between the existing
-cached menu and what the patched code is expecting. Clear cache_menu:
-
-mysql> TRUNCATE cache_menu;
-Query OK, 0 rows affected (0.33 sec)
 
 PROBLEM:
 Error:
@@ -169,7 +170,11 @@ Failed to set key: Failed to set key: cache_page-......
 SOLUTION:
 Upgrade your PECL library to PECL package (2.2.1) (or higher).
 
+WARNING: 
+Zlib compression at the php.ini level and Memcache conflict. 
+See http://drupal.org/node/273824
+
 ## MEMCACHE ADMIN ##
 
-A module offering a UI for memcache is on the way. It will provide stats, a
+A module offering a UI for memcache is included. It provides stats, a
 way to clear the cache, and an interface to organize servers/bins/clusters.
