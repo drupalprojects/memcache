@@ -30,11 +30,11 @@ $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array
  *
  * @return bool
  */
-function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
+function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
   $_memcache_statistics['set'][] = $key;
   $_memcache_statistics['bins'][] = $bin;
-  if ($mc = dmemcache_object($bin)) {
+  if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
     if (!$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
       return FALSE;
@@ -54,11 +54,11 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
  *
  * @return The item which was originally saved or FALSE
  */
-function dmemcache_get($key, $bin = 'cache') {
+function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
   $_memcache_statistics['get'][] = $key;
   $_memcache_statistics['bins'][] = $bin;
-  if ($mc = dmemcache_object($bin)) {
+  if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
@@ -90,8 +90,8 @@ function dmemcache_get($key, $bin = 'cache') {
  *
  * @return Returns TRUE on success or FALSE on failure.
  */
-function dmemcache_delete($key, $bin = 'cache') {
-  if ($mc = dmemcache_object($bin)) {
+function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
+  if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
     return $mc->delete($full_key);
   }
@@ -108,8 +108,8 @@ function dmemcache_delete($key, $bin = 'cache') {
  *
  * @return Returns TRUE on success or FALSE on failure.
  */
-function dmemcache_flush($bin = 'cache') {
-  if ($mc = dmemcache_object($bin)) {
+function dmemcache_flush($bin = 'cache', $mc = NULL) {
+  if ($mc || ($mc = dmemcache_object($bin))) {
     return $mc->flush();
   }
 }

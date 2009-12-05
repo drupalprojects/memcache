@@ -17,39 +17,31 @@ http://www.lullabot.com/articles/how_install_memcache_debian_etch
 6. Start at least one instance of memcached on your server.
 7. Edit settings.php to configure the servers, clusters and bins that memcache
    is supposed to use.
-8. Edit settings.php to include either memcache.inc or memcache.db.inc. For
-   example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.db.inc';
+8. Edit settings.php to include cache.inc, memcache.inc.  For example:
+     include_once('./includes/cache.inc');
+     include_once('./sites/all/modules/memcache/memcache.inc');
+9. Edit settings.php to make memcache the default caching class:
+     $conf['cache_default_class'] = 'MemCacheDrupal';
 9. Bring your site back online.
 
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
 
-Either the memcache.inc or the memcache.db.inc file is intended to be used
-instead of cache.inc, utilizing Drupal's pluggable cache system. The .db.inc
-variant saves all data to the database as well, so the site will still have
-the performance benefits of cache even if you take your memcache offline. The
-site should not ever break due to memcache not being available...it is only
-a question of whether caching is still available or not. The memcache.inc file
-doesn't save any data to the database and thus has the biggest potential for
-increasing your site's performance. If you use this file it is important to
-have enough memory allocated to memcache to store everything (including the page
-cache), otherwise the cache misses will negate the benefit of the cache hits.
-
-Note that memcache.db.inc support a global minimum cache lifetime, whereas
-memcache.inc tracks the minimum cache lifetime on a per-table basis:
+At this time, only memcache.inc is available in Drupal 7.  The memcache.inc.db
+file has not yet been ported.
 
 http://www.lullabot.com/files/memcache-inc.png
-http://www.lullabot.com/files/memcache-db-inc.png
 
-Update $conf in settings.php to tell Drupal which cache_inc file to use:
+In Drupal 7+, you no longer should set cache_inc in settings.php.  Instead, you
+will have to manually include 'cache.inc' and 'memcache.inc', then update $conf
+to tell Drupal to default to memcache for caching:
 
- $conf = array(
-   // The path to wherever memcache.inc is. The easiest is to simply point it
-   // to the copy in your module's directory.
-   'cache_inc' => './sites/all/modules/memcache/memcache.inc',
-   // or
-   // 'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
- );
+  // the path to the core cache file
+  include_once('./includes/cache.inc');
+  // the path to the memcache cache file
+  include_once('./sites/all/modules/memcache/memcache.inc');
+  // make MemCacheDrupal the default cache class
+  $conf['cache_default_class'] = 'MemCacheDrupal';
 
 ## SERVERS ##
 
@@ -113,8 +105,10 @@ Here is an example configuration that has two clusters, 'default' and
 clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other
 bins go to 'default'.
 
+include_once('./includes/cache.inc');
+include_once('./sites/all/modules/memcache/memcache.inc');
 $conf = array(
-  'cache_inc' => './includes/memcache.inc',
+  'cache_default_class' = 'MemCacheDrupal',
   'memcache_servers' => array('localhost:11211' => 'default',
                               'localhost:11212' => 'default',
                               '123.45.67.890:11211' => 'default',
@@ -141,8 +135,12 @@ $conf = array(
 Here is a sample config that uses memcache for sessions. Note you MUST have
 a session and a users server set up for memcached sessions to work.
 
+NOTE: Session.inc is not yet ported to Drupal 7.
+
+include_once('./includes/cache.inc');
+include_once('./sites/all/modules/memcache/memcache.inc');
 $conf = array(
-  'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
+  'cache_default_class' = 'MemCacheDrupal',
   'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
   'memcache_servers' => array(
     'localhost:11211' => 'default',
