@@ -114,7 +114,7 @@ clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other
 bins go to 'default'.
 
 $conf = array(
-  'cache_inc' => './includes/memcache.inc',
+  'cache_inc' => './sites/all/modules/memcache/memcache.inc',
   'memcache_servers' => array('localhost:11211' => 'default',
                               'localhost:11212' => 'default',
                               '123.45.67.890:11211' => 'default',
