@@ -145,8 +145,8 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
     }
 
     // Save to the database
-    db_query("DELETE FROM {%s} WHERE cid = '%s'", $table, $cid);
-    db_query("INSERT INTO {%s} (cid, data, expire, created, headers, serialized) VALUES ('%s', %b, %d, %d, '%s', '%s')", $table, $cid, $data, $expire, $created, $headers, $serialized);
+    db_query('DELETE FROM {'. $table ."} WHERE cid = '%s'", $cid);
+    db_query('INSERT INTO {'. $table ."} (cid, data, expire, created, headers, serialized) VALUES ('%s', %b, %d, %d, '%s', '%s')", $cid, $data, $expire, $created, $headers, $serialized);
   }
 
   // Save to memcache
