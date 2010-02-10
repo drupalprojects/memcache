@@ -61,7 +61,7 @@ function cache_get($cid, $table = 'cache') {
     if ($cache_lifetime && $cache->created && $cache_flush &&
         ($cache->created < $cache_flush) &&
         ((time() - $cache->created >= $cache_lifetime)) ||
-        (is_array($cache_tables) && $cache_tables[$table] &&
+        (is_array($cache_tables) && isset($cache_tables[$table]) &&
         $cache_tables[$table] > $cache->created)) {
       // Cache item expired, return NULL.
       return 0;
