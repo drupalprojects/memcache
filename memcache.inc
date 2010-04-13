@@ -222,7 +222,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       }
     }
   }
-  
+
   function isEmpty() {
     // We do not know so err on the safe side?
     return FALSE;

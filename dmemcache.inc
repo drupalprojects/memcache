@@ -31,12 +31,14 @@ $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array
  * @return bool
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
+
   global $_memcache_statistics;
   $_memcache_statistics['set'][] = $key;
   $_memcache_statistics['bins'][] = $bin;
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
-    if (!$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
+    error_log("setting: ". $full_key . gmdate('c') . "\n", 3, '/tmp/log');
+    if (!memcache_set($mc, $full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
       return FALSE;
     }
     else {
@@ -60,18 +62,18 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   $_memcache_statistics['bins'][] = $bin;
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
-    $result = $mc->get($full_key);
+    $result = memcache_get($mc, $full_key);
     if ($result) {
       // We check $result->expire to see if the object has expired.  If so, we
       // try and grab a lock.  If we get the lock, we return FALSE instead of
       // the cached object which should cause it to be rebuilt.  If we do not
       // get the lock, we return the cached object.  The goal here is to avoid
-      // cache stampedes. 
+      // cache stampedes.
       // By default the cache stampede semaphore is held for 15 seconds.  This
       // can be adjusted by setting the memcache_stampede_semaphore variable.
       // TODO: Can we log when a sempahore expires versus being intentionally
       // freed to track when this is happening?
-      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && $mc->add($full_key .'_semaphore', '', FALSE, variable_get('memcache_stampede_semaphore', 15))) {
+      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && memcache_add($mc, $full_key .'_semaphore', '', FALSE, variable_get('memcache_stampede_semaphore', 15))) {
         $result = FALSE;
       }
       else {
@@ -93,7 +95,7 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
 function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
-    return $mc->delete($full_key);
+    return memcache_delete($mc, $full_key);
   }
   return FALSE;
 }
@@ -110,7 +112,7 @@ function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
  */
 function dmemcache_flush($bin = 'cache', $mc = NULL) {
   if ($mc || ($mc = dmemcache_object($bin))) {
-    return $mc->flush();
+    return memcache_flush($mc);
   }
 }
 
@@ -126,13 +128,13 @@ function dmemcache_stats($bin = 'cache', $type = '') {
   if ($mc = dmemcache_object($bin)) {
     // The PHP Memcache extension 3.x version throws an error if the stats
     // type is NULL or not in {reset, malloc, slabs, cachedump, items, sizes}.
-    // If $type is 'default', then no parameter should be passed to the 
+    // If $type is 'default', then no parameter should be passed to the
     // Memcache memcache_get_extended_stats() function.
     if ($type == 'default' || $type == '') {
-      return $mc->getExtendedStats();
+      return memcache_getExtendedStats($mc);
     }
     else {
-      return $mc->getExtendedStats($type);
+      return memcache_getExtendedStats($mc, $type);
     }
   }
 }
@@ -156,7 +158,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 
   if ($flush) {
     foreach ($memcacheCache as $cluster) {
-      $cluster->close();
+      memcache_close($cluster);
     }
     $memcacheCache = array();
   }
@@ -195,7 +197,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           // This is a server that belongs to this cluster.
           if (!$init) {
             // First server gets the connect.
-            if (@$memcache->connect($host, $port)) {
+            if ($memcache = @memcache_connect($host, $port)) {
               // Only set init to true if a connection was made.
               $init = TRUE;
               $memcache_online = TRUE;
@@ -206,7 +208,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           }
           else {
             // Subsequent servers gett addServer.
-            @$memcache->addServer($host, $port);
+            memcache_addServer($memcache, $host, $port);
           }
         }
       }
