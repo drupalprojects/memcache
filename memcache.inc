@@ -11,11 +11,41 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $this->bin = $bin;
   }
   function get($cid) {
+    global $memcached_prefixes, $memcached_counters;
+    if (!isset($memcached_prefixes)) {
+      $memcached_prefixes = array();
+    }
+    if (!isset($memcached_counters)) {
+      $memcached_counters = array();
+    }
     // Determine when the current bin was last flushed.
     $cache_flush = variable_get("cache_flush_$this->bin", 0);
     // Retrieve the item from the cache.
     $cache = dmemcache_get($cid, $this->bin, $this->memcache);
     if (is_object($cache)) {
+      // Load the prefix directory.
+      if (!isset($memcached_prefixes[$this->bin])) {
+        $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
+        if ($memcached_prefixes[$this->bin] === FALSE) {
+          $memcached_prefixes[$this->bin] = array();
+        }
+        $memcached_counters[$this->bin] = array();
+      }
+
+      // Check if the item being fetched matches any prefixes.
+      foreach ($memcached_prefixes[$this->bin] as $prefix) {
+        if (substr($cid, 0, strlen($prefix)) == $prefix) {
+          // On a match, check if we already know the current counter value.
+          if (!isset($memcached_counters[$this->bin][$prefix])) {
+            $memcached_counters[$this->bin][$prefix] = dmemcache_get('.prefix.' . $prefix, $this->bin);
+          }
+
+          // If a matching prefix for this item was cleared after storing it, it is invalid.
+          if (!isset($cache->counters[$prefix]) || $cache->counters[$prefix] < $memcached_counters[$this->bin][$prefix]) {
+            return 0;
+          }
+        }
+      }
       $cache_bins = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
       // Items cached before the cache was last flushed are no longer valid.
       $cache_lifetime = variable_get('cache_lifetime', 0);
@@ -46,7 +76,28 @@ class MemCacheDrupal implements DrupalCacheInterface {
   }
 
   function set($cid, $data, $expire = CACHE_PERMANENT, array $headers = NULL) {
+    global $memcached_prefixes, $memcached_counters;
     $created = time();
+
+    if (!isset($memcached_prefixes[$this->bin])) {
+      $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
+      if ($memcached_prefixes[$this->bin] === FALSE) {
+        $memcached_prefixes[$this->bin] = array();
+      }
+      $memcached_counters[$this->bin] = array();
+    }
+
+    $counters = array();
+    // Check if the item being stored matches any prefixes.
+    foreach ($memcached_prefixes[$this->bin] as $prefix) {
+      if (substr($cid, 0, strlen($prefix)) == $prefix) {
+        // On a match, check if we already know the current counter value.
+        if (!isset($memcached_counters[$this->bin][$prefix])) {
+          $memcached_counters[$this->bin][$prefix] = dmemcache_get('.prefix.' . $prefix, $this->bin);
+        }
+        $counters[$prefix] = $memcached_counters[$this->bin][$prefix];
+      }
+    }
 
     // Create new cache object.
     $cache = new stdClass;
@@ -54,6 +105,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $cache->data = is_object($data) ? clone $data : $data;
     $cache->created = $created;
     $cache->headers = $headers;
+    $cache->counters = $counters;
     if ($expire == CACHE_TEMPORARY) {
       // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
       // until the next flush.
@@ -77,6 +129,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
   }
 
   function clear($cid = NULL, $wildcard = FALSE) {
+    global $memcached_prefixes, $memcached_counters;
+
     // Default behavior for when cache_clear_all() is called without parameters
     // is to clear all of the expirable entries in the block and page caches.
     if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
@@ -110,7 +164,55 @@ class MemCacheDrupal implements DrupalCacheInterface {
         $_SESSION['cache_flush'] = $cache_bins;
       }
       else {
-        dmemcache_flush($this->bin, $this->memcache);
+        if ($cid == '*') {
+          $cid = '';
+        }
+
+        // Get a memcached object for complex operations.
+        $mc = dmemcache_object($this->bin);
+
+        // Load the prefix directory.
+        if (!isset($memcached_prefixes[$this->bin])) {
+          $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
+          if ($memcached_prefixes[$this->bin] === FALSE) {
+            $memcached_prefixes[$this->bin] = array();
+          }
+        }
+
+        // Ensure the prefix being cleared is listed, if not, atomically add it.
+        // Adding new prefixes should be rare.
+        if (!in_array($cid, $memcached_prefixes[$this->bin])) {
+          // Acquire a semaphore.
+          $lock_key = dmemcache_key('.prefixes.lock', $this->bin);
+          while (!$mc->add($lock_key, 1, FALSE, 10)) {
+            usleep(1000);
+          }
+
+          // Get a fresh copy of the prefix directory.
+          $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
+          if ($memcached_prefixes[$this->bin] === FALSE) {
+            $memcached_prefixes[$this->bin] = array();
+          }
+
+          // Only add the prefix if it's not in the updated directory.
+          if (!in_array($cid, $memcached_prefixes[$this->bin])) {
+            // Add the new prefix.
+            $memcached_prefixes[$this->bin][] = $cid;
+
+            // Store to memcached.
+            dmemcache_set('.prefixes', $memcached_prefixes[$this->bin], 0, $this->bin);
+
+            // Set the clearing counter to zero.
+            dmemcache_set('.prefix.' . $cid, 0, 0, $this->bin);
+          }
+
+          // Release the semaphore.
+          dmemcache_delete('.prefixes.lock', $this->bin);
+        }
+
+        // Increment the prefix clearing counter.
+        $counter_key = dmemcache_key('.prefix.' . $cid, $this->bin);
+        $memcached_counters[$this->bin][$cid] = $mc->increment($counter_key);
       }
     }
     else {
