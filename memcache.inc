@@ -33,6 +33,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       }
 
       // Check if the item being fetched matches any prefixes.
+      if (isset($memcached_prefixes[$this->bin]) && is_array($memcached_prefixes[$this->bin])) {
       foreach ($memcached_prefixes[$this->bin] as $prefix) {
         if (substr($cid, 0, strlen($prefix)) == $prefix) {
           // On a match, check if we already know the current counter value.
@@ -45,6 +46,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
             return 0;
           }
         }
+      }
       }
       $cache_bins = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
       // Items cached before the cache was last flushed are no longer valid.

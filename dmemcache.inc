@@ -38,7 +38,10 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
     error_log("setting: ". $full_key . gmdate('c') . "\n", 3, '/tmp/log');
-    if (!memcache_set($mc, $full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
+    if (class_exists('Memcached') && !$mc->set($full_key, $value, $exp)) {
+      return FALSE;
+    }
+    else if (class_exists('Memcache') && !$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
       return FALSE;
     }
     else {
@@ -62,7 +65,7 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   $_memcache_statistics['bins'][] = $bin;
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
-    $result = memcache_get($mc, $full_key);
+    $result = $mc->get($full_key);
     if ($result) {
       // We check $result->expire to see if the object has expired.  If so, we
       // try and grab a lock.  If we get the lock, we return FALSE instead of
@@ -95,7 +98,7 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
 function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
-    return memcache_delete($mc, $full_key);
+    return $mc->delete($full_key);
   }
   return FALSE;
 }
@@ -153,7 +156,6 @@ function dmemcache_stats($bin = 'cache', $type = '') {
  * @return an Memcache object or FALSE.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
-  global $memcache_online;
   static $memcacheCache = array(), $memcache_servers, $memcache_bins;
 
   if ($flush) {
@@ -185,7 +187,16 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
     }
     else {
       // Create a new Memcache object. Each cluster gets its own Memcache object.
-      $memcache = new Memcache;
+      if (class_exists('Memcached')) {
+        $memcache = new Memcached;
+      }
+      else if (class_exists('Memcache')) {
+        $memcache = new Memcache;
+      }
+      else {
+        drupal_set_message(t('You must enable the PECL memcached or memcache extension to use memcache.inc.'), 'error');
+        return;
+      }
       // A variable to track whether we've connected to the first server.
       $init = FALSE;
 
@@ -195,20 +206,16 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           list($host, $port) = explode(':', $s);
 
           // This is a server that belongs to this cluster.
-          if (!$init) {
-            // First server gets the connect.
-            if ($memcache = @memcache_connect($host, $port)) {
-              // Only set init to true if a connection was made.
+          if (!class_exists('Memcached') && !$init) {
+            // If using PECL memcache extension, use ->connect for first server
+            if ($memcache->connect($host, $port)) {
               $init = TRUE;
-              $memcache_online = TRUE;
-            }
-            else {
-              $memcache_online = FALSE;
             }
           }
           else {
-            // Subsequent servers gett addServer.
-            memcache_addServer($memcache, $host, $port);
+            if ($memcache->addServer($host, $port) && !$init) {
+              $init = TRUE;
+            }
           }
         }
       }
