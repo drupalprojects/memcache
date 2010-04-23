@@ -52,7 +52,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
       if ($cache_lifetime && $cache->created && $cache_flush &&
           ($cache->created < $cache_flush) &&
           ((time() - $cache->created >= $cache_lifetime)) ||
-          (is_array($cache_bins) && $cache_bins[$this->bin] &&
+          (isset($cache_bins) && is_array($cache_bins) &&
+          isset($cache_bins[$this->bin]) &&
           $cache_bins[$this->bin] > $cache->created)) {
         // Cache item expired, return NULL.
         return FALSE;
@@ -131,18 +132,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
   function clear($cid = NULL, $wildcard = FALSE) {
     global $memcached_prefixes, $memcached_counters;
 
-    // Default behavior for when cache_clear_all() is called without parameters
-    // is to clear all of the expirable entries in the block and page caches.
-    if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
-      // don't do anything if cid is unset. this matches the default drupal behavior...
-      if ($wildcard && $cid != '*') {
-        if (variable_get('memcache_debug', FALSE)) {
-          // call watchdog, since you probably didn't want to flush the entire bin.
-          watchdog('memcache', "illegal wildcard in cache_clear_all - not flushing entire bin. bin: $this->bin. cid: $cid", WATCHDOG_WARNING);
-        }
-      }
-    }
-    else if ($cid == '*' || $wildcard === TRUE) {
+    if (empty($cid) || $wildcard === TRUE) {
       if (variable_get('cache_lifetime', 0)) {
         // Update the timestamp of the last global flushing of this bin.  When
         // retrieving data from this bin, we will compare the cache creation
@@ -154,7 +144,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // the sessions table by sess_write().  We then simulate that the cache
         // was flushed for this user by not returning cached data to this user
         // that was cached before the timestamp.
-        if (is_array($_SESSION['cache_flush'])) {
+        if (isset($_SESSION['cache_flush']) && is_array($_SESSION['cache_flush'])) {
           $cache_bins = $_SESSION['cache_flush'];
         }
         else {
