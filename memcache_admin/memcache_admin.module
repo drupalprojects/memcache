@@ -23,14 +23,18 @@ function memcache_admin_init() {
  * Implementation of hook_perm().
  */
 function memcache_admin_perm() {
-  return array('access memcache statistics');
+  return array(
+    'access memcache statistics' => array(
+      'title' => t('Access memcache statistics'),
+    ),
+  );
 }
 
 /**
  * Implementation of hook_menu().
  */
 function memcache_admin_menu() {
-  $items['admin/settings/memcache'] = array(
+  $items['admin/config/system/memcache'] = array(
     'title' => 'Memcache',
     'description' => 'Show or hide memcache statistics at the bottom of each page.',
     'page callback' => 'drupal_get_form',
@@ -139,7 +143,7 @@ function memcache_admin_stats($cluster = 'default', $type = 'default') {
               break;
           }
 
-          $output .= theme('memcache_admin_stats_table', $server, $values);
+          $output .= theme('memcache_admin_stats_table', array('server' => $server, 'stats' => $values));
         }
         else {
           drupal_set_message(t('Unable to get statistic from server %server', array('%server' => $server)));
@@ -162,7 +166,7 @@ function memcache_admin_stats($cluster = 'default', $type = 'default') {
 function memcache_admin_theme() {
   return array(
     'memcache_admin_stats_table' => array(
-      'arguments' => array('server' => NULL, 'stats' => NULL),
+      'variables' => array('server' => NULL, 'stats' => NULL),
     )
   );
 }
@@ -174,7 +178,10 @@ function memcache_admin_theme() {
  * @param array $stats - array of key/value string pairs for the table results
  * @return string
  */
-function theme_memcache_admin_stats_table($server, $stats) {
+function theme_memcache_admin_stats_table($variables) {
+  $server = $variables['server'];
+  $stats = $variables['stats'];
+
   $rows = array();
 
   foreach ($stats as $key => $value) {
@@ -183,14 +190,14 @@ function theme_memcache_admin_stats_table($server, $stats) {
       foreach ($value as $k => $v) {
         $rs[] = array($k, $v);
       }
-      $rows[] = array($key, theme('table', array(), $rs));
+      $rows[] = array($key, theme('table', array('header' => array(), 'rows' => $rs)));
     }
     else {
       $rows[] = array($key, $value);
     }
   }
 
-  return theme('table', array(t('Property'), t('Value')), $rows, array(), $server);
+  return theme('table', array('header' => array(t('Property'), t('Value')), 'rows' => $rows, 'caption' => $server));
 }
 
 
@@ -235,10 +242,11 @@ function memcache_admin_shutdown() {
     $stats = array();
 
     foreach ($_memcache_statistics as $stat => $value) {
-      $stats[] = "<strong>$stat:</strong> ". theme('item_list', $value);
+      $items = array('items' => $value);
+      $stats[] = "<strong>$stat:</strong> ". theme('item_list', array('items' => $value));
     }
     if (!empty($stats)) {
-      $output = theme('item_list', $stats);
+      $output = theme('item_list', array('items' => $stats));
 
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
       print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output. '</div>';
