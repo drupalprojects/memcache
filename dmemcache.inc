@@ -31,7 +31,6 @@ $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array
  * @return bool
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
-
   global $_memcache_statistics;
   $_memcache_statistics['set'][] = $key;
   $_memcache_statistics['bins'][] = $bin;
@@ -51,6 +50,22 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   return FALSE;
 }
 
+function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
+  global $_memcache_statistics;
+  $_memcache_statistics['add'][] = $key;
+  $_memcache_statistics['bins'][] = $bin;
+  if ($mc || ($mc = dmemcache_object($bin))) {
+    $full_key = dmemcache_key($key, $bin);
+    error_log("setting: ". $full_key . gmdate('c') . "\n", 3, '/tmp/log');
+    if (class_exists('Memcached')) {
+      return $mc->add($key, $value, $exp);
+    }
+    else {
+      return $mc->add($key, $value, $flag, $exp);
+    }
+  }
+}
+
 /**
  * Retrieve a value from the cache.
  *
@@ -67,24 +82,45 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
     $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
-      // We check $result->expire to see if the object has expired.  If so, we
-      // try and grab a lock.  If we get the lock, we return FALSE instead of
-      // the cached object which should cause it to be rebuilt.  If we do not
-      // get the lock, we return the cached object.  The goal here is to avoid
-      // cache stampedes.
-      // By default the cache stampede semaphore is held for 15 seconds.  This
-      // can be adjusted by setting the memcache_stampede_semaphore variable.
-      // TODO: Can we log when a sempahore expires versus being intentionally
-      // freed to track when this is happening?
-      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && memcache_add($mc, $full_key .'_semaphore', '', FALSE, variable_get('memcache_stampede_semaphore', 15))) {
-        $result = FALSE;
+      $_memcache_statistics['hit'][] = $key;
+      return $result;
+    }
+  }
+}
+
+/**
+ * Retrieve multiple values from the cache.
+ *
+ * @param $keys The keys with which the items were stored.
+ * @param $bin The bin in which the item was stored.
+ *
+ * @return The item which was originally saved or FALSE
+ */
+function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
+  global $_memcache_statistics;
+  $_memcache_statistics['get'] = array_merge($_memcache_statistics['get'], $keys);
+  $_memcache_statistics['bins'][] = $bin;
+  $results = array();
+  if ($mc || ($mc = dmemcache_object($bin))) {
+    if (class_exists('Memcached')) {
+      $full_keys = array();
+      foreach ($keys as $key => $cid) {
+        $full_keys[] = dmemcache_key($cid, $bin);
       }
-      else {
-        $_memcache_statistics['hit'][] = $key;
+      $results = $mc->getMulti($full_keys);
+    }
+    else {
+      // simulate multi-get
+      foreach ($keys as $key => $cid) {
+        $full_key = dmemcache_key($cid, $bin);
+        if ($result = $mc->get($full_key)) {
+          $results[$cid] = $result;
+          $_memcache_statistics['hit'][] = $cid;
+        }
       }
     }
-    return $result;
   }
+  return $results;
 }
 
 /**
@@ -129,6 +165,9 @@ function dmemcache_stats($bin = 'cache', $type = '') {
     $bin = 'cache';
   }
   if ($mc = dmemcache_object($bin)) {
+    if (class_exists('Memcached')) {
+      return $mc->getStats();
+    }
     // The PHP Memcache extension 3.x version throws an error if the stats
     // type is NULL or not in {reset, malloc, slabs, cachedump, items, sizes}.
     // If $type is 'default', then no parameter should be passed to the

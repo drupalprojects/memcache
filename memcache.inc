@@ -11,6 +11,24 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $this->bin = $bin;
   }
   function get($cid) {
+    $cache = dmemcache_get($cid, $this->bin, $this->memcache);
+    return $this->valid($cid, $cache) ? $cache : FALSE;
+  }
+
+  function getMultiple(&$cids) {
+    $results = dmemcache_get_multi(&$cids, $this->bin, $this->memcache);
+    foreach ($results as $cid => $result) {
+      if (!$this->valid($cid, $result)) {
+        unset($results[$cid]);
+      }
+      else {
+        unset($cids[$cid]);
+      }
+    }
+    return $results;
+  }
+
+  protected function valid($cid, $cache) {
     global $memcached_prefixes, $memcached_counters;
     if (!isset($memcached_prefixes)) {
       $memcached_prefixes = array();
@@ -18,73 +36,72 @@ class MemCacheDrupal implements DrupalCacheInterface {
     if (!isset($memcached_counters)) {
       $memcached_counters = array();
     }
+
+    if (!is_object($cache)) {
+      return FALSE;
+    }
+
     // Determine when the current bin was last flushed.
     $cache_flush = variable_get("cache_flush_$this->bin", 0);
-    // Retrieve the item from the cache.
-    $cache = dmemcache_get($cid, $this->bin, $this->memcache);
-    if (is_object($cache)) {
-      // Load the prefix directory.
-      if (!isset($memcached_prefixes[$this->bin])) {
-        $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
-        if ($memcached_prefixes[$this->bin] === FALSE) {
-          $memcached_prefixes[$this->bin] = array();
-        }
-        $memcached_counters[$this->bin] = array();
+
+    // Load the prefix directory.
+    if (!isset($memcached_prefixes[$this->bin])) {
+      $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
+      if (!is_array($memcached_prefixes[$this->bin])) {
+        $memcached_prefixes[$this->bin] = array();
       }
-
-      // Check if the item being fetched matches any prefixes.
-      if (isset($memcached_prefixes[$this->bin]) && is_array($memcached_prefixes[$this->bin])) {
-      foreach ($memcached_prefixes[$this->bin] as $prefix) {
-        if (substr($cid, 0, strlen($prefix)) == $prefix) {
-          // On a match, check if we already know the current counter value.
-          if (!isset($memcached_counters[$this->bin][$prefix])) {
-            $memcached_counters[$this->bin][$prefix] = dmemcache_get('.prefix.' . $prefix, $this->bin);
-          }
-
-          // If a matching prefix for this item was cleared after storing it, it is invalid.
-          if (!isset($cache->counters[$prefix]) || $cache->counters[$prefix] < $memcached_counters[$this->bin][$prefix]) {
-            return 0;
-          }
+      $memcached_counters[$this->bin] = array();
+    }
+    // Check if the item being fetched matches any prefixes.
+    foreach ($memcached_prefixes[$this->bin] as $prefix) {
+      if (substr($cid, 0, strlen($prefix)) == $prefix) {
+        // On a match, check if we already know the current counter value.
+        if (!isset($memcached_counters[$this->bin][$prefix])) {
+          $memcached_counters[$this->bin][$prefix] = dmemcache_get('.prefix.' . $prefix, $this->bin);
+        }
+        // If a matching prefix for this item was cleared after storing it,
+        // it is invalid.
+        if (!isset($cache->counters[$prefix]) || $cache->counters[$prefix] < $memcached_counters[$this->bin][$prefix]) {
+          return FALSE;
         }
       }
-      }
-      $cache_bins = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
-      // Items cached before the cache was last flushed are no longer valid.
-      $cache_lifetime = variable_get('cache_lifetime', 0);
-      if ($cache_lifetime && $cache->created && $cache_flush &&
-          ($cache->created < $cache_flush) &&
-          ((time() - $cache->created >= $cache_lifetime)) ||
-          (isset($cache_bins) && is_array($cache_bins) &&
-          isset($cache_bins[$this->bin]) &&
-          $cache_bins[$this->bin] > $cache->created)) {
-        // Cache item expired, return NULL.
-        return FALSE;
-      }
-      return $cache;
     }
-    return FALSE;
-  }
 
-  function getMultiple(&$cids) {
-    // With cache flushes and stampede protection it's impossible to do use
-    // the multiple get. Pity.
-    $results = array();
-    foreach ($cids as $key => $cid) {
-      if ($result = $this->get($cid)) {
-        $results[$cid] = $result;
-        unset($cids[$key]);
-      }
+    $cache_lifetime = variable_get('cache_lifetime', 0);
+    $item_flushed_globally = $cache->created && $cache_flush && $cache_lifetime && ($cache->created < min($cache_flush, time() - $cache_lifetime));
+
+    $cache_bins = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
+
+    $item_flushed_for_user = is_array($cache_bins) && isset($cache_bins[$this->bin]) && ($cache->created < $cache_bins[$this->bin]);
+    if ($item_flushed_for_user) {
+      return FALSE;
     }
-    return $results;
+
+    // The item can be expired if:
+    // - A liftetime is set and the item is older than both the lifetime and
+    //   the global flush.
+    // - The item has been create before the bin was flushed for this user.
+    // - The item could simply expire.
+    //
+    // For the two global cases we try and grab a lock.  If we get the lock, we
+    // return FALSE instead of the cached object which should cause it to be
+    // rebuilt.  If we do not get the lock, we return the cached object despite
+    // it's expired  The goal here is to avoid cache stampedes.
+    // By default the cache stampede semaphore is held for 15 seconds.  This
+    // can be adjusted by setting the memcache_stampede_semaphore variable.
+    // TODO: Can we log when a sempahore expires versus being intentionally
+    // freed to track when this is happening?
+    $item_expired = isset($cache->expire) && $cache->expire !== CACHE_PERMANENT && $cache->expire <= time();
+    return !(($item_flushed_globally || $item_expired) && dmemcache_add($cid .'_semaphore', '', variable_get('memcache_stampede_semaphore', 15), $this->bin));
   }
 
   function set($cid, $data, $expire = CACHE_PERMANENT, array $headers = NULL) {
     global $memcached_prefixes, $memcached_counters;
     $created = time();
 
-    if (!isset($memcached_prefixes[$this->bin])) {
+    if (!isset($memcached_prefixes[$this->bin]) || !is_array($memcached_prefixes[$this->bin])) {
       $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
-      if ($memcached_prefixes[$this->bin] === FALSE) {
+      if (!is_array($memcached_prefixes[$this->bin])) {
         $memcached_prefixes[$this->bin] = array();
       }
       $memcached_counters[$this->bin] = array();
