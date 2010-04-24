@@ -19,9 +19,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $results = dmemcache_get_multi(&$cids, $this->bin, $this->memcache);
     foreach ($results as $cid => $result) {
       if (!$this->valid($cid, $result)) {
+        // This object has expired, so don't return it.
         unset($results[$cid]);
       }
       else {
+        // Remove items from the referenced $cids array that we are returning,
+        // per the comment in cache_get_multiple() in includes/cache.inc.
         unset($cids[$cid]);
       }
     }

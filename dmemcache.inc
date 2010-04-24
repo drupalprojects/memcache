@@ -19,14 +19,17 @@ $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array
 /**
  *  Place an item into memcache
  *
- * @param $key The string with with you will retrieve this item later.
+ * @param $key The string with which you will retrieve this item later.
  * @param $value The item to be stored.
- * @param $exp Parameter expire is expiration time in seconds. If it's 0, the item never expires
- *   (but memcached server doesn't guarantee this item to be stored all the time, it could be
- *   deleted from the cache to make place for other items).
- * @param $bin The name of the Drupal subsystem that is making this call. Examples could be
- *   'cache', 'alias', 'taxonomy term' etc. It is possible to map different $bin values to
- *   different memcache servers.
+ * @param $exp Parameter expire is expiration time in seconds. If it's 0, the
+ *   item never expires (but memcached server doesn't guarantee this item to be
+ *   stored all the time, it could be deleted from the cache to make place for
+ *   other items).
+ * @param $bin The name of the Drupal subsystem that is making this call.
+ *   Examples could be 'cache', 'alias', 'taxonomy term' etc. It is possible to
+ *   map different $bin values to different memcache servers.
+ * @param $mc Optionally pass in the memcache object.  Normally this value is
+ *   determined automatically based on the bin the object is being stored to.
  *
  * @return bool
  */
@@ -37,19 +40,37 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   if ($mc || ($mc = dmemcache_object($bin))) {
     $full_key = dmemcache_key($key, $bin);
     error_log("setting: ". $full_key . gmdate('c') . "\n", 3, '/tmp/log');
-    if (class_exists('Memcached') && !$mc->set($full_key, $value, $exp)) {
-      return FALSE;
-    }
-    else if (class_exists('Memcache') && !$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
-      return FALSE;
+    if (class_exists('Memcached')) {
+      return $mc->set($full_key, $value, $exp);
     }
     else {
-      return TRUE;
+      return $mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp);
     }
   }
   return FALSE;
 }
 
+/**
+ *  Add an item into memcache
+ *
+ * @param $key The string with which you will retrieve this item later.
+ * @param $value The item to be stored.
+ * @param $exp Parameter expire is expiration time in seconds. If it's 0, the
+ *   item never expires (but memcached server doesn't guarantee this item to be
+ *   stored all the time, it could be deleted from the cache to make place for
+ *   other items).
+ * @param $bin The name of the Drupal subsystem that is making this call.
+ *   Examples could be 'cache', 'alias', 'taxonomy term' etc. It is possible
+ *   to map different $bin values to different memcache servers.
+ * @param $mc Optionally pass in the memcache object.  Normally this value is
+ *   determined automatically based on the bin the object is being stored to.
+ * @param $flag If using the older memcache PECL extension as opposed to the
+ *   newer memcached PECL extension, the MEMCACHE_COMPRESSED flag can be set
+ *   to use zlib to store a compressed copy of the item.  This flag option is
+ *   completely ignored when using the newer memcached PECL extension.
+ *
+ * @return bool
+ */
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
   global $_memcache_statistics;
   $_memcache_statistics['add'][] = $key;
@@ -64,6 +85,7 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
       return $mc->add($key, $value, $flag, $exp);
     }
   }
+  return FALSE;
 }
 
 /**
