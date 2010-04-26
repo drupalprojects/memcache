@@ -36,11 +36,52 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   $_memcache_statistics['bins'][] = $bin;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
-    if (!$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
+    if (class_exists('Memcached') && !$mc->set($full_key, $value, $exp)) {
+      return FALSE;
+    }
+    else if (class_exists('Memcache') && !$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
       return FALSE;
     }
     else {
       return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ *  Add an item into memcache
+ *
+ * @param $key The string with which you will retrieve this item later.
+ * @param $value The item to be stored.
+ * @param $exp Parameter expire is expiration time in seconds. If it's 0, the
+ *   item never expires (but memcached server doesn't guarantee this item to be
+ *   stored all the time, it could be deleted from the cache to make place for
+ *   other items).
+ * @param $bin The name of the Drupal subsystem that is making this call.
+ *   Examples could be 'cache', 'alias', 'taxonomy term' etc. It is possible
+ *   to map different $bin values to different memcache servers.
+ * @param $mc Optionally pass in the memcache object.  Normally this value is
+ *   determined automatically based on the bin the object is being stored to.
+ * @param $flag If using the older memcache PECL extension as opposed to the
+ *   newer memcached PECL extension, the MEMCACHE_COMPRESSED flag can be set
+ *   to use zlib to store a compressed copy of the item.  This flag option is
+ *   completely ignored when using the newer memcached PECL extension.
+ *
+ * @return bool
+ */
+function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
+  global $_memcache_statistics;
+  $_memcache_statistics['add'][] = $key;
+  $_memcache_statistics['bins'][] = $bin;
+  if ($mc || ($mc = dmemcache_object($bin))) {
+    $full_key = dmemcache_key($key, $bin);
+    error_log("setting: ". $full_key . gmdate('c') . "\n", 3, '/tmp/log');
+    if (class_exists('Memcached')) {
+      return $mc->add($key, $value, $exp);
+    }
+    else {
+      return $mc->add($key, $value, $flag, $exp);
     }
   }
   return FALSE;
@@ -151,7 +192,6 @@ function dmemcache_stats($bin = 'cache', $type = '') {
  * @return an Memcache object or FALSE.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
-  global $memcache_online;
   static $memcacheCache = array(), $memcache_servers, $memcache_bins;
 
   if ($flush) {
@@ -183,7 +223,16 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
     }
     else {
       // Create a new Memcache object. Each cluster gets its own Memcache object.
-      $memcache = new Memcache;
+      if (class_exists('Memcached')) {
+        $memcache = new Memcached;
+      }
+      else if (class_exists('Memcache')) {
+        $memcache = new Memcache;
+      }
+      else {
+        drupal_set_message(t('You must enable the PECL memcached or memcache extension to use memcache.inc.'), 'error');
+        return;
+      }
       // A variable to track whether we've connected to the first server.
       $init = FALSE;
 
@@ -193,20 +242,16 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           list($host, $port) = explode(':', $s);
 
           // This is a server that belongs to this cluster.
-          if (!$init) {
-            // First server gets the connect.
-            if (@$memcache->connect($host, $port)) {
-              // Only set init to true if a connection was made.
+          if (!class_exists('Memcached') && !$init) {
+            // If using PECL memcache extension, use ->connect for first server
+            if ($memcache->connect($host, $port)) {
               $init = TRUE;
-              $memcache_online = TRUE;
-            }
-            else {
-              $memcache_online = FALSE;
             }
           }
           else {
-            // Subsequent servers gett addServer.
-            @$memcache->addServer($host, $port);
+            if ($memcache->addServer($host, $port) && !$init) {
+              $init = TRUE;
+            }
           }
         }
       }

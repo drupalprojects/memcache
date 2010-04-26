@@ -34,7 +34,7 @@ function cache_get($cid, $table = 'cache') {
     // Load the prefix directory.
     if (!isset($memcached_prefixes[$table])) {
       $memcached_prefixes[$table] = dmemcache_get('.prefixes', $table);
-      if ($memcached_prefixes[$table] === FALSE) {
+      if (!is_array($memcached_prefixes[$table])) {
         $memcached_prefixes[$table] = array();
       }
       $memcached_counters[$table] = array();
@@ -99,7 +99,7 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
 
   if (!isset($memcached_prefixes[$table])) {
     $memcached_prefixes[$table] = dmemcache_get('.prefixes', $table);
-    if ($memcached_prefixes[$table] === FALSE) {
+    if (!is_array($memcached_prefixes[$table])) {
       $memcached_prefixes[$table] = array();
     }
     $memcached_counters[$table] = array();
@@ -220,7 +220,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // Load the prefix directory.
       if (!isset($memcached_prefixes[$table])) {
         $memcached_prefixes[$table] = dmemcache_get('.prefixes', $table);
-        if ($memcached_prefixes[$table] === FALSE) {
+        if (!is_array($memcached_prefixes[$table])) {
           $memcached_prefixes[$table] = array();
         }
       }
@@ -230,13 +230,13 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       if (!in_array($cid, $memcached_prefixes[$table])) {
         // Acquire a semaphore.
         $lock_key = dmemcache_key('.prefixes.lock', $table);
-        while (!$mc->add($lock_key, 1, FALSE, 10)) {
+        while (!dmemcache_add($lock_key, 1, 10)) {
           usleep(1000);
         }
 
         // Get a fresh copy of the prefix directory.
         $memcached_prefixes[$table] = dmemcache_get('.prefixes', $table);
-        if ($memcached_prefixes[$table] === FALSE) {
+        if (!is_array($memcached_prefixes[$table])) {
           $memcached_prefixes[$table] = array();
         }
 
