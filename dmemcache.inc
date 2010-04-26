@@ -235,9 +235,18 @@ function dmemcache_key($key, $bin = 'cache') {
   // memcache_key_prefix can be set in settings.php to support site namespaces
   // in a multisite environment.
   if (empty($prefix)) {
-    $prefix = variable_get('memcache_key_prefix', '');
+    if ($prefix = variable_get('memcache_key_prefix', '')) {
+      $prefix .= '-';
+    }
   }
-  $full_key = ($prefix ? $prefix. '-' : '') . $bin . '-' . $key;
+  $full_key = urlencode($prefix . $bin . '-' . $key);
 
-  return urlencode($full_key);
+  // Memcache only supports key lengths up to 250 bytes.  If we have generated
+  // a longer key, hash it with sha1 which will shrink the key down to 40 bytes
+  // while still keeping it unique.
+  if (strlen($full_key) > 250) {
+    $full_key = $prefix . $bin . '-' . sha1($key);
+  }
+
+  return $full_key;
 }
