@@ -186,7 +186,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // Load the prefix directory.
         if (!isset($memcached_prefixes[$this->bin])) {
           $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
-          if ($memcached_prefixes[$this->bin] === FALSE) {
+          if (!is_array($memcached_prefixes[$this->bin])) {
             $memcached_prefixes[$this->bin] = array();
           }
         }
@@ -196,13 +196,13 @@ class MemCacheDrupal implements DrupalCacheInterface {
         if (!in_array($cid, $memcached_prefixes[$this->bin])) {
           // Acquire a semaphore.
           $lock_key = dmemcache_key('.prefixes.lock', $this->bin);
-          while (!$mc->add($lock_key, 1, FALSE, 10)) {
+          while (!dmemcache_add($lock_key, 1, 10)) {
             usleep(1000);
           }
 
           // Get a fresh copy of the prefix directory.
           $memcached_prefixes[$this->bin] = dmemcache_get('.prefixes', $this->bin);
-          if ($memcached_prefixes[$this->bin] === FALSE) {
+          if (!is_array($memcached_prefixes[$this->bin])) {
             $memcached_prefixes[$this->bin] = array();
           }
 
