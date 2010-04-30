@@ -79,10 +79,10 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
     $full_key = dmemcache_key($key, $bin);
     error_log("setting: ". $full_key . gmdate('c') . "\n", 3, '/tmp/log');
     if (class_exists('Memcached')) {
-      return $mc->add($key, $value, $exp);
+      return $mc->add($full_key, $value, $exp);
     }
     else {
-      return $mc->add($key, $value, $flag, $exp);
+      return $mc->add($full_key, $value, $flag, $exp);
     }
   }
   return FALSE;
