@@ -68,6 +68,10 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
  *   to use zlib to store a compressed copy of the item.  This flag option is
  *   completely ignored when using the newer memcached PECL extension.
  *
+ * NOTE: dmemcache_get calls dmemcache_add when grabbing a semaphore.  For that
+ * reason, dmemcache_add can't call dmemcache_get for any reason or you'll end
+ * up in an infinite loop.
+ *
  * @return bool
  */
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
@@ -112,7 +116,7 @@ function dmemcache_get($key, $bin = 'cache') {
       // can be adjusted by setting the memcache_stampede_semaphore variable.
       // TODO: Can we log when a sempahore expires versus being intentionally
       // freed to track when this is happening?
-      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && $mc->add($full_key .'_semaphore', '', FALSE, variable_get('memcache_stampede_semaphore', 15))) {
+      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && dmemcache_add($full_key .'_semaphore', '', variable_get('memcache_stampede_semaphore', 15))) {
         $result = FALSE;
       }
       else {
