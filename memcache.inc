@@ -151,8 +151,13 @@ class MemCacheDrupal implements DrupalCacheInterface {
    */
   function hash_cid($cid) {
     static $hashes = array();
-    $memcache_hash = variable_get('memacache_hash', 'md5');
-    $hashes[$cid] = $memcache_hash($cid);
+    $memcache_hash = variable_get('memcache_hash', 'md5');
+    if (function_exists($memcache_hash)) {
+      $hashes[$cid] = $memcache_hash($cid);
+    }
+    else {
+      $hashes[$cid] = $cid;
+    }
     return $hashes[$cid];
   }
 
