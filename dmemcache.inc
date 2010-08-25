@@ -115,6 +115,8 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
  * @param $bin The bin in which the item was stored.
  *
  * @return The item which was originally saved or FALSE
+ *
+ * TODO: Record statistics w/ multi-get
  */
 function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
@@ -122,22 +124,15 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   $_memcache_statistics['bins'][] = $bin;
   $results = array();
   if ($mc || ($mc = dmemcache_object($bin))) {
+    $full_keys = array();
+    foreach ($keys as $key => $cid) {
+      $full_keys[] = dmemcache_key($cid, $bin);
+    }
     if (class_exists('Memcached')) {
-      $full_keys = array();
-      foreach ($keys as $key => $cid) {
-        $full_keys[] = dmemcache_key($cid, $bin);
-      }
       $results = $mc->getMulti($full_keys);
     }
     else {
-      // simulate multi-get
-      foreach ($keys as $key => $cid) {
-        $full_key = dmemcache_key($cid, $bin);
-        if ($result = $mc->get($full_key)) {
-          $results[$cid] = $result;
-          $_memcache_statistics['hit'][] = $cid;
-        }
-      }
+      $results = $mc->get($full_keys);
     }
   }
   return $results;
