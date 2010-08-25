@@ -324,21 +324,26 @@ function _memcache_session_user_load($session) {
     if (!$user && isset($session->uid) && $session->uid != 0) {
       $user = db_query('SELECT u.* FROM {users} u WHERE u.uid = :uid', array('uid' => $session->uid))->fetchObject();
 
-      $user = drupal_unpack($user);
-      // Normally we would join the session and user tables. But we already
-      // have the session information. So add that in.
-      $user->sid = $session->sid;
-      $user->cache = $session->cache;
-      $user->hostname = $session->hostname;
-      $user->timestamp = $session->timestamp;
-      $user->session = empty($session->session) ? '' : $session->session;
+      if (!$user->status) {
+        $user = drupal_anonymous_user($session->session);
+      }
+      else {
+        $user = drupal_unpack($user);
+        // Normally we would join the session and user tables. But we already
+        // have the session information. So add that in.
+        $user->sid = $session->sid;
+        $user->cache = $session->cache;
+        $user->hostname = $session->hostname;
+        $user->timestamp = $session->timestamp;
+        $user->session = empty($session->session) ? '' : $session->session;
 
-      // Add roles element to $user
-      $user->roles = array();
-      $user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
-      $result = db_query("SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = :uid", array('uid' => $user->uid));
-      foreach ($result as $role) {
-        $user->roles[$role->rid] = $role->name;
+        // Add roles element to $user
+        $user->roles = array();
+        $user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
+        $result = db_query("SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = %d", $user->uid);
+        while ($role = db_fetch_object($result)) {
+          $user->roles[$role->rid] = $role->name;
+        }
       }
     }
     else if ($user->uid) {
