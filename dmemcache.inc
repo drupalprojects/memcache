@@ -127,6 +127,36 @@ function dmemcache_get($key, $bin = 'cache') {
 }
 
 /**
+ * Retrieve multiple values from the cache.
+ *
+ * @param $keys The keys with which the items were stored.
+ * @param $bin The bin in which the item was stored.
+ *
+ * @return The item which was originally saved or FALSE
+ *
+ * TODO: Record statistics w/ multi-get
+ */
+function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
+  global $_memcache_statistics;
+  $_memcache_statistics['get'] = array_merge($_memcache_statistics['get'], $keys);
+  $_memcache_statistics['bins'][] = $bin;
+  $results = array();
+  if ($mc || ($mc = dmemcache_object($bin))) {
+    $full_keys = array();
+    foreach ($keys as $key => $cid) {
+      $full_keys[] = dmemcache_key($cid, $bin);
+    }
+    if (class_exists('Memcached')) {
+      $results = $mc->getMulti($full_keys);
+    }
+    else {
+      $results = $mc->get($full_keys);
+    }
+  }
+  return $results;
+}
+
+/**
  * Deletes an item from the cache.
  *
  * @param $key The key with which the item was stored.
