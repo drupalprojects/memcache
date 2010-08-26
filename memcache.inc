@@ -134,17 +134,11 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
     cache_clear_all('*', 'cache_page', TRUE);
     return;
   }
-  if (empty($cid) || ($cid == '*' && $wildcard !== TRUE)) {
-    // don't do anything if cid is unset. this matches the default drupal behavior...
-    if ($wildcard && $cid != '*') {
-      if (variable_get('memcache_debug', FALSE)) {
-        // call watchdog, since you probably didn't want to flush the entire bin.
-        watchdog('memcache', "illegal wildcard in cache_clear_all - not flushing entire bin. table: $table. cid: $cid", WATCHDOG_WARNING);
-      }
+  if (empty($cid) || $wildcard === TRUE) {
+    if ($cid == '*') {
+      $cid = '';
     }
-  }
-  else if ($cid == '*' || $wildcard === TRUE) {
-    if (variable_get('cache_lifetime', 0)) {
+    if (variable_get('cache_lifetime', 0) && empty($cid)) {
       // Update the timestamp of the last global flushing of this table.  When
       // retrieving data from this table, we will compare the cache creation
       // time minus the cache_flush time to the cache_lifetime to determine
@@ -165,9 +159,6 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       $_SESSION['cache_flush'] = $cache_tables;
     }
     else {
-      if ($cid == '*') {
-        $cid = '';
-      }
       // Register a wildcard flush for current cid
       memcache_wildcards($cid, $table, TRUE);
     }
