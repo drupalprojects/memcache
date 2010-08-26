@@ -219,7 +219,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * Check if a wildcard flush has invalidated the current cached copy.
    */
   private function wildcard_valid($cid, $cache) {
-    if ((int)$cache->flushes < (int)$this->wildcard_flushes($cid)) {
+    // Previously cached content won't have ->flushes defined.  We could
+    // force flush, but instead leave this up to the site admin.
+    $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
+    if ($flushes < (int)$this->wildcard_flushes($cid)) {
       return FALSE;
     }
     return TRUE;
