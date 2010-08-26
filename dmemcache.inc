@@ -36,14 +36,11 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   $_memcache_statistics['bins'][] = $bin;
   if ($mc = dmemcache_object($bin)) {
     $full_key = dmemcache_key($key, $bin);
-    if (class_exists('Memcached') && !$mc->set($full_key, $value, $exp)) {
-      return FALSE;
-    }
-    else if (class_exists('Memcache') && !$mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp)) {
-      return FALSE;
+    if (class_exists('Memcached')) {
+      return $mc->set($full_key, $value, $exp);
     }
     else {
-      return TRUE;
+      return $mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp);
     }
   }
   return FALSE;
