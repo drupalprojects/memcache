@@ -260,7 +260,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
         $memcache = new Memcache;
       }
       else {
-        drupal_set_message(t('You must enable the PECL memcached or memcache extension to use memcache.inc.'), 'error');
+        drupal_set_message('You must enable the PECL memcached or memcache extension to use memcache.inc.', 'error');
         return;
       }
       // A variable to track whether we've connected to the first server.
