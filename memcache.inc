@@ -1,9 +1,14 @@
 <?php
 // $Id$
 
+/** Implementation of cache.inc with memcache logic included **/
+
 require_once 'dmemcache.inc';
 
-/** Implementation of cache.inc with memcache logic included **/
+/**
+ * Defines the period after which wildcard clears are not considered valid.
+ */
+define('MEMCACHE_WILDCARD_INVALIDATE', 86400 * 28);
 
 /**
  * Return data from the persistent cache.
@@ -22,29 +27,38 @@ function cache_get($cid, $table = 'cache') {
   $cache_flush = variable_get("cache_flush_$table", 0);
   // Retrieve the item from the cache.
   $cache = dmemcache_get($cid, $table);
-  if (is_object($cache)) {
 
+  if (!is_object($cache)) {
+    return FALSE;
+  }
+
+  $wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
+  $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
+
+  // Only validate against wildcard flushes if this table has seen a recent
+  // wildcard flush, as there is overhead in checking for wildcard flushes.
+  if (!empty($wildcard_timestamps[$table]) &&
+      $wildcard_timestamps[$table] >= (REQUEST_TIME - $wildcard_invalidate)) {
     // Previously cached content won't have ->flushes defined.  We could
     // force flush, but instead leave this up to the site admin.
     $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
     if ($flushes < memcache_wildcard_flushes($cid, $table)) {
-      return 0;
+      return FALSE;
     }
-
-    $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
-    // Items cached before the cache was last flushed are no longer valid.
-    $cache_lifetime = variable_get('cache_lifetime', 0);
-    if ($cache_lifetime && $cache->created && $cache_flush &&
-        ($cache->created < $cache_flush) &&
-        ((time() - $cache->created >= $cache_lifetime)) ||
-        (is_array($cache_tables) && isset($cache_tables[$table]) &&
-        $cache_tables[$table] > $cache->created)) {
-      // Cache item expired, return NULL.
-      return 0;
-    }
-    return $cache;
   }
-  return 0;
+
+  $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
+  // Items cached before the cache was last flushed are no longer valid.
+  $cache_lifetime = variable_get('cache_lifetime', 0);
+  if ($cache_lifetime && $cache->created && $cache_flush &&
+      ($cache->created < $cache_flush) &&
+      ((REQUEST_TIME - $cache->created >= $cache_lifetime)) ||
+      (is_array($cache_tables) && isset($cache_tables[$table]) &&
+      $cache_tables[$table] > $cache->created)) {
+    // Cache item expired, return FALSE.
+    return FALSE;
+  }
+  return $cache;
 }
 
 /**
@@ -71,7 +85,7 @@ function cache_get($cid, $table = 'cache') {
  *   A string containing HTTP header information for cached pages.
  */
 function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL) {
-  $created = time();
+  $created = REQUEST_TIME;
 
   // Create new cache object.
   $cache = new stdClass;
@@ -84,13 +98,13 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   if ($expire == CACHE_TEMPORARY) {
     // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
     // until the next flush.
-    $cache->expire = time() + 2591999;
+    $cache->expire = REQUEST_TIME + 2591999;
   }
   // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
   else if ($expire != CACHE_PERMANENT && $expire < 2592000) {
     // Expire is expressed in seconds, convert to the proper future timestamp
     // as expected in dmemcache_get().
-    $cache->expire = time() + $expire;
+    $cache->expire = REQUEST_TIME + $expire;
   }
   else {
     $cache->expire = $expire;
@@ -143,7 +157,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // retrieving data from this table, we will compare the cache creation
       // time minus the cache_flush time to the cache_lifetime to determine
       // whether or not the cached item is still valid.
-      variable_set("cache_flush_$table", time());
+      variable_set("cache_flush_$table", REQUEST_TIME);
 
       // We store the time in the current user's session which is saved into
       // the sessions table by sess_write().  We then simulate that the cache
@@ -155,7 +169,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       else {
         $cache_tables = array();
       }
-      $cache_tables[$table] = time();
+      $cache_tables[$table] = REQUEST_TIME;
       $_SESSION['cache_flush'] = $cache_tables;
     }
     else {
@@ -217,6 +231,17 @@ function memcache_wildcard_flushes($cid, $table) {
  */
 function memcache_wildcards($cid, $table, $flush = FALSE) {
   static $wildcards = array();
+
+  $wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
+  $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
+  // If this bin has never had a wildcard flush, or the last wildcard flush
+  // was more than a month ago, simply return an empty array to indicate that
+  // it has never been flushed and to avoid the overhead of a wildcard lookup.
+  if (!$flush && (!isset($wildcard_timestamps[$table]) ||
+      $wildcard_timestamps[$table] <= (REQUEST_TIME - $wildcard_invalidate))) {
+    return array();
+  }
+
   if (!isset($wildcard[$table]) || !isset($wildcards[$table][$cid])) {
     $multihash = memcache_multihash_cid($cid, $table);
     $wildcards[$table][$cid] = dmemcache_get_multi($multihash, $table);
@@ -225,6 +250,16 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     }
   }
   if ($flush) {
+    if (!empty($cid)) {
+      // Avoid too many variable_set() by only recording a flush for
+      // a fraction of the wildcard invalidation variable. Defaults to
+      // 28 / 4 = one week.
+      if (!isset($wildcard_timestamps[$table]) ||
+          (REQUEST_TIME - $wildcard_timestamps[$table] > $wildcard_invalidate / 4)) {
+        $wildcard_timestamps[$table] = REQUEST_TIME;
+        variable_set('memcache_wildcard_timestamps', $wildcard_timestamps);
+      }
+    }
     $hash = memcache_hash_cid($cid, $table);
     $wildcard = dmemcache_key('.wildcard-' . $table . $hash, $table);
     if (isset($wildcards[$table][$cid][$wildcard])) {
