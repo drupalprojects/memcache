@@ -6,8 +6,6 @@
  * See includes/lock.inc for documenation
  */
 
-require_once dirname(__FILE__) . '/dmemcache.inc';
-
 // Set up a define to make the code more readable, so we know we're setting a
 // value for our lock and not simply passing dmemcache a flag.
 define('LOCK_VALUE', TRUE);
