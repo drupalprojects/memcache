@@ -1,5 +1,13 @@
 // $Id$
 
+## Requirements ##
+
+- PHP 5.1 or greater
+- Availability of a memcached daemon: http://memcached.org/
+- One of the two PECL memcache packages:
+  - http://pecl.php.net/package/memcache
+  - http://pecl.php.net/package/memcached (recommended
+
 ## INSTALLATION ##
 
 These are the broad steps you need to take in order to use this software. Order
