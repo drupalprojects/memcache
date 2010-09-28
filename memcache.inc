@@ -44,7 +44,7 @@ function cache_get($key, $table = 'cache') {
  *   to memcache.
  */
 function cache_set($cid, $table = 'cache', $data, $expire = CACHE_PERMANENT, $headers = NULL) {
-  $time = time();
+  $time = $_SERVER['REQUEST_TIME'];
 
   // Create new cache object.
   $cache = new stdClass;

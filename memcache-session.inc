@@ -52,13 +52,13 @@ function sess_write($key, $value) {
   $session->cache = $user->cache;
   $session->hostname = $_SERVER["REMOTE_ADDR"];
   $session->session = $value;
-  $session->timestamp = time();
+  $session->timestamp = $_SERVER['REQUEST_TIME'];
 
   if ($user->uid || $value) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
     dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
-    if ($user->uid && $user->access < time() - 300) {
-      db_query("UPDATE {users} SET access = %d WHERE uid = %d", time(), $user->uid);
+    if ($user->uid && $user->access < $_SERVER['REQUEST_TIME'] - 300) {
+      db_query("UPDATE {users} SET access = %d WHERE uid = %d", $_SERVER['REQUEST_TIME'], $user->uid);
     }
   }
 
@@ -72,7 +72,7 @@ function sess_regenerate() {
   // regardless of the Drupal configuration.
   // TODO: remove this when we require at least PHP 4.4.0
   if (isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 42000, '/');
+    setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 42000, '/');
   }
 
   // Store the current (anonymous) session id.
