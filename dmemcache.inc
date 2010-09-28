@@ -10,7 +10,7 @@
  */
 
 global $_memcache_statistics;
-$_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array());
+$_memcache_statistics = array();
 
 /*
  * A memcache API for Drupal.
@@ -35,10 +35,9 @@ $_memcache_statistics = array('get' => array(), 'set' => array(), 'hit' => array
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
-  $_memcache_statistics['set'][] = $key;
-  $_memcache_statistics['bins'][] = $bin;
+  $full_key = dmemcache_key($key, $bin);
+  $_memcache_statistics[] = array('set', $bin, $full_key, '');
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $full_key = dmemcache_key($key, $bin);
     if (class_exists('Memcached')) {
       return $mc->set($full_key, $value, $exp);
     }
@@ -72,10 +71,9 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
  */
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
   global $_memcache_statistics;
-  $_memcache_statistics['add'][] = $key;
-  $_memcache_statistics['bins'][] = $bin;
+  $full_key = dmemcache_key($key, $bin);
+  $_memcache_statistics[] = array('add', $bin, $full_key, '');
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $full_key = dmemcache_key($key, $bin);
     if (class_exists('Memcached')) {
       return $mc->add($full_key, $value, $exp);
     }
@@ -96,16 +94,18 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
  */
 function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
-  $_memcache_statistics['get'][] = $key;
-  $_memcache_statistics['bins'][] = $bin;
+  $full_key = dmemcache_key($key, $bin);
+  $statistics = array('get', $bin, $full_key);
+  $success = '0';
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $full_key = dmemcache_key($key, $bin);
     $result = $mc->get($full_key);
     if ($result) {
-      $_memcache_statistics['hit'][] = $key;
-      return $result;
+      $success = '1';
     }
   }
+  $statistics[] = $success;
+  $_memcache_statistics[] = $statistics;
+  return $result;
 }
 
 /**
@@ -115,25 +115,28 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
  * @param $bin The bin in which the item was stored.
  *
  * @return The item which was originally saved or FALSE
- *
- * TODO: Record statistics w/ multi-get
  */
 function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
-  $_memcache_statistics['get'] = array_merge($_memcache_statistics['get'], $keys);
-  $_memcache_statistics['bins'][] = $bin;
+  $full_keys = array();
+  $statistics = array();
+  foreach ($keys as $key => $cid) {
+    $full_key = dmemcache_key($cid, $bin);
+    $statistics[$full_key] = array('getMulti', $bin, $full_key);
+    $full_keys[] = $full_key;
+  }
   $results = array();
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $full_keys = array();
-    foreach ($keys as $key => $cid) {
-      $full_keys[] = dmemcache_key($cid, $bin);
-    }
     if (class_exists('Memcached')) {
       $results = $mc->getMulti($full_keys);
     }
     else {
       $results = $mc->get($full_keys);
     }
+  }
+  foreach ($statistics as $key => $values) {
+    $values[] = isset($results[$key]) ? '1': '0';
+    $_memcache_statistics[] = $values;
   }
   return $results;
 }
@@ -147,8 +150,10 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
  * @return Returns TRUE on success or FALSE on failure.
  */
 function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
+  global $_memcache_statistics;
+  $full_key = dmemcache_key($key, $bin);
+  $_memcache_statistics[] = array('delete', $bin, $full_key, '');
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $full_key = dmemcache_key($key, $bin);
     return $mc->delete($full_key);
   }
   return FALSE;
@@ -165,6 +170,8 @@ function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
  * @return Returns TRUE on success or FALSE on failure.
  */
 function dmemcache_flush($bin = 'cache', $mc = NULL) {
+  global $_memcache_statistics;
+  $_memcache_statistics[] = array('flush', $bin, '', '');
   if ($mc || ($mc = dmemcache_object($bin))) {
     return memcache_flush($mc);
   }
