@@ -87,7 +87,7 @@ function sess_write($key, $value) {
   $session->cache = isset($user->cache) ? $user->cache : '';
   $session->hostname = ip_address();
   $session->session = $value;
-  $session->timestamp = time();
+  $session->timestamp = $_SERVER['REQUEST_TIME'];
 
   // If this is an authenticated user, or there is something to save in the
   // session, or this is an anonymous user who currently has nothing in the 
@@ -123,7 +123,7 @@ function sess_regenerate() {
   // regardless of the Drupal configuration.
   // TODO: remove this when we require at least PHP 4.4.0
   if (isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 42000, '/');
+    setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 42000, '/');
   }
 
   // Store the current (anonymous) session id.

@@ -110,7 +110,7 @@ function dmemcache_get($key, $bin = 'cache') {
       // can be adjusted by setting the memcache_stampede_semaphore variable.
       // TODO: Can we log when a sempahore expires versus being intentionally
       // freed to track when this is happening?
-      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= time() && dmemcache_add($full_key .'_semaphore', '', variable_get('memcache_stampede_semaphore', 15))) {
+      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= $_SERVER['REQUEST_TIME'] && dmemcache_add($full_key .'_semaphore', '', variable_get('memcache_stampede_semaphore', 15))) {
         $result = FALSE;
       }
       else {

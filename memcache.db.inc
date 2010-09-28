@@ -24,7 +24,7 @@ function cache_get($cid, $table = 'cache') {
 
   // Garbage collection necessary when enforcing a minimum cache lifetime
   $cache_flush = variable_get('cache_flush_'. $table, 0);
-  if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= time())) {
+  if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= $_SERVER['REQUEST_TIME'])) {
     // Reset the variable immediately to prevent a meltdown in heavy load situations.
     variable_set('cache_flush_'. $table, 0);
     // Time to flush old cache data
@@ -127,7 +127,7 @@ function cache_get($cid, $table = 'cache') {
  */
 function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL, $db_storage = TRUE) {
   global $memcache_online;
-  $created = time();
+  $created = $_SERVER['REQUEST_TIME'];
 
   // Create new cache object.
   $cache = new stdClass;
@@ -152,7 +152,7 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   // Save to memcache
   if ($expire == CACHE_TEMPORARY) {
     // 2591199 seconds = about 1 month
-    $expire = time() + variable_get('cache_lifetime', 2591999);
+    $expire = $_SERVER['REQUEST_TIME'] + variable_get('cache_lifetime', 2591999);
   }
   if ($memcache_online !== FALSE) {
     dmemcache_set($cid, $cache, $expire, $table);
@@ -197,17 +197,17 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // will be saved into the sessions table by sess_write(). We then
       // simulate that the cache was flushed for this user by not returning
       // cached data that was cached before the timestamp.
-      $user->cache = time();
+      $user->cache = $_SERVER['REQUEST_TIME'];
 
       $cache_flush = variable_get('cache_flush_'. $table, 0);
       if ($cache_flush == 0) {
         // This is the first request to clear the cache, start a timer.
-        variable_set('cache_flush_'. $table, time());
+        variable_set('cache_flush_'. $table, $_SERVER['REQUEST_TIME']);
       }
-      else if (time() > ($cache_flush + variable_get('cache_lifetime', 0))) {
+      else if ($_SERVER['REQUEST_TIME'] > ($cache_flush + variable_get('cache_lifetime', 0))) {
         // Clear the cache for everyone, cache_lifetime seconds have
         // passed since the first request to clear the cache.
-        db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, time());
+        db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, $_SERVER['REQUEST_TIME']);
         variable_set('cache_flush_'. $table, 0);
         // Note there is no memcache flush here.
         // Items are cached in memcache with an expiry equal to cache_lifetime
@@ -221,7 +221,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // minimum cache lifetime means that all CACHE_PERMANENT items are
       // lost here, too. To avoid that, set a minimum cache lifetime.
       dmemcache_flush($table);
-      db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, time());
+      db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, $_SERVER['REQUEST_TIME']);
     }
   }
   else {

@@ -38,7 +38,7 @@ function cache_get($cid, $table = 'cache') {
   // Only validate against wildcard flushes if this table has seen a recent
   // wildcard flush, as there is overhead in checking for wildcard flushes.
   if (!empty($wildcard_timestamps[$table]) &&
-      $wildcard_timestamps[$table] >= (REQUEST_TIME - $wildcard_invalidate)) {
+      $wildcard_timestamps[$table] >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
     // Previously cached content won't have ->flushes defined.  We could
     // force flush, but instead leave this up to the site admin.
     $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
@@ -52,7 +52,7 @@ function cache_get($cid, $table = 'cache') {
   $cache_lifetime = variable_get('cache_lifetime', 0);
   if ($cache_lifetime && $cache->created && $cache_flush &&
       ($cache->created < $cache_flush) &&
-      ((REQUEST_TIME - $cache->created >= $cache_lifetime)) ||
+      (($_SERVER['REQUEST_TIME'] - $cache->created >= $cache_lifetime)) ||
       (is_array($cache_tables) && isset($cache_tables[$table]) &&
       $cache_tables[$table] > $cache->created)) {
     // Cache item expired, return FALSE.
@@ -85,7 +85,7 @@ function cache_get($cid, $table = 'cache') {
  *   A string containing HTTP header information for cached pages.
  */
 function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL) {
-  $created = REQUEST_TIME;
+  $created = $_SERVER['REQUEST_TIME'];
 
   // Create new cache object.
   $cache = new stdClass;
@@ -98,13 +98,13 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   if ($expire == CACHE_TEMPORARY) {
     // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
     // until the next flush.
-    $cache->expire = REQUEST_TIME + 2591999;
+    $cache->expire = $_SERVER['REQUEST_TIME'] + 2591999;
   }
   // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
   else if ($expire != CACHE_PERMANENT && $expire < 2592000) {
     // Expire is expressed in seconds, convert to the proper future timestamp
     // as expected in dmemcache_get().
-    $cache->expire = REQUEST_TIME + $expire;
+    $cache->expire = $_SERVER['REQUEST_TIME'] + $expire;
   }
   else {
     $cache->expire = $expire;
@@ -157,7 +157,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // retrieving data from this table, we will compare the cache creation
       // time minus the cache_flush time to the cache_lifetime to determine
       // whether or not the cached item is still valid.
-      variable_set("cache_flush_$table", REQUEST_TIME);
+      variable_set("cache_flush_$table", $_SERVER['REQUEST_TIME']);
 
       // We store the time in the current user's session which is saved into
       // the sessions table by sess_write().  We then simulate that the cache
@@ -169,7 +169,7 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       else {
         $cache_tables = array();
       }
-      $cache_tables[$table] = REQUEST_TIME;
+      $cache_tables[$table] = $_SERVER['REQUEST_TIME'];
       $_SESSION['cache_flush'] = $cache_tables;
     }
     else {
@@ -238,7 +238,7 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
   // was more than a month ago, simply return an empty array to indicate that
   // it has never been flushed and to avoid the overhead of a wildcard lookup.
   if (!$flush && (!isset($wildcard_timestamps[$table]) ||
-      $wildcard_timestamps[$table] <= (REQUEST_TIME - $wildcard_invalidate))) {
+      $wildcard_timestamps[$table] <= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate))) {
     return array();
   }
 
@@ -255,8 +255,8 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
       // a fraction of the wildcard invalidation variable. Defaults to
       // 28 / 4 = one week.
       if (!isset($wildcard_timestamps[$table]) ||
-          (REQUEST_TIME - $wildcard_timestamps[$table] > $wildcard_invalidate / 4)) {
-        $wildcard_timestamps[$table] = REQUEST_TIME;
+          ($_SERVER['REQUEST_TIME'] - $wildcard_timestamps[$table] > $wildcard_invalidate / 4)) {
+        $wildcard_timestamps[$table] = $_SERVER['REQUEST_TIME'];
         variable_set('memcache_wildcard_timestamps', $wildcard_timestamps);
       }
     }
