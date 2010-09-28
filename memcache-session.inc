@@ -84,7 +84,7 @@ function _drupal_session_write($key, $value) {
   $session->cache = isset($user->cache) ? $user->cache : '';
   $session->hostname = ip_address();
   $session->session = $value;
-  $session->timestamp = time();
+  $session->timestamp = $_SERVER['REQUEST_TIME'];
 
   // If this is an authenticated user, or there is something to save in the
   // session, or this is an anonymous user who currently has nothing in the
