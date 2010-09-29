@@ -273,6 +273,15 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
       // Create a new Memcache object. Each cluster gets its own Memcache object.
       if (class_exists('Memcached')) {
         $memcache = new Memcached;
+        $default_opts = array (
+          Memcached::OPT_COMPRESSION => false,
+          Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
+          Memcached::OPT_BINARY_PROTOCOL => true,
+        );
+        $memconf = variable_get('memcache_options', $default_opts);
+        foreach ($memconf as $key => $value) {
+          $memcache->setOption($key, $value);
+        }
       }
       else if (class_exists('Memcache')) {
         $memcache = new Memcache;
