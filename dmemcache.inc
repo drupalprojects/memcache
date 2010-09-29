@@ -195,10 +195,20 @@ function dmemcache_stats($bin = 'cache', $type = '') {
     // If $type is 'default', then no parameter should be passed to the
     // Memcache memcache_get_extended_stats() function.
     if ($type == 'default' || $type == '') {
-      return memcache_getExtendedStats($mc);
+      if (class_exists('Memcached')) {
+        return $mc->getStats();
+      }
+      else if (class_exists('Memcache')) {
+        return $mc->getExtendedStats();
+      }
     }
     else {
-      return memcache_getExtendedStats($mc, $type);
+      if (class_exists('Memcached')) {
+        return $mc->getStats();        
+      }
+      else if (class_exists('Memcache')) {
+        return $mc->getExtendedStats($type);
+      }
     }
   }
 }
