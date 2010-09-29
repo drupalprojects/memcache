@@ -236,13 +236,16 @@ function memcache_admin_shutdown() {
   }
 
   if (variable_get('show_memcache_statistics', TRUE) && function_exists('user_access') && user_access('access memcache statistics')) {
-    $stats = array();
+    $data = array();
 
-    foreach ($_memcache_statistics as $stat => $val) {
-      $stats[] = "<strong>$stat:</strong> ". theme('item_list', $val);
+    foreach ($_memcache_statistics as $bin => $stats) {
+      foreach ($stats as $key => $value) {
+        $stats[$key] = check_plain($value);
+      }
+      $data[] = "<strong>$stat:</strong> ". theme('item_list', $stats);
     }
-    if (!empty($stats)) {
-      $output = theme('item_list', $stats);
+    if (!empty($data)) {
+      $output = theme('item_list', $data);
 
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
       print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output. '</div>';

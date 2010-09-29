@@ -6,6 +6,17 @@
  * User session handling functions.
  */
 
+/**
+ * Implement hook_user() using a required module's namespace since memcache is 
+ * not a module and thus can't implement hooks directly.
+ */
+function filter_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'update') {
+    // Invalidate cached user object.
+    cache_clear_all($account->uid, 'users');
+  }
+}
+
 function sess_open($save_path, $session_name) {
   return TRUE;
 }
@@ -53,6 +64,10 @@ function sess_write($key, $value) {
   $session->hostname = $_SERVER["REMOTE_ADDR"];
   $session->session = $value;
   $session->timestamp = $_SERVER['REQUEST_TIME'];
+ 
+  // Be sure that we have the latest user object.  If user_save() has been
+  // called, we need to refresh the object from the database.
+  $user = sess_user_load($session);
 
   if ($user->uid || $value) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
