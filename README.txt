@@ -204,16 +204,21 @@ configure memcached in settings.php. Please look here for possible options:
 http://us2.php.net/manual/en/memcached.constants.php
 
 An example configuration block is below, this block also illustrates our
-default options. These will be set even if you add nothing to settings.php.
+default options. These will be set unless overridden in settings.php.
 
 $conf['memcache_options'] = array(
-  Memcached::OPT_COMPRESSION => false,
+  Memcached::OPT_COMPRESSION => FALSE,
   Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
-  Memcached::OPT_BINARY_PROTOCOL => true,
 );
 
 These are as follows:
 
- * Turn off compression, as compression takes more CPU cyles than its worth for most users
- * Turn on the binary protocol, which is more advanced and faster
+ * Turn off compression, as this takes more CPU cycles than its worth for most users
  * Turn on consistent distribution, which allows you to add/remove servers easily
+
+If you are using memcached 1.4 or above, you should enable the binary protocol,
+which is more advanced and faster, by adding the following to settings.php:
+
+$conf['memcache_options'] = array(
+  Memcached::OPT_BINARY_PROTOCOL => TRUE,
+);
