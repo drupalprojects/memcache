@@ -204,7 +204,7 @@ function dmemcache_stats($bin = 'cache', $type = '') {
     }
     else {
       if (class_exists('Memcached')) {
-        return $mc->getStats();        
+        return $mc->getStats();
       }
       else if (class_exists('Memcache')) {
         return $mc->getExtendedStats($type);
