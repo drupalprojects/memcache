@@ -240,6 +240,11 @@ function memcache_admin_shutdown() {
 
   if (variable_get('show_memcache_statistics', TRUE) && function_exists('user_access') && user_access('access memcache statistics')) {
     if (!empty($_memcache_statistics)) {
+      foreach ($_memcache_statistics as $row => $stats) {
+        $_memcache_statistics[$row][1] = check_plain($stats[1]);
+        $_memcache_statistics[$row][2] = check_plain($stats[2]);
+      }
+
       $variables = array('header' => array(t('Operation'), t('Bin'), t('Key'), t('Hit')),
                          'rows' => $_memcache_statistics);
       $output = theme('table', $variables);

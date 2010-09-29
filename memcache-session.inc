@@ -10,6 +10,17 @@ require_once dirname(__FILE__) . '/dmemcache.inc';
  * An alternative to includes/session.inc.
  */
 
+/**
+ * Implement hook_user() using a required module's namespace since memcache is 
+ * not a module and thus can't implement hooks directly.
+ */
+function filter_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'update') {
+    // Invalidate cached user object.
+    cache_clear_all($account->uid, 'users');
+  }
+}
+
 function _drupal_session_open() {
   return TRUE;
 }
@@ -86,6 +97,10 @@ function _drupal_session_write($key, $value) {
   $session->session = $value;
   $session->timestamp = REQUEST_TIME;
 print $session->timestamp;
+
+  // Be sure that we have the latest user object.  If user_save() has been
+  // called, we need to refresh the object from the database.
+  $user = sess_user_load($session);
 
   // If this is an authenticated user, or there is something to save in the
   // session, or this is an anonymous user who currently has nothing in the
