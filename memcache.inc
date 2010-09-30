@@ -187,13 +187,16 @@ class MemCacheDrupal implements DrupalCacheInterface {
    */
   private function multihash_cid($cid) {
     static $hashes = array();
-    if (!isset($hashes[$cid])) {
+    if (!isset($hashes[$this->bin])) {
+      $hashes[$this->bin] = array();
+    }
+    if (!isset($hashes[$this->bin][$cid])) {
       for ($i = 0; $i <= strlen($cid); $i++) {
         $subcid = substr($cid, 0, $i);
-        $hashes[$cid][$subcid] = '.wildcard-'. $this->bin . $this->hash_cid($subcid);
+        $hashes[$this->bin][$cid][$subcid] = '.wildcard-'. $this->bin . $this->hash_cid($subcid);
       }
     }
-    return $hashes[$cid];
+    return $hashes[$this->bin][$cid];
   }
 
   /**
