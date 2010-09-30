@@ -206,13 +206,16 @@ function memcache_hash_cid($cid) {
  */
 function memcache_multihash_cid($cid, $table) {
   static $hashes = array();
-  if (!isset($hashes[$cid])) {
+  if (!isset($hashes[$table])) {
+    $hashes[$table] = array();
+  }
+  if (!isset($hashes[$table][$cid])) {
     for ($i = 0; $i <= strlen($cid); $i++) {
       $subcid = substr($cid, 0, $i);
-      $hashes[$cid][$subcid] = '.wildcard-'. $table . memcache_hash_cid($subcid);
+      $hashes[$table][$cid][$subcid] = '.wildcard-'. $table . memcache_hash_cid($subcid);
     }
   }
-  return $hashes[$cid];
+  return $hashes[$table][$cid];
 }
 
 /**
