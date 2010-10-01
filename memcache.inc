@@ -224,7 +224,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       return array();
     }
 
-    if (!isset($wildcard[$this->bin]) || !isset($wildcards[$this->bin][$cid])) {
+    if (!isset($wildcards[$this->bin]) || !isset($wildcards[$this->bin][$cid])) {
       $multihash = $this->multihash_cid($cid);
       $wildcards[$this->bin][$cid] = dmemcache_get_multi($multihash, $this->bin);
       if (!is_array($wildcards[$this->bin][$cid])) {
