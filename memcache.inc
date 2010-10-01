@@ -245,7 +245,7 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     return array();
   }
 
-  if (!isset($wildcard[$table]) || !isset($wildcards[$table][$cid])) {
+  if (!isset($wildcards[$table]) || !isset($wildcards[$table][$cid])) {
     $multihash = memcache_multihash_cid($cid, $table);
     $wildcards[$table][$cid] = dmemcache_get_multi($multihash, $table);
     if (!is_array($wildcards[$table][$cid])) {
