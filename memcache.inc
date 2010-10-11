@@ -247,12 +247,13 @@ class MemCacheDrupal implements DrupalCacheInterface {
       if (isset($wildcards[$this->bin][$cid][$wildcard])) {
         $mc = dmemcache_object($this->bin);
         $mc->increment($wildcard);
-        $wildcards[$this->bin][$cid][$wildcard]++;
       }
       else {
-        $wildcards[$this->bin][$cid][$wildcard] = 1;
-        dmemcache_set('.wildcard-' . $this->bin . $hash, 1, 0, $this->bin);
+        dmemcache_set('.wildcard-' . $this->bin . $hash, '1', 0, $this->bin);
       }
+      // A wildcard flush may invalidate anything in our static cache, so we
+      // dump it and rebuild it later if necessary.
+      unset($wildcards[$this->bin]);
     }
     return $wildcards[$this->bin][$cid];
   }
