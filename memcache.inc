@@ -268,12 +268,13 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     if (isset($wildcards[$table][$cid][$wildcard])) {
       $mc = dmemcache_object($table);
       $mc->increment($wildcard);
-      $wildcards[$table][$cid][$wildcard]++;
     }
     else {
-      $wildcards[$table][$cid][$wildcard] = 1;
-      dmemcache_set('.wildcard-' . $table . $hash, 1, 0, $table);
+      dmemcache_set('.wildcard-' . $table . $hash, '1', 0, $table);
     }
+    // A wildcard flush may invalidate anything in our static cache, so we
+    // dump it and rebuild it later if necessary.
+    unset($wildcards[$table]);
   }
   return $wildcards[$table][$cid];
 }
