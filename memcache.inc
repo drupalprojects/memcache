@@ -32,13 +32,13 @@ function cache_get($cid, $table = 'cache') {
     return FALSE;
   }
 
-  $wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
+  $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
 
   // Only validate against wildcard flushes if this table has seen a recent
   // wildcard flush, as there is overhead in checking for wildcard flushes.
-  if (!empty($wildcard_timestamps[$table]) &&
-      $wildcard_timestamps[$table] >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
+  if (!empty($wildcard_flushes[$table]) &&
+      max($wildcard_flushes[$table]) >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
     // Previously cached content won't have ->flushes defined.  We could
     // force flush, but instead leave this up to the site admin.
     $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
@@ -54,7 +54,7 @@ function cache_get($cid, $table = 'cache') {
       ($cache->created < $cache_flush) &&
       (($_SERVER['REQUEST_TIME'] - $cache->created >= $cache_lifetime)) ||
       (is_array($cache_tables) && isset($cache_tables[$table]) &&
-      $cache_tables[$table] > $cache->created)) {
+      $cache_tables[$table] >= $cache->created)) {
     // Cache item expired, return FALSE.
     return FALSE;
   }
@@ -183,42 +183,6 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
 }
 
 /**
- * We hash cids to keep them a consistent, managable length.  Alternative algorithms
- * can be specified if you're looking for better performance (benchmark first!).
- * Hash collissions are not a big deal, simply leads to all collided items being
- * flushed together.
- */
-function memcache_hash_cid($cid) {
-  static $hashes = array();
-  $memcache_hash = variable_get('memcache_hash', 'md5');
-  if (function_exists($memcache_hash)) {
-    $hashes[$cid] = $memcache_hash($cid);
-  }
-  else {
-    $hashes[$cid] = $cid;
-  }
-  return $hashes[$cid];
-}
-
-/**
- * Determine all possible hashes that could match our cid.  We optimize away
- * the overhead of checking all possible matches by using multiget.
- */
-function memcache_multihash_cid($cid, $table) {
-  static $hashes = array();
-  if (!isset($hashes[$table])) {
-    $hashes[$table] = array();
-  }
-  if (!isset($hashes[$table][$cid])) {
-    for ($i = 0; $i <= strlen($cid); $i++) {
-      $subcid = substr($cid, 0, $i);
-      $hashes[$table][$cid][$subcid] = '.wildcard-'. $table . memcache_hash_cid($subcid);
-    }
-  }
-  return $hashes[$table][$cid];
-}
-
-/**
  * Sum of all matching wildcards.  Checking any single cache item's flush value
  * against this single-value sum tells us whether or not a new wildcard flush
  * has affected the cached item.
@@ -228,55 +192,82 @@ function memcache_wildcard_flushes($cid, $table) {
 }
 
 /**
- * Utilize multiget to retrieve all possible wildcard matches, storing statically
- * so multiple cache requests for the same item on the same page load doesn't add
- * overhead.
+ * Utilize multiget to retrieve all possible wildcard matches, storing
+ * statically so multiple cache requests for the same item on the same page
+ * load doesn't add overhead.
  */
 function memcache_wildcards($cid, $table, $flush = FALSE) {
   static $wildcards = array();
+  $matching = array();
 
-  $wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
+  $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
-  // If this bin has never had a wildcard flush, or the last wildcard flush
-  // was more than a month ago, simply return an empty array to indicate that
-  // it has never been flushed and to avoid the overhead of a wildcard lookup.
-  if (!$flush && (!isset($wildcard_timestamps[$table]) ||
-      $wildcard_timestamps[$table] <= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate))) {
-    return array();
-  }
+  if (isset($wildcard_flushes[$table]) &&
+      is_array($wildcard_flushes[$table])) {
+    // Determine which lookups we need to perform to determine whether or not
+    // our cid was impacted by a wildcard flush.
+    $lookup = array();
 
-  if (!isset($wildcards[$table]) || !isset($wildcards[$table][$cid])) {
-    $multihash = memcache_multihash_cid($cid, $table);
-    $wildcards[$table][$cid] = dmemcache_get_multi($multihash, $table);
-    if (!is_array($wildcards[$table][$cid])) {
-      $wildcards[$table][$cid] = array();
+    // Find statically cached wildcards, and determine possibly matching
+    // wildcards for this cid based on a history of the lengths of past valid
+    // wildcard flushes in this bin.
+    foreach ($wildcard_flushes[$table] as $length => $timestamp) {
+      if ($timestamp >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
+        $key = '.wildcard-' . substr($cid, 0, $length);
+        $wildcard = dmemcache_key($key, $table);
+        if (isset($wildcards[$table][$wildcard])) {
+          $matching[$wildcard] = $wildcards[$table][$wildcard];
+        }
+        else {
+          $lookup[$wildcard] = $key;
+        }
+      }
+    }
+
+    // Do a multi-get to retrieve all possibly matching wildcard flushes.
+    if (!empty($lookup)) {
+      $values = dmemcache_get_multi($lookup, $table);
+      if (is_array($values)) {
+        // Build an array of matching wildcards.
+        $matching = array_merge($matching, $values);
+        if (isset($wildcards[$table])) {
+          $wildcards[$table] = array_merge($wildcards[$table], $values);
+        }
+        else {
+          $wildcards[$table] = $values;
+        }
+        $lookup = array_diff_key($lookup, $values);
+      }
+
+      // Also store failed lookups in our static cache, so we don't have to
+      // do repeat lookups on single page loads.
+      foreach ($lookup as $wildcard => $key) {
+        $wildcards[$table][$wildcard] = 0;
+      }
     }
   }
   if ($flush) {
-    if (!empty($cid)) {
-      // Avoid too many variable_set() by only recording a flush for
-      // a fraction of the wildcard invalidation variable. Defaults to
-      // 28 / 4 = one week.
-      if (!isset($wildcard_timestamps[$table]) ||
-          ($_SERVER['REQUEST_TIME'] - $wildcard_timestamps[$table] > $wildcard_invalidate / 4)) {
-        $wildcard_timestamps[$table] = $_SERVER['REQUEST_TIME'];
-        variable_set('memcache_wildcard_timestamps', $wildcard_timestamps);
-      }
+   // Avoid too many calls to variable_set() by only recording a flush for a
+   // fraction of the wildcard invalidation variable, per cid length.  Defaults
+   // to 28 / 4, or one week.
+    $length = strlen($cid);
+    if (!isset($wildcard_flushes[$table][$length]) ||
+        ($_SERVER['REQUEST_TIME'] - $wildcard_flushes[$table][$length] > $wildcard_invalidate / 4)) {
+      $wildcard_flushes[$table][$length] = $_SERVER['REQUEST_TIME'];
+      variable_set('memcache_wildcard_flushes', $wildcard_flushes);
     }
-    $hash = memcache_hash_cid($cid, $table);
-    $wildcard = dmemcache_key('.wildcard-' . $table . $hash, $table);
-    if (isset($wildcards[$table][$cid][$wildcard])) {
+    $wildcard = dmemcache_key('.wildcard-' . $cid, $table);
+    if (isset($wildcards[$table][$wildcard]) && $wildcards[$table][$wildcard] != 0) {
       $mc = dmemcache_object($table);
       $mc->increment($wildcard);
+      $wildcards[$table][$wildcard]++;
     }
     else {
-      dmemcache_set('.wildcard-' . $table . $hash, '1', 0, $table);
+      $wildcards[$table][$wildcard] = 1;
+      dmemcache_set('.wildcard-' . $cid, '1', 0, $table);
     }
-    // A wildcard flush may invalidate anything in our static cache, so we
-    // dump it and rebuild it later if necessary.
-    unset($wildcards[$table]);
   }
-  return $wildcards[$table][$cid];
+  return $matching;
 }
 
 /**
