@@ -15,7 +15,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $this->memcache = dmemcache_object($bin);
     $this->bin = $bin;
 
-    $this->wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
+    $this->wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
     $this->invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
     $this->cache_lifetime = variable_get('cache_lifetime', 0);
     $this->cache_flush = variable_get('cache_flush_' . $this->bin);
@@ -50,8 +50,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // The wildcard_valid() function has overhead due to a call to
     // dmemcache_get_multi() to fetch possible wildcard flushes. Since some
     // bins never have wildcard clears with a cid, we can shortcut these checks.
-    if (!empty($this->wildcard_timestamps[$this->bin]) &&
-        max($this->wildcard_timestamps[$this->bin]) >= (REQUEST_TIME - $this->invalidate) &&
+    if (!empty($this->wildcard_flushes[$this->bin]) &&
+        max($this->wildcard_flushes[$this->bin]) >= (REQUEST_TIME - $this->invalidate) &&
         !$this->wildcard_valid($cid, $cache))  {
       return FALSE;
     }
@@ -188,8 +188,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
     static $wildcards = array();
     $matching = array();
 
-    if (isset($this->wildcard_timestamps[$this->bin]) &&
-      is_array($this->wildcard_timestamps[$this->bin])) {
+    if (isset($this->wildcard_flushes[$this->bin]) &&
+      is_array($this->wildcard_flushes[$this->bin])) {
       // Determine which lookups we need to perform to determine whether or not
       // our cid was impacted by a wildcard flush.
       $lookup = array();
@@ -197,7 +197,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // Find statically cached wildcards, and determine possibly matching
       // wildcards for this cid based on a history of the lengths of past
       // valid wildcard flushes in this bin.
-      foreach ($this->wildcard_timestamps[$this->bin] as $length => $timestamp) {
+      foreach ($this->wildcard_flushes[$this->bin] as $length => $timestamp) {
         if ($timestamp >= (REQUEST_TIME - $this->invalidate)) {
           $key = '.wildcard-' . substr($cid, 0, $length);
           $wildcard = dmemcache_key($key, $this->bin);
@@ -238,11 +238,11 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // a fraction of the wildcard invalidation variable, per cid length.
       // Defaults to 28 / 4, or one week.
       $length = strlen($cid);
-      if (!isset($this->wildcard_timestamps[$this->bin][$length]) ||
-          ($_SERVER['REQUEST_TIME'] - $this->wildcard_timestamps[$this->bin][$length] > $this->invalidate / 4)) {
-        $this->wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
-        $this->wildcard_timestamps[$this->bin][$length] = $_SERVER['REQUEST_TIME'];
-        variable_set('memcache_wildcard_timestamps', $this->wildcard_timestamps);
+      if (!isset($this->wildcard_flushes[$this->bin][$length]) ||
+          ($_SERVER['REQUEST_TIME'] - $this->wildcard_flushes[$this->bin][$length] > $this->invalidate / 4)) {
+        $this->wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
+        $this->wildcard_flushes[$this->bin][$length] = $_SERVER['REQUEST_TIME'];
+        variable_set('memcache_wildcard_flushes', $this->wildcard_flushes);
       }
       $wildcard = dmemcache_key('.wildcard-' . $cid, $this->bin);
       if (isset($wildcards[$this->bin][$wildcard]) && $wildcards[$this->bin][$wildcard] != 0) {
