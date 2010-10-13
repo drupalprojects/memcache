@@ -47,21 +47,26 @@ class MemCacheDrupal implements DrupalCacheInterface {
       return FALSE;
     }
 
-    // wildcard_valid() has some overhead due to hashing cids and a
-    // dmemcache_get_multi() to fetch the flushes. Since some bins never
-    // have wildcard clears with a cid, we can shortcut these checks.
+    // The wildcard_valid() function has overhead due to a call to
+    // dmemcache_get_multi() to fetch possible wildcard flushes. Since some
+    // bins never have wildcard clears with a cid, we can shortcut these checks.
     if (!empty($this->wildcard_timestamps[$this->bin]) &&
-        $this->wildcard_timestamps[$this->bin] >= (REQUEST_TIME - $this->invalidate) &&
+        max($this->wildcard_timestamps[$this->bin]) >= (REQUEST_TIME - $this->invalidate) &&
         !$this->wildcard_valid($cid, $cache))  {
       return FALSE;
     }
 
     // Determine when the current bin was last flushed.
-    $item_flushed_globally = $cache->created && $this->cache_flush && $this->cache_lifetime && ($cache->created < $this->flushed);
+    $item_flushed_globally = $cache->created && $this->cache_flush &&
+                             $this->cache_lifetime &&
+                             ($cache->created <= $this->flushed);
 
+    // Look in the session to determine if this item was flushed for the
+    // current user (ie, if they posted a comment and are viewing a cached page)
     $cache_bins = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
-
-    $item_flushed_for_user = !empty($cache_bins) && isset($cache_bins[$this->bin]) && ($cache->created < $cache_bins[$this->bin]);
+    $item_flushed_for_user = !empty($cache_bins) &&
+                             isset($cache_bins[$this->bin]) &&
+                             ($cache->created < $cache_bins[$this->bin]);
     if ($item_flushed_for_user) {
       return FALSE;
     }
@@ -78,7 +83,9 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // it's expired  The goal here is to avoid cache stampedes.
     // By default the cache stampede semaphore is held for 15 seconds.  This
     // can be adjusted by setting the memcache_stampede_semaphore variable.
-    $item_expired = isset($cache->expire) && $cache->expire !== CACHE_PERMANENT && $cache->expire <= REQUEST_TIME;
+    $item_expired = isset($cache->expire) &&
+                    $cache->expire !== CACHE_PERMANENT &&
+                    $cache->expire <= REQUEST_TIME;
     if ($item_flushed_globally || $item_expired) {
       // To avoid a stampede, return TRUE despite the item being expired if
       // a previous process set the stampede semaphore already. However only
@@ -118,24 +125,24 @@ class MemCacheDrupal implements DrupalCacheInterface {
     }
 
     // We manually track the expire time in $cache->expire.  When the object
-    // expires, we only allow one request to rebuild it to avoid cache stampedes.
-    // Other requests for the expired object while it is still being rebuilt get
-    // the expired object.
+    // expires, we only allow one request to rebuild it to avoid cache
+    // stampedes. Other requests for the expired object while it is still being
+    // rebuilt get the expired object.
     dmemcache_set($cid, $cache, 0, $this->bin, $this->memcache);
   }
 
   function clear($cid = NULL, $wildcard = FALSE) {
-
     if (empty($cid) || $wildcard === TRUE) {
       if ($cid == '*') {
         $cid = '';
       }
-      if (variable_get('cache_lifetime', 0) && empty($cid)) {
+      if ($this->cache_lifetime && empty($cid)) {
         // Update the timestamp of the last global flushing of this bin.  When
         // retrieving data from this bin, we will compare the cache creation
         // time minus the cache_flush time to the cache_lifetime to determine
         // whether or not the cached item is still valid.
         variable_set("cache_flush_$this->bin", REQUEST_TIME);
+        $this->flushed = REQUEST_TIME;
 
         // We store the time in the current user's session which is saved into
         // the sessions table by sess_write().  We then simulate that the cache
@@ -164,98 +171,90 @@ class MemCacheDrupal implements DrupalCacheInterface {
   }
 
   /**
-   * We hash cids to keep them a consistent, managable length.  Alternative algorithms
-   * can be specified if you're looking for better performance (benchmark first!).
-   * Hash collissions are not a big deal, simply leads to all collided items being
-   * flushed together.
-   */
-  function hash_cid($cid) {
-    static $hashes = array();
-    $memcache_hash = variable_get('memcache_hash', 'md5');
-    if (function_exists($memcache_hash)) {
-      $hashes[$cid] = $memcache_hash($cid);
-    }
-    else {
-      $hashes[$cid] = $cid;
-    }
-    return $hashes[$cid];
-  }
-
-  /**
-   * Determine all possible hashes that could match our cid.  We optimize away
-   * the overhead of checking all possible matches by using multiget.
-   */
-  private function multihash_cid($cid) {
-    static $hashes = array();
-    if (!isset($hashes[$this->bin])) {
-      $hashes[$this->bin] = array();
-    }
-    if (!isset($hashes[$this->bin][$cid])) {
-      for ($i = 0; $i <= strlen($cid); $i++) {
-        $subcid = substr($cid, 0, $i);
-        $hashes[$this->bin][$cid][$subcid] = '.wildcard-'. $this->bin . $this->hash_cid($subcid);
-      }
-    }
-    return $hashes[$this->bin][$cid];
-  }
-
-  /**
-   * Sum of all matching wildcards.  Checking any single cache item's flush value
-   * against this single-value sum tells us whether or not a new wildcard flush
-   * has affected the cached item.
+   * Sum of all matching wildcards.  Checking any single cache item's flush
+   * value against this single-value sum tells us whether or not a new wildcard
+   * flush has affected the cached item.
    */
   private function wildcard_flushes($cid) {
     return array_sum($this->wildcards($cid));
   }
 
   /**
-   * Utilize multiget to retrieve all possible wildcard matches, storing statically
-   * so multiple cache requests for the same item on the same page load doesn't add
-   * overhead.
+   * Utilize multiget to retrieve all possible wildcard matches, storing
+   * statically so multiple cache requests for the same item on the same page
+   * load doesn't add overhead.
    */
   private function wildcards($cid, $flush = FALSE) {
     static $wildcards = array();
+    $matching = array();
 
-    // If this bin has never had a wildcard flush, or the last wildcard flush
-    // was more than a month ago, simply return an empty array to indicate that
-    // it has never been flushed and to avoid the overhead of a wildcard lookup.
-    if (!$flush && (!isset($this->wildcard_timestamps[$this->bin]) ||
-        $this->wildcard_timestamps[$this->bin] <= (REQUEST_TIME - $this->invalidate))) {
-      return array();
-    }
+    if (isset($this->wildcard_timestamps[$this->bin]) &&
+      is_array($this->wildcard_timestamps[$this->bin])) {
+      // Determine which lookups we need to perform to determine whether or not
+      // our cid was impacted by a wildcard flush.
+      $lookup = array();
 
-    if (!isset($wildcards[$this->bin]) || !isset($wildcards[$this->bin][$cid])) {
-      $multihash = $this->multihash_cid($cid);
-      $wildcards[$this->bin][$cid] = dmemcache_get_multi($multihash, $this->bin);
-      if (!is_array($wildcards[$this->bin][$cid])) {
-        $wildcards[$this->bin][$cid] = array();
+      // Find statically cached wildcards, and determine possibly matching
+      // wildcards for this cid based on a history of the lengths of past
+      // valid wildcard flushes in this bin.
+      foreach ($this->wildcard_timestamps[$this->bin] as $length => $timestamp) {
+        if ($timestamp >= (REQUEST_TIME - $this->invalidate)) {
+          $key = '.wildcard-' . substr($cid, 0, $length);
+          $wildcard = dmemcache_key($key, $this->bin);
+          if (isset($wildcards[$this->bin][$wildcard])) {
+            $matching[$wildcard] = $wildcards[$this->bin][$wildcard];
+          }
+          else {
+            $lookup[$wildcard] = $key;
+          }
+        }
+      }
+
+      // Do a multi-get to retrieve all possibly matching wildcard flushes.
+      if (!empty($lookup)) {
+        $values = dmemcache_get_multi($lookup, $this->bin, $this->memcache);
+        if (is_array($values)) {
+          // Prepare an array of matching wildcards.
+          $matching = array_merge($matching, $values);
+          // Store matches in the static cache.
+          if (isset($wildcards[$this->bin])) {
+            $wildcards[$this->bin] = array_merge($wildcards[$this->bin], $values);
+          }
+          else {
+            $wildcards[$this->bin] = $values;
+          }
+          $lookup = array_diff_key($lookup, $values);
+        }
+
+        // Also store failed lookups in our static cache, so we don't have to
+        // do repeat lookups on single page loads.
+        foreach ($lookup as $wildcard => $key) {
+          $wildcards[$this->bin][$wildcard] = 0;
+        }
       }
     }
     if ($flush) {
-      if (!empty($cid)) {
-        // Avoid too many variable_set() by only recording a flush for
-        // a fraction of the wildcard invalidation variable. Defaults to
-        // 28 / 4 = one week.
-        if (!isset($this->wildcard_timestamps[$this->bin]) ||
-            (REQUEST_TIME - $this->wildcard_timestamps[$this->bin] > $this->invalidate / 4)) {
-          $this->wildcard_timestamps[$this->bin] = REQUEST_TIME;
-          variable_set('memcache_wildcard_timestamps', $this->wildcard_timestamps);
-        }
+      // Avoid too many calls to variable_set() by only recording a flush for
+      // a fraction of the wildcard invalidation variable, per cid length.
+      // Defaults to 28 / 4, or one week.
+      $length = strlen($cid);
+      if (!isset($this->wildcard_timestamps[$this->bin][$length]) ||
+          ($_SERVER['REQUEST_TIME'] - $this->wildcard_timestamps[$this->bin][$length] > $this->invalidate / 4)) {
+        $this->wildcard_timestamps = variable_get('memcache_wildcard_timestamps', array());
+        $this->wildcard_timestamps[$this->bin][$length] = $_SERVER['REQUEST_TIME'];
+        variable_set('memcache_wildcard_timestamps', $this->wildcard_timestamps);
       }
-      $hash = $this->hash_cid($cid);
-      $wildcard = dmemcache_key('.wildcard-' . $this->bin . $hash, $this->bin);
-      if (isset($wildcards[$this->bin][$cid][$wildcard])) {
-        $mc = dmemcache_object($this->bin);
-        $mc->increment($wildcard);
+      $wildcard = dmemcache_key('.wildcard-' . $cid, $this->bin);
+      if (isset($wildcards[$this->bin][$wildcard]) && $wildcards[$this->bin][$wildcard] != 0) {
+        $this->memcache->increment($wildcard);
+        $wildcards[$this->bin][$wildcard]++;
       }
       else {
-        dmemcache_set('.wildcard-' . $this->bin . $hash, '1', 0, $this->bin);
+        $wildcards[$this->bin][$wildcard] = 1;
+        dmemcache_set('.wildcard-' . $cid, '1', 0, $this->bin);
       }
-      // A wildcard flush may invalidate anything in our static cache, so we
-      // dump it and rebuild it later if necessary.
-      unset($wildcards[$this->bin]);
     }
-    return $wildcards[$this->bin][$cid];
+    return $matching;
   }
 
   /**
