@@ -231,10 +231,15 @@ function memcache_admin_shutdown() {
   global $_memcache_statistics;
 
   // Try not to break non-HTML pages.
-  if (function_exists('drupal_get_headers')) {
-    $headers = drupal_get_headers();
-    if(strstr($headers, 'xml') || strstr($headers, 'javascript') || strstr($headers, 'plain')) {
-      return;
+  if (function_exists('drupal_get_http_header')) {
+    $header = drupal_get_http_header('content-type');
+    if ($header) {
+      $formats = array('xml', 'javascript', 'json', 'plain', 'image', 'application', 'csv', 'x-comma-separated-values');
+      foreach ($formats as $format) {
+        if (strstr($header, $format)) {
+          return;
+        }
+      }
     }
   }
 
