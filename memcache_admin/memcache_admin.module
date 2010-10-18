@@ -223,6 +223,14 @@ function _memcache_admin_get_bin_for_cluster($cluster) {
 function memcache_admin_shutdown() {
   global $_memcache_statistics;
 
+  // Don't call theme() during shutdown if the registry has been rebuilt (such
+  // as when enabling/disabling modules on admin/build/modules) as things break.
+  // Instead, simply exit without displaying admin statistics for this page
+  // load.  See http://drupal.org/node/616282 for discussion.
+  if (function_exists('theme_get_registry') && theme_get_registry()) {
+    return;
+  }
+
   // Try not to break non-HTML pages.
   if (function_exists('drupal_get_headers')) {
     $headers = drupal_get_headers();
