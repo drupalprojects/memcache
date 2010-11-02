@@ -96,7 +96,6 @@ function _drupal_session_write($key, $value) {
   $session->hostname = ip_address();
   $session->session = $value;
   $session->timestamp = REQUEST_TIME;
-print $session->timestamp;
 
   // Be sure that we have the latest user object.  If user_save() has been
   // called, we need to refresh the object from the database.
