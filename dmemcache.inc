@@ -33,16 +33,17 @@ $_memcache_statistics = array();
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
   global $_memcache_statistics;
   $full_key = dmemcache_key($key, $bin);
-  $_memcache_statistics[] = array('set', $bin, $full_key, '');
+  $success = FALSE;
   if ($mc = dmemcache_object($bin)) {
     if (class_exists('Memcached')) {
-      return $mc->set($full_key, $value, $exp);
+      $success = $mc->set($full_key, $value, $exp);
     }
     else {
-      return $mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp);
+      $success = $mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp);
     }
   }
-  return FALSE;
+  $_memcache_statistics[] = array('set', $bin, $full_key, (int)$success);
+  return $success;
 }
 
 /**
@@ -73,16 +74,17 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
   global $_memcache_statistics;
   $full_key = dmemcache_key($key, $bin);
-  $_memcache_statistics[] = array('add', $bin, $full_key, '');
+  $success = FALSE;
   if ($mc || ($mc = dmemcache_object($bin))) {
     if (class_exists('Memcached')) {
-      return $mc->add($full_key, $value, $exp);
+      $success = $mc->add($full_key, $value, $exp);
     }
     else {
-      return $mc->add($full_key, $value, $flag, $exp);
+      $success = $mc->add($full_key, $value, $flag, $exp);
     }
   }
-  return FALSE;
+  $_memcache_statistics[] = array('add', $bin, $full_key, (int)$success);
+  return $success;
 }
 
 /**
@@ -168,11 +170,12 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
 function dmemcache_delete($key, $bin = 'cache') {
   global $_memcache_statistics;
   $full_key = dmemcache_key($key, $bin);
-  $_memcache_statistics[] = array('delete', $bin, $full_key, '');
+  $success = FALSE;
   if ($mc = dmemcache_object($bin)) {
-    return $mc->delete($full_key);
+    $success = $mc->delete($full_key);
   }
-  return FALSE;
+  $_memcache_statistics[] = array('delete', $bin, $full_key, (int)$success);
+  return $success;
 }
 
 /**
