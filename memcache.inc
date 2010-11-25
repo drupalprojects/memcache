@@ -1,5 +1,9 @@
 <?php
+<<<<<<< memcache.inc
 // $Id$
+=======
+// $Id$
+>>>>>>> 1.15.2.8.2.22
 
 /** Implementation of cache.inc with memcache logic included **/
 
