@@ -54,8 +54,18 @@ function cache_get($cid, $table = 'cache') {
   }
 
   $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
-  // Items cached before the cache was last flushed are no longer valid.
   $cache_lifetime = variable_get('cache_lifetime', 0);
+  if (is_array($cache_tables) && !empty($cache_tables) && $cache_lifetime) {
+    // Expire the $_SESSION['cache_flush'] variable array if it is older than
+    // the minimum cache lifetime, since after that the $cache_flush variable
+    // will take over.
+    if (max($cache_tables) < ($_SERVER['REQUEST_TIME'] - $cache_lifetime)) {
+      unset($_SESSION['cache_flush']);
+      $cache_tables = NULL;
+    }
+  }
+
+  // Items cached before the cache was last flushed are no longer valid.
   if ($cache_lifetime && $cache->created && $cache_flush &&
       ($cache->created < $cache_flush) &&
       (($_SERVER['REQUEST_TIME'] - $cache->created >= $cache_lifetime)) ||
