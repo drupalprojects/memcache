@@ -177,7 +177,14 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
     return;
   }
   if (empty($cid) || $wildcard === TRUE) {
-    if ($cid == '*') {
+    // system_cron() flushes all cache bins returned by hook_flush_caches()
+    // with cache_clear_all(NULL, $bin); This is for garbage collection with
+    // the database cache, but serves no purpose with memcache. So return
+    // early here.
+    if (!isset($cid)) {
+      return;
+    }
+    elseif ($cid == '*') {
       $cid = '';
     }
     if (variable_get('cache_lifetime', 0) && empty($cid)) {
