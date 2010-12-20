@@ -118,7 +118,7 @@ $conf = array(
 
 Here is an example configuration that has two clusters, 'default' and
 'cluster2'. Five memcached instances are divided up between the two
-clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other
+clusters. 'cache_filter' and 'cache_menu' bins go to 'cluster2'. All other
 bins go to 'default'.
 
 $conf = array(
@@ -133,6 +133,20 @@ $conf = array(
                            'cache_filter' => 'cluster2',
                            'cache_menu' => 'cluster2'),
 );
+
+Here is an example configuration where the 'cache_form' bin is set to bypass
+memcache and use the standard table-based Drupal cache by assigning it to a
+cluster called 'none'. If you are having problems with multi-step forms or if
+you are receiving "This form was missing from the server cache..." errors then
+excluding 'cache_form' from memcache may solve your problem.
+
+$conf = array(
+  ...
+  'memcache_servers' => array('localhost:11211' => 'default'),
+  'memcache_bins' => array('cache' => 'default',
+                           'cache_form' => 'none'),
+);
+
 ## PREFIXING ##
 
 If you want to have multiple Drupal installations share memcached instances,
