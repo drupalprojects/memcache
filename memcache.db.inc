@@ -1,6 +1,10 @@
 <?php
 // $Id$
 
+/** THIS FILE IS DEPRECATED - DO NOT USE **/
+// http://drupal.org/node/959200
+// http://drupal.org/node/961496
+
 require_once 'dmemcache.inc';
 
 /** 
