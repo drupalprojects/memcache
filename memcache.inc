@@ -25,7 +25,7 @@ define('MEMCACHE_WILDCARD_INVALIDATE', 86400 * 28);
 function cache_get($cid, $table = 'cache') {
   // Handle excluded bins first.
   $bins = variable_get('memcache_bins', array());
-  if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'none') {
+  if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'database') {
     return _cache_get($cid, $table);
   }
 
@@ -103,7 +103,7 @@ function cache_get($cid, $table = 'cache') {
 function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL) {
   // Handle database fallback first.
   $bins = variable_get('memcache_bins', array());
-  if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'none') {
+  if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'database') {
     return _cache_set($cid, $data, $table, $expire, $headers);
   }
   
@@ -165,7 +165,7 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
 function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   // Handle database fallback first.
   $bins = variable_get('memcache_bins', array());
-  if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'none') {
+  if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'database') {
     return _cache_clear_all($cid, $table, $wildcard);
   }
   

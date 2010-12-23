@@ -122,7 +122,7 @@ $conf = array(
 
 Here is an example configuration where the 'cache_form' bin is set to bypass
 memcache and use the standard table-based Drupal cache by assigning it to a
-cluster called 'none'. If you are having problems with multi-step forms or if
+cluster called 'database'. If you are having problems with multi-step forms or if
 you are receiving "This form was missing from the server cache..." errors then
 excluding 'cache_form' from memcache may solve your problem.
 
@@ -130,7 +130,7 @@ $conf = array(
   ...
   'memcache_servers' => array('localhost:11211' => 'default'),
   'memcache_bins' => array('cache' => 'default',
-                           'cache_form' => 'none'),
+                           'cache_form' => 'database'),
 );
 
 ## PREFIXING ##
