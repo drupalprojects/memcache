@@ -56,7 +56,7 @@ than your web server, read on.
 
 The available memcached servers are specified in $conf in settings.php. If
 you do not specify any servers, memcache.inc assumes that you have a
-memcached instance running on localhost:11211. If this is true, and it is
+memcached instance running on 10.0.0.1:11211. If this is true, and it is
 the only memcached instance you wish to use, no further configuration is
 required.
 
@@ -96,8 +96,8 @@ $conf = array(
   ...
   // Important to define a default cluster in both the servers
   // and in the bins. This links them together.
-  'memcache_servers' => array('localhost:11211' => 'default',
-                              'localhost:11212' => 'pages'),
+  'memcache_servers' => array('10.0.0.1:11211' => 'default',
+                              '10.0.0.1:11212' => 'pages'),
   'memcache_bins' => array('cache' => 'default',
                            'cache_page' => 'pages'),
 );
@@ -109,8 +109,8 @@ bins go to 'default'.
 
 $conf = array(
   'cache_inc' => './sites/all/modules/memcache/memcache.inc',
-  'memcache_servers' => array('localhost:11211' => 'default',
-                              'localhost:11212' => 'default',
+  'memcache_servers' => array('10.0.0.1:11211' => 'default',
+                              '10.0.0.1:11212' => 'default',
                               '123.45.67.890:11211' => 'default',
                               '123.45.67.891:11211' => 'cluster2',
                               '123.45.67.892:11211' => 'cluster2'),
@@ -122,16 +122,27 @@ $conf = array(
 
 Here is an example configuration where the 'cache_form' bin is set to bypass
 memcache and use the standard table-based Drupal cache by assigning it to a
-cluster called 'database'. If you are having problems with multi-step forms or if
-you are receiving "This form was missing from the server cache..." errors then
-excluding 'cache_form' from memcache may solve your problem.
+cluster called 'database'. If you are having problems with multi-step forms or 
+if you are receiving "This form was missing from the server cache..." errors 
+then excluding 'cache_form' from memcache may solve your problem.
 
 $conf = array(
   ...
-  'memcache_servers' => array('localhost:11211' => 'default'),
+  'memcache_servers' => array('10.0.0.1:11211' => 'default'),
   'memcache_bins' => array('cache' => 'default',
                            'cache_form' => 'database'),
 );
+
+## memcache_extra_include and database.inc ##
+
+In the above example, mapping a bin to 'database' makes a cache be stored
+in the database instead of memcache. This is actually done by the file
+database.inc, which is copy and pasted from DRUPAL/includes/cache.inc. 
+If you want to provide an alternate file instead of database.inc to handle
+the cache calls to 'database', override the variable memcache_extra_include
+in settings.php to provide the location of the file to include. This only
+applies if you are using memcache.inc (not memcache.db.inc, which is deprecated).
+
 
 ## PREFIXING ##
 
