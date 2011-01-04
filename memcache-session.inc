@@ -99,7 +99,7 @@ function _drupal_session_write($key, $value) {
 
   // Be sure that we have the latest user object.  If user_save() has been
   // called, we need to refresh the object from the database.
-  $user = sess_user_load($session);
+  $user = _memcache_session_user_load($session);
 
   // If this is an authenticated user, or there is something to save in the
   // session, or this is an anonymous user who currently has nothing in the
@@ -355,8 +355,8 @@ function _memcache_session_user_load($session) {
         // Add roles element to $user
         $user->roles = array();
         $user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
-        $result = db_query("SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = %d", $user->uid);
-        while ($role = db_fetch_object($result)) {
+        $result = db_query("SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = :uid", array(':uid' => $user->uid));
+        while ($role = $result->fetchObject()) {
           $user->roles[$role->rid] = $role->name;
         }
       }
