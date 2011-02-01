@@ -5,8 +5,8 @@
 - PHP 5.1 or greater
 - Availability of a memcached daemon: http://memcached.org/
 - One of the two PECL memcache packages:
-  - http://pecl.php.net/package/memcache
-  - http://pecl.php.net/package/memcached (recommended
+  - http://pecl.php.net/package/memcache (older, most stable)
+  - http://pecl.php.net/package/memcached (newer, possible performance issues)
 
 ## INSTALLATION ##
 
@@ -32,10 +32,12 @@ http://www.lullabot.com/articles/how_install_memcache_debian_etch
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
 
-The memcache.inc file is intended to be used instead of cache.inc, 
-utilizing Drupal's pluggable cache system. The memcache.db.inc file is 
-deprecated and is not recommended. It is still distributed with the 
-6.x-1.x branch, but will not be included in any further versions. 
+The memcache.inc file is intended to be used instead of cache.inc, utilizing
+Drupal's pluggable cache system.
+
+memcache.db.inc IS DEPRECATED AND IS NOT RECOMMENDED. It is still distributed
+with the 6.x-1.x branch, but will not be included in any further versions and
+may be removed in future 6.x releases.
 
 Update $conf in settings.php to tell Drupal where the cache_inc file is:
 
@@ -201,9 +203,12 @@ way to clear the cache, and an interface to organize servers/bins/clusters.
 
 ## Memcached PECL Extension Support
 
-We also now support the Memcached PECL extension. If you install this extension,
-it will be used by default. This new extension backends to libmemcached and 
-allows you to use some of the newer advanced features in memcached 1.4. 
+The Drupal memcach modules supports both the memcache and the memcached PECL
+extensions.  If you install the newer memcached extension, it will be used by
+default. This new extension backends to libmemcached and allows you to use some
+of the newer advanced features in memcached 1.4.  We highly recommend that you
+test with both PECL extensions to determine which is a better fit for your
+infrastructure.
 
 NOTE: It is important to realize that the memcache php.ini options do not impact
 the memcached extension, this new extension doesn't read in options that way.
@@ -222,8 +227,10 @@ $conf['memcache_options'] = array(
 
 These are as follows:
 
- * Turn off compression, as this takes more CPU cycles than its worth for most users
- * Turn on consistent distribution, which allows you to add/remove servers easily
+ * Turn off compression, as this takes more CPU cycles than its worth for most
+   users
+ * Turn on consistent distribution, which allows you to add/remove servers
+   easily
 
 If you are using memcached 1.4 or above, you should enable the binary protocol,
 which is more advanced and faster, by adding the following to settings.php:
