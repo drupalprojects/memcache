@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 function memcache_admin_requirements($phase) {
   $requirements = array();
