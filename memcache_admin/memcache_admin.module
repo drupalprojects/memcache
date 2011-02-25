@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /**
  * For the collection of memcache stats. This small .js file makes sure that the
