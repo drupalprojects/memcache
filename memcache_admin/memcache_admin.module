@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 function memcache_admin_menu($may_cache) {
   $items = array();
