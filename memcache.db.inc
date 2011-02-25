@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /** THIS FILE IS DEPRECATED - DO NOT USE **/
 // http://drupal.org/node/959200

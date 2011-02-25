@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /*
  * Core dmemcache functions required by:

@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /** Implementation of cache.inc with memcache logic included **/
 
