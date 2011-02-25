@@ -1,4 +1,3 @@
-// $Id$
 
 For instructions on how to compile memcached on Debian Etch, see here:
 http://www.lullabot.com/articles/how_install_memcache_debian_etch

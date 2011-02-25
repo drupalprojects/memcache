@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /**
  * Add serialized field to cache tables.
