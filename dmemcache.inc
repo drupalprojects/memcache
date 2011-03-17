@@ -344,6 +344,11 @@ function dmemcache_key($key, $bin = 'cache') {
     if ($prefix = variable_get('memcache_key_prefix', '')) {
       $prefix .= '-';
     }
+    // When simpletest is running, emulate the simpletest database prefix here
+    // to avoid the child site setting cache entries in the parent site.
+    if (isset($GLOBALS['drupal_test_info']['test_run_id'])) {
+      $prefix .= $GLOBALS['drupal_test_info']['test_run_id'];
+    }
   }
   $full_key = urlencode($prefix . $bin . '-' . $key);
 
