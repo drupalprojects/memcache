@@ -93,7 +93,7 @@ function sess_write($key, $value) {
   // If the client doesn't have a session, and one isn't being created ($value),
   // do nothing. If session saving has been turned off, do nothing.
   // Cases 1a, 1c, and 2c are covered here.
-  if ((empty($_COOKIE[session_name()]) && empty($value)) || !session_save_session()) {
+  if (!session_save_session() || ($user->uid == 0 && empty($_COOKIE[session_name()]) && empty($value))) {
     return TRUE;
   }
 
