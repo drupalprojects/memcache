@@ -201,6 +201,30 @@ function sess_count($timestamp = 0, $anonymous = true) {
  */
 function sess_destroy_sid($sid) {
   dmemcache_delete($sid, 'session');
+
+  // If the session ID being destroyed is the one of the current user,
+  // clean-up his/her session data and cookie.
+  if ($sid == session_id()) {
+    global $user;
+
+    // Reset $_SESSION and $user to prevent a new session from being started
+    // in drupal_session_commit()
+    $_SESSION = array();
+    $user = drupal_anonymous_user();
+
+    // Unset the session cookie.
+    if (isset($_COOKIE[session_name()])) {
+      $params = session_get_cookie_params();
+
+      if (version_compare(PHP_VERSION, '5.2.0') === 1) {
+        setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 3600, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+      }
+      else {
+        setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 3600, $params['path'], $params['domain'], $params['secure']);
+      }
+      unset($_COOKIE[session_name()]);
+    }
+  }
 }
 
 /**
