@@ -171,7 +171,7 @@ function dmemcache_delete($key, $bin = 'cache') {
   $full_key = dmemcache_key($key, $bin);
   $success = FALSE;
   if ($mc = dmemcache_object($bin)) {
-    $success = $mc->delete($full_key);
+    $success = $mc->delete($full_key, 0);
   }
   $_memcache_statistics[] = array('delete', $bin, $full_key, (int)$success);
   return $success;
