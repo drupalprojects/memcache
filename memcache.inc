@@ -48,7 +48,18 @@ function cache_get($cid, $table = 'cache') {
     // Previously cached content won't have ->flushes defined.  We could
     // force flush, but instead leave this up to the site admin.
     $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
-    if ($flushes < memcache_wildcard_flushes($cid, $table)) {
+
+    $recorded_flushes = memcache_wildcard_flushes($cid, $table);
+    if ($flushes < $recorded_flushes) {
+      return FALSE;
+    }
+    // If wildcards are cleared by a partial memcache flush or eviction
+    // then it is possible for $cache->flushes to be greater than the return
+    // of memcache_wildcard_flushes()
+    if ($flushes > $recorded_flushes) {
+      // Delete the cache item entirely, it will be set again with the correct
+      // number of flushes.
+      dmemcache_delete($cid, $table);
       return FALSE;
     }
   }
@@ -231,9 +242,13 @@ function memcache_wildcard_flushes($cid, $table) {
  * statically so multiple cache requests for the same item on the same page
  * load doesn't add overhead.
  */
-function memcache_wildcards($cid, $table, $flush = FALSE) {
+function memcache_wildcards($cid, $table, $flush = FALSE, $reset = FALSE) {
   static $wildcards = array();
   $matching = array();
+
+  if ($reset) {
+    $wildcards = array();
+  }
 
   $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);

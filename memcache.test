@@ -231,5 +231,18 @@ class MemCacheClearCase extends MemcacheTestCase {
     $this->assertFalse($this->checkCacheExists('test_cid_clear1', $this->default_value)
                       || $this->checkCacheExists('test_cid_clear2', $this->default_value),
                       t('Two caches removed after clearing cid substring with wildcard true.'));
+
+    // Test for the case where a wildcard object disappears, for example a
+    // partial memcache restart or eviction.
+    cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
+    $this->assertTrue($this->checkCacheExists('test_cid_clear1', $this->default_value), 'The cache was created successfully.');
+    cache_clear_all('test_', $this->default_bin, TRUE);
+    $this->assertFalse($this->checkCacheExists('test_cid_clear1', $this->default_value), 'The cache was cleared successfully.');
+    // Delete the wildcard manually to simulate an eviction.
+    $wildcard = '.wildcard-' . 'test_';
+    dmemcache_delete($wildcard, $this->default_bin);
+    // Reset the memcache_wildcards() static cache.
+    memcache_wildcards(FALSE, FALSE, FALSE, TRUE);
+    $this->assertFalse($this->checkCacheExists('test_cid_clear1', $this->default_value), 'The cache was cleared successfully.');
   }
 }
