@@ -6,8 +6,6 @@ class MemcacheTestCase extends DrupalWebTestCase {
   protected $default_value = 'MemcacheTest';
 
   function setUp() {
-    include_once drupal_get_path('module', 'memcache') . '/memcache.inc';
-    variable_set('cache_default_class', 'MemCacheDrupal');
     parent::setUp();
   }
 
@@ -115,6 +113,11 @@ class MemCacheSavingCase extends MemcacheTestCase {
     );
   }
 
+  function setUp() {
+    parent::setUp();
+    variable_set("cache_flush_cache", 0);
+  }
+
   /**
    * Test the saving and restoring of a string.
    */
@@ -190,6 +193,7 @@ class MemCacheClearCase extends MemcacheTestCase {
    * Test clearing using a cid.
    */
   function testClearCid() {
+    variable_set("cache_flush_$this->default_bin", 0);
     cache_set('test_cid_clear', $this->default_value, $this->default_bin);
 
     $this->assertCacheExists(t('Cache was set for clearing cid.'), $this->default_value, 'test_cid_clear');
@@ -211,7 +215,8 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test clearing using wildcard.
    */
-  function testClearWildcard() {
+  function testClearWildcardFull() {
+    variable_set("cache_flush_$this->default_bin", 0);
     cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
     cache_set('test_cid_clear2', $this->default_value, $this->default_bin);
     $this->assertTrue($this->checkCacheExists('test_cid_clear1', $this->default_value)
@@ -221,7 +226,9 @@ class MemCacheClearCase extends MemcacheTestCase {
     $this->assertFalse($this->checkCacheExists('test_cid_clear1', $this->default_value)
                       || $this->checkCacheExists('test_cid_clear2', $this->default_value),
                       t('Two caches removed after clearing cid "*" with wildcard true.'));
-
+  }
+  function testClearWildcardSubstring() {
+    variable_set("cache_flush_$this->default_bin", 0);
     cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
     cache_set('test_cid_clear2', $this->default_value, $this->default_bin);
     $this->assertTrue($this->checkCacheExists('test_cid_clear1', $this->default_value)
@@ -231,7 +238,6 @@ class MemCacheClearCase extends MemcacheTestCase {
     $this->assertFalse($this->checkCacheExists('test_cid_clear1', $this->default_value)
                       || $this->checkCacheExists('test_cid_clear2', $this->default_value),
                       t('Two caches removed after clearing cid substring with wildcard true.'));
-
     // Test for the case where a wildcard object disappears, for example a
     // partial memcache restart or eviction.
     cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
@@ -244,5 +250,24 @@ class MemCacheClearCase extends MemcacheTestCase {
     // Reset the memcache_wildcards() static cache.
     memcache_wildcards(FALSE, FALSE, FALSE, TRUE);
     $this->assertFalse($this->checkCacheExists('test_cid_clear1', $this->default_value), 'The cache was cleared successfully.');
+  }
+
+  function testClearCacheLifetime() {
+    variable_set("cache_flush_$this->default_bin", 0);
+    variable_set('cache_lifetime', 600);
+    // Start a session.
+    cache_set('test_cid', $this->default_value, $this->default_bin);
+    $this->assertTrue($this->checkCacheExists('test_cid', $this->default_value), 'Cache item was created successfully.');
+    cache_clear_all('*', $this->default_bin, TRUE);
+    // Since the cache was cleared within the current session, cache_get()
+    // should return false.
+    $this->assertFalse($this->checkCacheExists('test_cid', $this->default_value), 'Cache item was cleared successfully.');
+
+    // If $_SESSION['cache_flush'] is not set, then the item should be returned.
+    unset($_SESSION['cache_flush']);
+    $this->assertTrue($this->checkCacheExists('test_cid', $this->default_value), 'Cache item is still returned due to minimum cache lifetime.');
+    // Set a much shorter cache lifetime.
+    variable_set('cache_lifetime', 1);
+    $this->assertFalse($this->checkCacheExists('test_cid', $this->default_value), 'Cache item is not return once minimum cache lifetime has expired.');
   }
 }
