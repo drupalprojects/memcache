@@ -202,12 +202,18 @@ way to clear the cache, and an interface to organize servers/bins/clusters.
 
 ## Memcached PECL Extension Support
 
-The Drupal memcach modules supports both the memcache and the memcached PECL
-extensions.  If you install the newer memcached extension, it will be used by
-default. This new extension backends to libmemcached and allows you to use some
-of the newer advanced features in memcached 1.4.  We highly recommend that you
-test with both PECL extensions to determine which is a better fit for your
-infrastructure.
+The Drupal memcache module supports both the memcache and the memcached PECL
+extensions.  If both extensions are installed the older memcache extension will
+be used by default.  If you'd like to use the newer memcached extension remove
+the memcache extension from your system or configure settings.php to force
+your website to use the newer extension:
+  $conf['memcache_extension'] = 'memcached';
+
+The newer memcached PECL extension uses libmemcached on the backend and allows
+you to use some of the newer advanced features in memcached 1.4.  It is highly
+recommended that you test with both PECL extensions to determine which is a
+better fit for your infrastructure.  CAUTION: There have been performance and
+functionality regressions reported when using the memcached extension.
 
 NOTE: It is important to realize that the memcache php.ini options do not impact
 the memcached extension, this new extension doesn't read in options that way.
