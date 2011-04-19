@@ -306,7 +306,9 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     $wildcard = dmemcache_key('.wildcard-' . $cid, $table);
     if (isset($wildcards[$table][$wildcard]) && $wildcards[$table][$wildcard] != 0) {
       $mc = dmemcache_object($table);
-      $mc->increment($wildcard);
+      if ($mc) {
+        $mc->increment($wildcard);
+      }
       $wildcards[$table][$wildcard]++;
     }
     else {
