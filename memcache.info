@@ -1,4 +1,4 @@
 name = Memcache
 description = High performance integration with memcache.
-package = Caching
+package = Performance and scalability 
 core = 6.x
