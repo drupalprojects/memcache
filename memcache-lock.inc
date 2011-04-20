@@ -6,10 +6,6 @@
  * See includes/lock.inc for documenation
  */
 
-// Set up a define to make the code more readable, so we know we're setting a
-// value for our lock and not simply passing dmemcache a flag.
-define('LOCK_VALUE', TRUE);
-
 /**
  * Initialize the locking system.
  */
@@ -34,19 +30,17 @@ function lock_acquire($name, $timeout = 30) {
 
   // Ensure that the timeout is at least 1 sec. This is a limitation
   // imposed by memcached.
-  $timeout = max($timeout, 1);
-  $now = microtime(TRUE);
-  $expire = $now + $timeout;
+  $timeout = (int) max($timeout, 1);
 
   $result = dmemcache_get($name, 'semaphore');
-  if ($result && isset($locks[$name]) && $locks[$name] > $now) {
+  if ($result && isset($locks[$name]) && $locks[$name] == _lock_id()) {
     // Only renew the lock if we already set it and it has not expired.
-    if (dmemcache_set($name, LOCK_VALUE, $timeout, 'semaphore')) {
-      $locks[$name] = $expire;
+    if (dmemcache_set($name, _lock_id(), $timeout, 'semaphore')) {
+      $locks[$name] = _lock_id();
     }
   }
-  else if (dmemcache_add($name, LOCK_VALUE, $timeout, 'semaphore')) {
-    $locks[$name] = $expire;
+  else if (dmemcache_add($name, _lock_id(), $timeout, 'semaphore')) {
+    $locks[$name] = _lock_id();
   }
   else {
     // Failed to acquire the lock.  Unset the key from the $locks array even if
@@ -117,4 +111,31 @@ function lock_release($name) {
   dmemcache_delete($name, 'semaphore');
   // We unset unconditionally since caller assumes lock is released anyway.
   unset($locks[$name]);
+}
+
+/**
+ * Generate a unique identifier for locks generated during this request.
+ */
+function _lock_id() {
+  static $lock_id;
+  if (!isset($lock_id)) {
+    $lock_id = uniqid(mt_rand(), TRUE);
+    // We only register a shutdown function if a lock is used.
+    register_shutdown_function('lock_release_all', $lock_id);
+  }
+  return $lock_id;
+}
+
+/**
+ * Release all locks acquired by this request.
+ */
+function lock_release_all($lock_id) {
+  global $locks;
+  foreach ($locks as $name => $id) {
+    $value = dmemcache_get($name, 'semaphore');
+
+    if ($value == $id) {
+      dmemcache_delete($name, 'semaphore');
+    }
+  }
 }

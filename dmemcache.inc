@@ -354,11 +354,12 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
   return empty($memcacheCache[$bin]) ? FALSE : $memcacheCache[$bin];
 }
 
-function dmemcache_key($key, $bin = 'cache') {
+function dmemcache_key($key = '', $bin = 'cache', $reset = FALSE) {
   static $prefix;
-  // memcache_key_prefix can be set in settings.php to support site namespaces
-  // in a multisite environment.
-  if (empty($prefix)) {
+  if (!isset($prefix)) {
+    $prefix = '';
+    // memcache_key_prefix can be set in settings.php to support site namespaces
+    // in a multisite environment.
     if ($prefix = variable_get('memcache_key_prefix', '')) {
       $prefix .= '-';
     }
