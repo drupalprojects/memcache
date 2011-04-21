@@ -327,10 +327,8 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
               $init = TRUE;
             }
           }
-          else {
-            if ($memcache instanceof Memcached && $memcache->addServer($host, $port) && !$init) {
+          else if ($memcache->addServer($host, $port) && !$init) {
               $init = TRUE;
-            }
           }
         }
       }
