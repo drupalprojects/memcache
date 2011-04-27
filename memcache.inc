@@ -249,8 +249,15 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
 
   $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
-  if (isset($wildcard_flushes[$table]) &&
-      is_array($wildcard_flushes[$table])) {
+
+  if (isset($wildcard_flushes[$table]) && is_array($wildcard_flushes[$table])) {
+    // Wildcard flushes per table are keyed by a substring equal to the
+    // shortest wildcard clear on the table so far. So if the shortest
+    // wildcard was "links:foo:", and the cid we're checking for is
+    // "links:bar:bar", then the key will be "links:bar:".
+    $wildcard_length = strlen(reset(array_keys($wildcard_flushes[$table])));
+    $wildcard_key = substr($cid, 0, $wildcard_length);
+
     // Determine which lookups we need to perform to determine whether or not
     // our cid was impacted by a wildcard flush.
     $lookup = array();
@@ -258,15 +265,17 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     // Find statically cached wildcards, and determine possibly matching
     // wildcards for this cid based on a history of the lengths of past valid
     // wildcard flushes in this bin.
-    foreach ($wildcard_flushes[$table] as $flush_length => $timestamp) {
-      if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
-        $key = '.wildcard-' . substr($cid, 0, $flush_length);
-        $wildcard = dmemcache_key($key, $table);
-        if (isset($wildcards[$table][$wildcard])) {
-          $matching[$wildcard] = $wildcards[$table][$wildcard];
-        }
-        else {
-          $lookup[$wildcard] = $key;
+    if (isset($wildcard_flushes[$table][$wildcard_key])) {
+      foreach ($wildcard_flushes[$table][$wildcard_key] as $flush_length => $timestamp) {
+        if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
+          $key = '.wildcard-' . substr($cid, 0, $flush_length);
+          $wildcard = dmemcache_key($key, $table);
+          if (isset($wildcards[$table][$wildcard])) {
+            $matching[$wildcard] = $wildcards[$table][$wildcard];
+          }
+          else {
+            $lookup[$wildcard] = $key;
+          }
         }
       }
     }
@@ -294,13 +303,32 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     }
   }
   if ($flush) {
-   // Avoid too many calls to variable_set() by only recording a flush for a
-   // fraction of the wildcard invalidation variable, per cid length.  Defaults
-   // to 28 / 4, or one week.
+    // Avoid too many calls to variable_set() by only recording a flush for a
+    // fraction of the wildcard invalidation variable, per cid length.  Defaults
+    // to 28 / 4, or one week.
     $length = strlen($cid);
-    if (!isset($wildcard_flushes[$table][$length]) ||
-        ($_SERVER['REQUEST_TIME'] - $wildcard_flushes[$table][$length] > $wildcard_invalidate / 4)) {
-      $wildcard_flushes[$table][$length] = $_SERVER['REQUEST_TIME'];
+    $key_length = isset($wildcard_flushes[$table]) ? strlen(reset(array_keys($wildcard_flushes[$table]))) : $length;
+    $key = substr($cid, 0, $key_length);
+    if (!isset($wildcard_flushes[$table][$key][$length]) || ($_SERVER['REQUEST_TIME'] - $wildcard_flushes[$table][$key][$length] > $wildcard_invalidate / 4)) {
+
+      // If there are more than 50 different wildcard keys for this table
+      // shorten the key by one, this should reduce variability by
+      // an order of magnitude and ensure we don't use too much memory.
+      if (isset($wildcard_flushes[$table]) && count($wildcard_flushes[$table]) > 50) {
+        $key = substr($cid, 0, $key_length - 1);
+        $length = strlen($key);
+      }
+
+      // If this is the shortest key length so far, we need to remove all
+      // other wildcards lengths recorded so far for this table and start
+      // again. This is equivalent to a full cache flush for this table, but
+      // it ensures the minimum possible number of wildcards are requested
+      // along with cache consistency.
+      if ($length < $key_length) {
+        $wildcard_flushes[$table] = array();
+      }
+      $key = substr($cid, 0, $key_length);
+      $wildcard_flushes[$table][$key][$length] = $_SERVER['REQUEST_TIME'];
       memcache_variable_set('memcache_wildcard_flushes', $wildcard_flushes);
     }
     $wildcard = dmemcache_key('.wildcard-' . $cid, $table);
