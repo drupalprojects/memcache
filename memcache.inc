@@ -40,10 +40,7 @@ function cache_get($cid, $table = 'cache') {
   // Retrieve the item from the cache.
   $cache = dmemcache_get($cid, $table);
 
-  if (!is_object($cache)) {
-    return FALSE;
-  }
-  // Determine when the current table was last flushed.
+  // Set up common variables.
   $cache_flush = variable_get("cache_flush_$table", 0);
   $cache_content_flush = variable_get("cache_content_flush_$table", 0);
   $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
@@ -51,21 +48,89 @@ function cache_get($cid, $table = 'cache') {
   $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
 
-  if ($cache->created <= $cache_flush) {
-    return FALSE;
+  if ($cache) {
+    // Items that have expired are invalid.
+    if (isset($cache->expire) && $cache->expire !== CACHE_PERMANENT && $cache->expire <= $_SERVER['REQUEST_TIME']) {
+      // If the memcache_stampede_protection variable is set, allow one process
+      // to rebuild the cache entry while serving expired content to the
+      // rest. Note that core happily returns expired cache items as valid and
+      // relies on cron to expire them, but this is mostly reliant on its
+      // use of CACHE_TEMPORARY which does not map well to memcache.
+      // @see http://drupal.org/node/534092
+      if (variable_get('memcache_stampede_protection', FALSE)) {
+        // The process that acquires the lock will get a cache miss, all
+        // others will get a cache hit.
+        if (lock_acquire("$cid:$bin", variable_get('memcache_stampede_semaphore', 15))) {
+          $cache = FALSE;
+        }
+      }
+      else {
+        $cache = FALSE;
+      }
+    }
+    // Items created before the last full wildcard flush against this bin are
+    // invalid.
+    elseif ($cache->created <= $cache_flush) {
+      $cache = FALSE;
+    }
+    // Items created before the last content flush on this bin i.e.
+    // cache_clear_all() are invalid.
+    elseif ($cache->expire != CACHE_PERMANENT && $cache->created + $cache_lifetime <= $cache_content_flush) {
+      $cache = FALSE;
+    }
+    // Items cached before the cache was last flushed by the current user are
+    // invalid.
+    elseif ($cache->expire != CACHE_PERMANENT && is_array($cache_tables) && isset($cache_tables[$table]) && $cache_tables[$table] >= $cache->created) {
+      // Cache item expired, return FALSE.
+      $cache = FALSE;
+    }
+    // Finally, check for wildcard clears against this cid.
+    else {
+      $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
+      $recorded_flushes = memcache_wildcard_flushes($cid, $table);
+      if ($flushes < $recorded_flushes) {
+        $cache = FALSE;
+      }
+      // If wildcards are cleared by a partial memcache flush or eviction
+      // then it is possible for $cache->flushes to be greater than the return
+      // of memcache_wildcard_flushes().
+      if ($flushes > $recorded_flushes) {
+        // Delete the cache item entirely, it will be set again with the correct
+        // number of flushes.
+        dmemcache_delete($cid, $table);
+        $cache = FALSE;
+      }
+    }
   }
 
-  if ($cache->expire != CACHE_PERMANENT && $cache->created + $cache_lifetime <= $cache_content_flush) {
-    return FALSE;
+  // On cache misses, attempt to avoid stampedes when the
+  // memcache_stampede_protection variable is enabled.
+  if (!$cache) {
+    if (variable_get('memcache_stampede_protection', FALSE) && !lock_acquire("$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
+      // Prevent any single request from waiting more than three times due to
+      // stampede protection. By default this is a maximum total wait of 15
+      // seconds. This accounts for two possibilities - a cache and lock miss
+      // more than once for the same item. Or a cache and lock miss for
+      // different items during the same request.
+      // @todo: it would be better to base this on time waited rather than
+      // number of waits, but the lock API does not currently provide this
+      // information. Currently the limit will kick in for three waits of 25ms
+      // or three waits of 5000ms.
+      static $lock_count = 0;
+      $lock_count++;
+      if ($lock_count <= variable_get('memcache_stampede_wait_limit', 3)) {
+        // The memcache_stampede_semaphore variable was used in previous releases
+        // of memcache, but the max_wait variable was not, so by default divide
+        // the sempahore value by 3 (5 seconds).
+        lock_wait("$cid:$table", variable_get('memcache_stampede_wait_time', 5));
+        return cache_get($cid, $table);
+      }
+    }
   }
 
-  // Items cached before the cache was last flushed by the current user are no
-  // longer valid.
-  if ($cache->expire != CACHE_PERMANENT && is_array($cache_tables) && isset($cache_tables[$table]) && $cache_tables[$table] >= $cache->created) {
-    // Cache item expired, return FALSE.
-    return FALSE;
-  }
-
+  // Clean up $_SESSION['cache_flush'] variable array if it is older than
+  // the minimum cache lifetime, since after that the $cache_flush variable
+  // will take over.
   if (is_array($cache_tables) && !empty($cache_tables) && $cache_lifetime) {
     // Expire the $_SESSION['cache_flush'] variable array if it is older than
     // the minimum cache lifetime, since after that the $cache_flush variable
@@ -74,21 +139,6 @@ function cache_get($cid, $table = 'cache') {
       unset($_SESSION['cache_flush']);
       $cache_tables = NULL;
     }
-  }
-  // Check for wildcard flushes matching this cid.
-  $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
-  $recorded_flushes = memcache_wildcard_flushes($cid, $table);
-  if ($flushes < $recorded_flushes) {
-    return FALSE;
-  }
-  // If wildcards are cleared by a partial memcache flush or eviction
-  // then it is possible for $cache->flushes to be greater than the return
-  // of memcache_wildcard_flushes().
-  if ($flushes > $recorded_flushes) {
-    // Delete the cache item entirely, it will be set again with the correct
-    // number of flushes.
-    dmemcache_delete($cid, $table);
-    return FALSE;
   }
 
   return $cache;
@@ -157,6 +207,9 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   // Other requests for the expired object while it is still being rebuilt get
   // the expired object.
   dmemcache_set($cid, $cache, 0, $table);
+  if (isset($GLOBALS['locks']["$cid:$table"])) {
+    lock_release("$cid:$table");
+  }
 }
 
 /**

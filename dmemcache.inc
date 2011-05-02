@@ -101,24 +101,7 @@ function dmemcache_get($key, $bin = 'cache') {
   $success = '0';
   if ($mc = dmemcache_object($bin)) {
     $result = $mc->get($full_key);
-    if ($result) {
-      // We check $result->expire to see if the object has expired.  If so, we
-      // try and grab a lock.  If we get the lock, we return FALSE instead of
-      // the cached object which should cause it to be rebuilt.  If we do not
-      // get the lock, we return the cached object.  The goal here is to avoid
-      // cache stampedes. 
-      // By default the cache stampede semaphore is held for 15 seconds.  This
-      // can be adjusted by setting the memcache_stampede_semaphore variable.
-      // TODO: Can we log when a sempahore expires versus being intentionally
-      // freed to track when this is happening?
-      if (isset($result->expire) && $result->expire !== CACHE_PERMANENT && $result->expire <= $_SERVER['REQUEST_TIME'] && dmemcache_add($full_key .'_semaphore', '', variable_get('memcache_stampede_semaphore', 15))) {
-        $result = FALSE;
-      }
-      else {
-        $success = '1';
-      }
-    }
-    $statistics[] = $success;
+    $statistics[] = (bool) $result;
     $_memcache_statistics[] = $statistics;
 
     return $result;

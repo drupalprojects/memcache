@@ -243,3 +243,35 @@ which is more advanced and faster, by adding the following to settings.php:
 $conf['memcache_options'] = array(
   Memcached::OPT_BINARY_PROTOCOL => TRUE,
 );
+
+
+## Stampede protection
+Memcache now includes stampede protection for expired and invalid cache items.
+To enable stampede protection, enable it in settings.php
+$conf['memcache_stampede_protection'] = TRUE;
+
+Stampede protection relies on the locking framework. It is strongly recommended
+to use the memcache lock implementation instead of core's SQL implementation.
+This is especially true if using the stampede protection since a lock stampede
+may be as bad or worse than a cache stampede if using SQL.
+$conf['lock_inc'] = './sites/all/modules/memcache/memcache-lock.inc';
+
+Behaviour of the stampede protection can be tweaked via the following, see
+comments in memcache.inc for more.
+
+The value passed to lock_acquire. Defaults to '15'.
+$conf['memcache_stampede_semaphore'] = 15;
+
+The value to pass to lock_wait, defaults to 5.
+$conf['memcache_stampede_wait_time'] = 5;
+
+The limit of calls to lock_wait() due to stampede protection during one request.
+Defaults to 3.
+$conf['memcache_stampede_wait_limit'] = 3;
+
+When setting these variables, note that:
+ - there is unlikely to be a good use case for setting wait_time higher
+   than stampede_semaphore.
+ - wait_time * wait_limit is designed to default to a number less than
+   standard web server timeouts (i.e. 15 seconds vs. apache's default of
+   30 seconds).
