@@ -60,7 +60,7 @@ function cache_get($cid, $table = 'cache') {
       if (variable_get('memcache_stampede_protection', FALSE)) {
         // The process that acquires the lock will get a cache miss, all
         // others will get a cache hit.
-        if (lock_acquire("$cid:$bin", variable_get('memcache_stampede_semaphore', 15))) {
+        if (lock_acquire("memcache_$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
           $cache = FALSE;
         }
       }
@@ -106,7 +106,7 @@ function cache_get($cid, $table = 'cache') {
   // On cache misses, attempt to avoid stampedes when the
   // memcache_stampede_protection variable is enabled.
   if (!$cache) {
-    if (variable_get('memcache_stampede_protection', FALSE) && !lock_acquire("$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
+    if (variable_get('memcache_stampede_protection', FALSE) && !lock_acquire("memcache_$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
       // Prevent any single request from waiting more than three times due to
       // stampede protection. By default this is a maximum total wait of 15
       // seconds. This accounts for two possibilities - a cache and lock miss
@@ -122,7 +122,7 @@ function cache_get($cid, $table = 'cache') {
         // The memcache_stampede_semaphore variable was used in previous releases
         // of memcache, but the max_wait variable was not, so by default divide
         // the sempahore value by 3 (5 seconds).
-        lock_wait("$cid:$table", variable_get('memcache_stampede_wait_time', 5));
+        lock_wait("memcache_$cid:$table", variable_get('memcache_stampede_wait_time', 5));
         return cache_get($cid, $table);
       }
     }
@@ -207,8 +207,8 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   // Other requests for the expired object while it is still being rebuilt get
   // the expired object.
   dmemcache_set($cid, $cache, 0, $table);
-  if (isset($GLOBALS['locks']["$cid:$table"])) {
-    lock_release("$cid:$table");
+  if (isset($GLOBALS['locks']["memcache_$cid:$table"])) {
+    lock_release("memcache_$cid:$table");
   }
 }
 
