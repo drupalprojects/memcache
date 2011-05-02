@@ -11,8 +11,16 @@ require_once variable_get('memcache_extra_include', 'database.inc');
 define('MEMCACHE_WILDCARD_INVALIDATE', 86400 * 28);
 
 /**
+ * Define a unique string for registering content flushes.
+ *
+ * This must not be confused with wildcard flushes or actual cids, so needs
+ * to be relatively unique.
+ */
+define('MEMCACHE_CONTENT_FLUSH', 'MEMCACHE_CONTENT_FLUSH');
+
+/**
  * Return data from the persistent cache.
- * 
+ *
  * Data may be stored as either plain text or as serialized data.
  * cache_get() will automatically return unserialized objects and arrays.
  *
@@ -37,18 +45,23 @@ function cache_get($cid, $table = 'cache') {
   }
   // Determine when the current table was last flushed.
   $cache_flush = variable_get("cache_flush_$table", 0);
+  $cache_content_flush = variable_get("cache_content_flush_$table", 0);
   $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
   $cache_lifetime = variable_get('cache_lifetime', 0);
   $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
 
-  if ($cache->created + $cache_lifetime <= $cache_flush) {
+  if ($cache->created <= $cache_flush) {
     return FALSE;
   }
 
-  // Items cached before the cache was last flushed are no longer valid.
-  if (is_array($cache_tables) && isset($cache_tables[$table]) &&
-      $cache_tables[$table] >= $cache->created) {
+  if ($cache->expire != CACHE_PERMANENT && $cache->created + $cache_lifetime <= $cache_content_flush) {
+    return FALSE;
+  }
+
+  // Items cached before the cache was last flushed by the current user are no
+  // longer valid.
+  if ($cache->expire != CACHE_PERMANENT && is_array($cache_tables) && isset($cache_tables[$table]) && $cache_tables[$table] >= $cache->created) {
     // Cache item expired, return FALSE.
     return FALSE;
   }
@@ -62,26 +75,20 @@ function cache_get($cid, $table = 'cache') {
       $cache_tables = NULL;
     }
   }
-  // Only validate against wildcard flushes if this table has seen a recent
-  // wildcard flush, as there is overhead in checking for wildcard flushes.
-  if (!empty($wildcard_flushes[$table]) &&
-      max($wildcard_flushes[$table]) >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
-    // Previously cached content won't have ->flushes defined.  We could
-    // force flush, but instead leave this up to the site admin.
-    $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
-    $recorded_flushes = memcache_wildcard_flushes($cid, $table);
-    if ($flushes < $recorded_flushes) {
-      return FALSE;
-    }
-    // If wildcards are cleared by a partial memcache flush or eviction
-    // then it is possible for $cache->flushes to be greater than the return
-    // of memcache_wildcard_flushes().
-    if ($flushes > $recorded_flushes) {
-      // Delete the cache item entirely, it will be set again with the correct
-      // number of flushes.
-      dmemcache_delete($cid, $table);
-      return FALSE;
-    }
+  // Check for wildcard flushes matching this cid.
+  $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
+  $recorded_flushes = memcache_wildcard_flushes($cid, $table);
+  if ($flushes < $recorded_flushes) {
+    return FALSE;
+  }
+  // If wildcards are cleared by a partial memcache flush or eviction
+  // then it is possible for $cache->flushes to be greater than the return
+  // of memcache_wildcard_flushes().
+  if ($flushes > $recorded_flushes) {
+    // Delete the cache item entirely, it will be set again with the correct
+    // number of flushes.
+    dmemcache_delete($cid, $table);
+    return FALSE;
   }
 
   return $cache;
@@ -116,8 +123,11 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
   if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'database') {
     return _cache_set($cid, $data, $table, $expire, $headers);
   }
-  
-  $created = $_SERVER['REQUEST_TIME'];
+
+  // The created time should always be set as late as possible, this is
+  // especially true immediately after a full bin flush, so use time() here
+  // instead of request time.
+  $created = time();
 
   // Create new cache object.
   $cache = new stdClass;
@@ -154,11 +164,6 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
  * Expire data from the cache. If called without arguments, expirable
  * entries will be cleared from the cache_page and cache_block tables.
  *
- * Memcache logic is simpler than the core cache because memcache doesn't have
- * a minimum cache lifetime consideration (it handles it internally), and 
- * doesn't support wildcards.  Wildcard flushes result in the entire table
- * being flushed.
- *
  * @param $cid
  *   If set, the cache ID to delete. Otherwise, all cache entries that can
  *   expire are deleted.
@@ -178,50 +183,50 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   if (!is_null($table) && isset($bins[$table]) && $bins[$table] == 'database') {
     return _cache_clear_all($cid, $table, $wildcard);
   }
-  
-  // Default behavior for when cache_clear_all() is called without parameters
-  // is to clear all of the expirable entries in the block and page caches.
-  if (!isset($cid) && !isset($table)) {
-    cache_clear_all('*', 'cache_block', TRUE);
-    cache_clear_all('*', 'cache_page', TRUE);
+
+  if (!isset($cid) && isset($table)) {
+    // cache_clear_all(NULL, $table) is for garbage collection only, memcache
+    // does not need this due to design, so make these calls a no-op.
     return;
   }
-  if (empty($cid) || $wildcard === TRUE) {
-    // system_cron() flushes all cache bins returned by hook_flush_caches()
-    // with cache_clear_all(NULL, $bin); This is for garbage collection with
-    // the database cache, but serves no purpose with memcache. So return
-    // early here.
-    if (!isset($cid)) {
-      return;
-    }
-    elseif ($cid == '*') {
-      $cid = '';
-    }
-    if (empty($cid)) {
-      // Update the timestamp of the last global flushing of this table.  When
-      // retrieving data from this table, we will compare the cache creation
-      // time minus the cache_flush time to the cache_lifetime to determine
-      // whether or not the cached item is still valid.
-      memcache_variable_set("cache_flush_$table", time());
-      if (variable_get('cache_lifetime', 0)) {
-        // We store the time in the current user's session which is saved into
-        // the sessions table by sess_write().  We then simulate that the cache
-        // was flushed for this user by not returning cached data to this user
-        // that was cached before the timestamp.
-        if (isset($_SESSION['cache_flush'])) {
-          $cache_tables = $_SESSION['cache_flush'];
-        }
-        else {
-          $cache_tables = array();
-        }
-        $cache_tables[$table] = $_SERVER['REQUEST_TIME'];
-        $_SESSION['cache_flush'] = $cache_tables;
+  // Default behavior for when cache_clear_all() is called without parameters
+  // is to clear all of the expirable entries in the block and page caches.
+  elseif (!isset($cid) && !isset($table)) {
+    cache_clear_all(MEMCACHE_CONTENT_FLUSH, 'cache_block');
+    cache_clear_all(MEMCACHE_CONTENT_FLUSH, 'cache_page');
+    return;
+  }
+  // Treat '*' and empty strings the same.
+  elseif (($cid == '*' || $cid == '') && $wildcard) {
+    // Since memcache works with a single memcache bin, full wildcard flushes
+    // are tracked in a variable rather than flushing the bin.
+    memcache_variable_set("cache_flush_$table", time());
+  }
+  elseif ($cid == MEMCACHE_CONTENT_FLUSH) {
+    // Update the timestamp of the last global flushing of this table.  When
+    // retrieving data from this table, we will compare the cache creation
+    // time minus the cache_flush time to the cache_lifetime to determine
+    // whether or not the cached item is still valid.
+    memcache_variable_set("cache_content_flush_$table", time());
+    if (variable_get('cache_lifetime', 0)) {
+      // We store the time in the current user's session which is saved into
+      // the sessions table by sess_write().  We then simulate that the cache
+      // was flushed for this user by not returning cached data to this user
+      // that was cached before the timestamp.
+      if (isset($_SESSION['cache_flush'])) {
+        $cache_tables = $_SESSION['cache_flush'];
       }
+      else {
+        $cache_tables = array();
+      }
+      // Use time() rather than request time here for correctness.
+      $cache_tables[$table] = time();
+      $_SESSION['cache_flush'] = $cache_tables;
     }
-    else {
-      // Register a wildcard flush for current cid
-      memcache_wildcards($cid, $table, TRUE);
-    }
+  }
+  elseif ($wildcard) {
+    // Register a wildcard flush for current cid
+    memcache_wildcards($cid, $table, TRUE);
   }
   else {
     dmemcache_delete($cid, $table);
