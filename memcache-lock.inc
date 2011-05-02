@@ -32,15 +32,12 @@ function lock_acquire($name, $timeout = 30) {
   // imposed by memcached.
   $timeout = (int) max($timeout, 1);
 
-  $result = dmemcache_get($name, 'semaphore');
-  if ($result && isset($locks[$name]) && $locks[$name] == _lock_id()) {
-    // Only renew the lock if we already set it and it has not expired.
-    if (dmemcache_set($name, _lock_id(), $timeout, 'semaphore')) {
-      $locks[$name] = _lock_id();
-    }
-  }
-  else if (dmemcache_add($name, _lock_id(), $timeout, 'semaphore')) {
+  if (dmemcache_add($name, _lock_id(), $timeout, 'semaphore')) {
     $locks[$name] = _lock_id();
+  }
+  elseif ($result = dmemcache_get($name, 'semaphore') && isset($locks[$name]) && $locks[$name] == _lock_id()) {
+    // Only renew the lock if we already set it and it has not expired.
+    dmemcache_set($name, _lock_id(), $timeout, 'semaphore');
   }
   else {
     // Failed to acquire the lock.  Unset the key from the $locks array even if
