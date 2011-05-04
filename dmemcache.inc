@@ -245,7 +245,7 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
  * @return an Memcache object or FALSE.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
-  static $extension, $memcacheCache = array(), $memcache_servers, $memcache_bins;
+  static $extension, $memcacheCache = array(), $memcache_servers, $memcache_bins, $memcache_persistent;
 
   if (!isset($extension)) {
     // If an extension is specified in settings.php, use that when available.
@@ -318,6 +318,15 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
         drupal_set_message('You must enable the PECL memcached or memcache extension to use memcache.inc.', 'error');
         return;
       }
+
+      // Indicate whether to connect to memcache using a persistent connection.
+      // Note: this only affects the Memcache PECL extension, and does not
+      // affect the Memcached PECL extension.  For a detailed explanation see:
+      //  http://drupal.org/node/822316#comment-4427676
+      if (!isset($memcache_persistent)) {
+        $memcache_persistent = variable_get('memcache_persistent', FALSE);
+      }
+
       // A variable to track whether we've connected to the first server.
       $init = FALSE;
 
@@ -326,13 +335,23 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
         if ($c == $cluster) {
           list($host, $port) = explode(':', $s);
 
-          // This is a server that belongs to this cluster.
-          if ($memcache instanceof Memcache && !$init) {
-            // If using PECL memcache extension, use ->connect for first server
-            if ($memcache->connect($host, $port)) {
-              $init = TRUE;
+          // Using the Memcache PECL extension.
+          if ($memcache instanceof Memcache) {
+            // When using the PECL memcache extension, we must use ->(p)connect 
+            // for the first connection.
+            if (!$init) {
+              if ($memcache_persistent && $memcache->pconnect($host, $port)) {
+                $init = TRUE;
+              }
+              elseif (!$memcache_persistent && $memcache->connect($host, $port)) {
+                $init = TRUE;
+              }
+            }
+            else {
+              $memcache->addServer($host, $port, $memcache_persistent);
             }
           }
+          // Using the Memcached PECL extension.
           else if ($memcache->addServer($host, $port) && !$init) {
             $init = TRUE;
           }

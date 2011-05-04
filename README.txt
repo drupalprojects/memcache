@@ -245,7 +245,8 @@ $conf['memcache_options'] = array(
 );
 
 
-## Stampede protection
+## Stampede protection ##
+
 Memcache now includes stampede protection for expired and invalid cache items.
 To enable stampede protection, enable it in settings.php
 $conf['memcache_stampede_protection'] = TRUE;
@@ -275,3 +276,15 @@ When setting these variables, note that:
  - wait_time * wait_limit is designed to default to a number less than
    standard web server timeouts (i.e. 15 seconds vs. apache's default of
    30 seconds).
+
+## Persistent connections ##
+
+If you are using the Memcache PECL extension you can specify whether or not to
+connect using persistent connections in settings.php. If you do not specify a
+value it defaults to FALSE.  For example, to enable persistent connections
+add the following to your settings.php file:
+$conf['memcache_persistent'] = TRUE;
+
+Persistent connections when using the Memcached PECL extension are currently
+not supported.  See http://drupal.org/node/822316#comment-4427676 for further
+details.
