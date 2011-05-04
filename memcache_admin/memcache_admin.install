@@ -28,3 +28,9 @@ function memcache_admin_requirements($phase) {
 
   return $requirements;
 }
+
+function memcache_admin_update_6001() {
+  drupal_flush_all_caches();
+  menu_rebuild();
+  return array();
+}

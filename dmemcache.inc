@@ -195,37 +195,57 @@ function dmemcache_flush($bin = 'cache') {
   }
 }
 
-function dmemcache_stats($bin = 'cache', $type = '') {
-  // resolve requests for 'default' type to ''
-  if ($type == 'default') {
-    $type = '';
-  }
-  // resolve requests for 'default' bin to 'cache'.
-  if ($bin == 'default') {
-    $bin = 'cache';
-  }
-  if ($mc = dmemcache_object($bin)) {
-    // The PHP Memcache extension 3.x version throws an error if the stats
-    // type is NULL or not in {reset, malloc, slabs, cachedump, items, sizes}.
-    // If $type is 'default', then no parameter should be passed to the 
-    // Memcache memcache_get_extended_stats() function.
-    if ($type == 'default' || $type == '') {
-      if ($mc instanceof Memcached) {
-        return $mc->getStats();
-      }
-      elseif ($mc instanceof Memcache) {
-        return $mc->getExtendedStats();
+function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggregate = FALSE) {
+  $memcache_bins = variable_get('memcache_bins', array('cache' => 'default'));
+  // The stats_type can be over-loaded with an integer slab id, if doing a
+  // cachedump.  We know we're doing a cachedump if $slab is non-zero.
+  $slab = (int)$stats_type;
+
+  foreach ($memcache_bins as $bin => $target) {
+    if ($stats_bin == $bin) {
+      if ($mc = dmemcache_object($bin)) {
+        if ($mc instanceof Memcached) {
+          $stats[$bin] = $mc->getStats();
+        }
+        // The PHP Memcache extension 3.x version throws an error if the stats
+        // type is NULL or not in {reset, malloc, slabs, cachedump, items,
+        // sizes}. If $stats_type is 'default', then no parameter should be
+        // passed to the Memcache memcache_get_extended_stats() function.
+        else if ($mc instanceof Memcache) {
+          if ($stats_type == 'default' || $stats_type == '') {
+            $stats[$bin] = $mc->getExtendedStats();
+          }
+          // If $slab isn't zero, then we are dumping the contents of a
+          // specific cache slab.
+          else if (!empty($slab))  {
+            $stats[$bin] = $mc->getStats('cachedump', $slab);
+          }
+          else {
+            $stats[$bin] = $mc->getExtendedStats($stats_type);
+          }
+        }
       }
     }
-    else {
-      if ($mc instanceof Memcached) {
-        return $mc->getStats();        
-      }
-      elseif ($mc instanceof Memcache) {
-        return $mc->getExtendedStats($type);
+  }
+  // Optionally calculate a sum-total for all servers in the current bin.
+  if ($aggregate) {
+    // Some variables don't logically aggregate.
+    $no_aggregate = array('pid', 'uptime', 'time', 'version', 'pointer_size', 'accepting_conns', 'listen_disabled_num');
+    foreach($stats as $bin => $servers) {
+      if (is_array($servers)) {
+        foreach ($servers as $server) {
+          if (is_array($server)) {
+            foreach ($server as $key => $value) {
+              if (!in_array($key, $no_aggregate)) {
+               $stats[$bin]['total'][$key] += $value;
+              }
+            }
+          }
+        }
       }
     }
   }
+  return $stats;
 }
 
 /**
@@ -290,7 +310,8 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
       $memcacheCache[$bin] = &$memcacheCache['cache'];
     }
     else {
-      // Create a new Memcache object. Each cluster gets its own Memcache object.
+      // Create a new Memcache object. Each cluster gets its own Memcache
+      // object.
       if ($extension == 'Memcached') {
         $memcache = new Memcached;
         $default_opts = array(
@@ -300,6 +321,8 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
         foreach ($default_opts as $key => $value) {
           $memcache->setOption($key, $value);
         }
+        // See README.txt for setting custom Memcache options when using the
+        // memcached PECL extension.
         $memconf = variable_get('memcache_options', array());
         foreach ($memconf as $key => $value) {
           $memcache->setOption($key, $value);
@@ -327,10 +350,8 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
               $init = TRUE;
             }
           }
-          else {
-            if ($memcache instanceof Memcached && $memcache->addServer($host, $port) && !$init) {
-              $init = TRUE;
-            }
+          else if ($memcache->addServer($host, $port) && !$init) {
+            $init = TRUE;
           }
         }
       }
