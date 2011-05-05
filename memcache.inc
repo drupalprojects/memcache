@@ -48,7 +48,7 @@ function cache_get($cid, $table = 'cache') {
   $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
   $wildcard_invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
 
-  if ($cache) {
+  if (is_object($cache)) {
     // Items that have expired are invalid.
     if (isset($cache->expire) && $cache->expire !== CACHE_PERMANENT && $cache->expire <= $_SERVER['REQUEST_TIME']) {
       // If the memcache_stampede_protection variable is set, allow one process
@@ -101,6 +101,9 @@ function cache_get($cid, $table = 'cache') {
         $cache = FALSE;
       }
     }
+  }
+  else {
+    $cache = FALSE;
   }
 
   // On cache misses, attempt to avoid stampedes when the
