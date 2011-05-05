@@ -429,15 +429,20 @@ function theme_memcache_admin_stats_raw_table($cluster, $server, $stats, $curren
 
   $headers = array(t('Property'), t('Value'));
   $rows = array();
+  // Items are returned as an array within an array within an array.  We step
+  // in one level to properly display the contained statistics.
+  if ($current_type == 'items' && isset($stats['items'])) {
+    $stats = $stats['items'];
+  }
   foreach ($stats as $key => $value) {
     // Add navigation for getting a cachedump of individual slabs
-    if ($current_type == 'slabs' && is_int($key) && user_access('access slab cachedump')) {
-      $key = l($key, "admin/reports/memcache/$bin/$server/$current_type/cachedump/$key");
+    if (($current_type == 'slabs' || $current_type == 'items') && is_int($key) && user_access('access slab cachedump')) {
+      $key = l($key, "admin/reports/memcache/$bin/$server/slabs/cachedump/$key");
     }
     if (is_array($value)) {
       $rs = array();
       foreach ($value as $k => $v) {
-        // Format timestamp when viewing cachedump of individual slabs
+        // Format timestamp when viewing cachedump of individual slabs.
         if ($current_type == 'slabs' && user_access('access slab cachedump') && arg(6) == 'cachedump' && $k == 0) {
           $k = t('Size');
           $v = format_size($v);
@@ -453,12 +458,12 @@ function theme_memcache_admin_stats_raw_table($cluster, $server, $stats, $curren
             $v = t('in @time', array('@time' => format_interval($v - time())));
           }
         }
-        $rs[] = array($k, $v);
-       }
+        $rs[] = array(check_plain($k), check_plain($v));
+      }
       $rows[] = array($key, theme('table', array(), $rs));
     }
     else {
-      $rows[] = array($key, $value);
+      $rows[] = array(check_plain($key), check_plain($value));
     }
   }
   $output .= theme('table', $headers, $rows);
