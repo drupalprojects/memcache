@@ -7,7 +7,7 @@
  */
 function memcache_admin_init() {
   global $user;
-  if (($user->uid == 0) || strstr($_SERVER['PHP_SELF'], 'update.php') || strstr($_GET['q'], 'autocomplete')) {
+  if (($user->uid == 0) || strstr($_SERVER['PHP_SELF'], 'update.php') || (isset($_GET['q']) && (in_array($_GET['q'], array('upload/js', 'admin/content/node-settings/rebuild')) || substr($_GET['q'], 0, strlen('system/files')) == 'system/files' || substr($_GET['q'], 0, strlen('batch')) == 'batch' || strstr($_GET['q'], 'autocomplete')))) {
     // update.php relies on standard error handler
   }
   else {
