@@ -111,86 +111,98 @@ function _memcache_admin_default_bin($bin) {
   return $bin;
 }
 
-function _memcache_admin_stats_connections($current, $total) {
-  return t('!current open of !total total', array('!current' => number_format($current), '!total' => number_format($total)));
+function _memcache_admin_stats_connections($stats) {
+  return t('!current open of !total total', array('!current' => number_format($stats['curr_connections']), '!total' => number_format($stats['total_connections'])));
 }
 
 /**
  * Statistics report: calculate # of set cmds and total cmds.
  */
-function _memcache_admin_stats_sets($cmd_set, $cmd_get) {
-  if (($cmd_set + $cmd_get) == 0) {
+function _memcache_admin_stats_sets($stats) {
+  if (($stats['cmd_set'] + $stats['cmd_get']) == 0) {
     $sets = 0;
   }
   else {
-    $sets = $cmd_set / ($cmd_set + $cmd_get) * 100;
+    $sets = $stats['cmd_set'] / ($stats['cmd_set'] + $stats['cmd_get']) * 100;
   }
-  return t('!set sets (!sets%) of !total commands', array('!sets' => number_format($sets, 2), '!set' => number_format($cmd_set), '!total' => number_format($cmd_set + $cmd_get)));
+  if (empty($stats['uptime'])) {
+    $average = 0;
+  }
+  else {
+    $average = $sets / $stats['uptime'];
+  }
+  return t('!average/s; !set sets (!sets%) of !total commands', array('!average' => number_format($average, 2), '!sets' => number_format($sets, 2), '!set' => number_format($stats['cmd_set']), '!total' => number_format($stats['cmd_set'] + $stats['cmd_get'])));
 }
 
 /**
  * Statistics report: calculate # of get cmds, broken down by hits and misses.
  */
-function _memcache_admin_stats_gets($cmd_set, $cmd_get, $get_hits, $get_misses) {
-  if (($cmd_set + $cmd_get) == 0) {
+function _memcache_admin_stats_gets($stats) {
+  if (($stats['cmd_set'] + $stats['cmd_get']) == 0) {
     $gets = 0;
   }
   else {
-    $gets = $cmd_get / ($cmd_set + $cmd_get) * 100;
+    $gets = $stats['cmd_get'] / ($stats['cmd_set'] + $stats['cmd_get']) * 100;
   }
-  return t('!total gets (!gets%), !hit hits (!percent_hit%) !miss misses (!percent_miss%)', array('!gets' => number_format($gets, 2), '!hit' => number_format($get_hits), '!percent_hit' => ($cmd_get > 0 ? number_format($get_hits / $cmd_get * 100, 2) : '0.00'), '!miss' => number_format($get_misses), '!percent_miss' => ($cmd_get > 0 ? number_format($get_misses / $cmd_get * 100, 2) : '0.00'), '!total' => number_format($cmd_get)));
+  if (empty($stats['uptime'])) {
+    $average = 0;
+  }
+  else {
+    $average = $stats['cmd_get'] / $stats['uptime'];
+  }
+  return t('!average/s; !total gets (!gets%); !hit hits (!percent_hit%) !miss misses (!percent_miss%)', array('!average' => number_format($average, 2), '!gets' => number_format($gets, 2), '!hit' => number_format($stats['get_hits']), '!percent_hit' => ($stats['cmd_get'] > 0 ? number_format($stats['get_hits'] / $stats['cmd_get'] * 100, 2) : '0.00'), '!miss' => number_format($stats['get_misses']), '!percent_miss' => ($stats['cmd_get'] > 0 ? number_format($stats['get_misses'] / $stats['cmd_get'] * 100, 2) : '0.00'), '!total' => number_format($stats['cmd_get'])));
 }
 
 /**
  * Statistics report: calculate # of increments and decrements.
  */
-function _memcache_admin_stats_counters($incr_hits, $incr_misses, $dec_hits, $decr_misses) {
-  return t('!incr increments, !decr decrements', array('!incr' => number_format($incr_hits + $incr_misses), '!decr' => number_format($decr_hits + $decr_misses)));
+function _memcache_admin_stats_counters($stats) {
+  return t('!incr increments, !decr decrements', array('!incr' => number_format($stats['incr_hits'] + $stats['incr_misses']), '!decr' => number_format($stats['decr_hits'] + $stats['decr_misses'])));
 }
 
 /**
  * Statistics report: calculate bytes transferred.
  */
-function _memcache_admin_stats_transfer($bytes_read, $bytes_written) {
-  if ($bytes_written == 0) {
+function _memcache_admin_stats_transfer($stats) {
+  if ($stats['bytes_written'] == 0) {
     $written = 0;
   }
   else {
-    $written = $bytes_read / $bytes_written * 100;
+    $written = $stats['bytes_read'] / $stats['bytes_written'] * 100;
   }
-  return t('!to:!from (!written% to cache)', array('!to' => format_size((int)$bytes_read), '!from' => format_size((int)$bytes_written), '!written' => number_format($written, 2)));
+  return t('!to:!from (!written% to cache)', array('!to' => format_size((int)$stats['bytes_read']), '!from' => format_size((int)$stats['bytes_written']), '!written' => number_format($written, 2)));
 }
 
 /**
  * Statistics report: calculate per-connection averages.
  */
-function _memcache_admin_stats_average($cmd_get, $total_connections, $cmd_set, $bytes_read, $bytes_written) {
-  if ($total_connections == 0) {
+function _memcache_admin_stats_average($stats) {
+  if ($stats['total_connections'] == 0) {
     $get = 0;
     $set = 0;
     $read = 0;
     $write = 0;
   }
   else {
-    $get = $cmd_get / $total_connections;
-    $set = $cmd_set / $total_connections;
-    $read = $bytes_written / $total_connections;
-    $write = $bytes_read / $total_connections;
+    $get = $stats['cmd_get'] / $stats['total_connections'];
+    $set = $stats['cmd_set'] / $stats['total_connections'];
+    $read = $stats['bytes_written'] / $stats['total_connections'];
+    $write = $stats['bytes_read'] / $stats['total_connections'];
   }
-  return t('!read in !get gets, !write in !set sets', array('!get' => number_format($get, 2), '!set' => number_format($set, 2), '!read' => format_size(number_format($read, 2)), '!write' => format_size(number_format($write, 2))));
+  return t('!read in !get gets; !write in !set sets', array('!get' => number_format($get, 2), '!set' => number_format($set, 2), '!read' => format_size(number_format($read, 2)), '!write' => format_size(number_format($write, 2))));
 }
 
 /**
  * Statistics report: calculate available memory.
  */
-function _memcache_admin_stats_memory($limit_maxbytes, $bytes) {
-  if ($limit_maxbytes == 0) {
+function _memcache_admin_stats_memory($stats) {
+  if ($stats['limit_maxbytes'] == 0) {
     $percent = 0;
   }
   else {
-    $percent = 100 - $bytes / $limit_maxbytes * 100;
+    $percent = 100 - $stats['bytes'] / $stats['limit_maxbytes'] * 100;
   }
-  return t('!available (!percent%) of !total', array('!available' => format_size($limit_maxbytes - $bytes), '!percent' => number_format($percent, 2), '!total' => format_size($limit_maxbytes)));
+  return t('!available (!percent%) of !total', array('!available' => format_size($stats['limit_maxbytes'] - $stats['bytes']), '!percent' => number_format($percent, 2), '!total' => format_size($stats['limit_maxbytes'])));
 }
 
 /**
@@ -247,13 +259,13 @@ function memcache_admin_stats($bin = 'cache') {
         $data['server_overview'][$server] = t('v!version running !uptime', array('!version' => check_plain($stats[$server]['version']), '!uptime' => format_interval($stats[$server]['uptime'])));
         $data['server_pecl'][$server] = t('n/a');
         $data['server_time'][$server] = format_date($stats[$server]['time']);
-        $data['server_connections'][$server] = _memcache_admin_stats_connections($stats[$server]['curr_connections'], $stats[$server]['total_connections']);
-        $data['cache_sets'][$server] = _memcache_admin_stats_sets($stats[$server]['cmd_set'], $stats[$server]['cmd_get']);
-        $data['cache_gets'][$server] = _memcache_admin_stats_gets($stats[$server]['cmd_set'], $stats[$server]['cmd_get'], $stats[$server]['get_hits'], $stats[$server]['get_misses']);
-        $data['cache_counters'][$server] = _memcache_admin_stats_counters($stats[$server]['incr_hits'], $stats[$server]['incr_misses'], $stats[$server]['decr_hits'], $stats[$server]['decr_misses']);
-        $data['cache_transfer'][$server] = _memcache_admin_stats_transfer($stats[$server]['bytes_read'], $stats[$server]['bytes_written']);
-        $data['cache_average'][$server] = _memcache_admin_stats_average($stats[$server]['cmd_get'], $stats[$server]['total_connections'], $stats[$server]['cmd_set'], $stats[$server]['bytes_read'], $stats[$server]['bytes_written']);
-        $data['memory_available'][$server] = _memcache_admin_stats_memory($stats[$server]['limit_maxbytes'], $stats[$server]['bytes']);
+        $data['server_connections'][$server] = _memcache_admin_stats_connections($stats[$server]);
+        $data['cache_sets'][$server] = _memcache_admin_stats_sets($stats[$server]);
+        $data['cache_gets'][$server] = _memcache_admin_stats_gets($stats[$server]);
+        $data['cache_counters'][$server] = _memcache_admin_stats_counters($stats[$server]);
+        $data['cache_transfer'][$server] = _memcache_admin_stats_transfer($stats[$server]);
+        $data['cache_average'][$server] = _memcache_admin_stats_average($stats[$server]);
+        $data['memory_available'][$server] = _memcache_admin_stats_memory($stats[$server]);
         $data['memory_evictions'][$server] = number_format($stats[$server]['evictions']);
       }
     }
@@ -270,40 +282,40 @@ function memcache_admin_stats($bin = 'cache') {
           array('total' => $version),
           $data['server_pecl']),
         array_merge(
-          array('header' => t('Time')),
+          array('header' => t('Server time')),
           array('total' => t('n/a')),
           $data['server_time']),
         array_merge(
           array('header' => t('Connections')),
-          array('total' => _memcache_admin_stats_connections($stats['total']['curr_connections'], $stats['total']['total_connections'])),
+          array('total' => _memcache_admin_stats_connections($stats['total'])),
           $data['server_connections']),
       ),
       'Cache statistics' => array(
         array_merge(
           array('header' => t('Sets')),
-          array('total' => _memcache_admin_stats_sets($stats['total']['cmd_set'], $stats['total']['cmd_get'])),
+          array('total' => _memcache_admin_stats_sets($stats['total'])),
           $data['cache_sets']),
         array_merge(
           array('header' => t('Gets')),
-          array('total' => _memcache_admin_stats_gets($stats['total']['cmd_set'], $stats['total']['cmd_get'], $stats['total']['get_hits'], $stats['total']['get_misses'])),
+          array('total' => _memcache_admin_stats_gets($stats['total'])),
           $data['cache_gets']),
         array_merge(
           array('header' => t('Counters')),
-          array('total' => _memcache_admin_stats_counters($stats['total']['incr_hits'], $stats['total']['incr_misses'], $stats['total']['decr_hits'], $stats['total']['decr_misses'])),
+          array('total' => _memcache_admin_stats_counters($stats['total'])),
           $data['cache_counters']),
         array_merge(
           array('header' => t('Transferred')),
-          array('total' => _memcache_admin_stats_transfer($stats['total']['bytes_read'], $stats['total']['bytes_written'])),
+          array('total' => _memcache_admin_stats_transfer($stats['total'])),
           $data['cache_transfer']),
         array_merge(
           array('header' => t('Per-connection average')),
-          array('total' => _memcache_admin_stats_average($stats['total']['cmd_get'], $stats['total']['total_connections'], $stats['total']['cmd_set'], $stats['total']['bytes_read'], $stats['total']['bytes_written'])),
+          array('total' => _memcache_admin_stats_average($stats['total'])),
           $data['cache_average']),
       ),
       'Memory overview' => array(
         array_merge(
           array('header' => t('Available memory')),
-          array('total' => _memcache_admin_stats_memory($stats['total']['limit_maxbytes'], $stats['total']['bytes'])),
+          array('total' => _memcache_admin_stats_memory($stats['total'])),
           $data['memory_available']),
         array_merge(
           array('header' => t('Evictions')),
@@ -311,7 +323,7 @@ function memcache_admin_stats($bin = 'cache') {
           $data['memory_evictions']),
       ),
     );
-    $output .= theme('memcache_admin_stats_table', $bin, $servers, $report);
+    $output = theme('memcache_admin_stats_table', $bin, $servers, $report);
   }
   else {
     $output = '';
@@ -382,7 +394,7 @@ function theme_memcache_admin_stats_table($bin, $servers, $stats) {
   foreach ($stats as $table => $data) {
     $rows = array();
     foreach ($data as $row) {
-      if (is_array($row[2])) {
+      if (isset($row[2]) && is_array($row[2])) {
         $row[2] = implode(', ', $row[2]);
       }
       else {
