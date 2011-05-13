@@ -316,7 +316,9 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
     // shortest wildcard clear on the table so far. So if the shortest
     // wildcard was "links:foo:", and the cid we're checking for is
     // "links:bar:bar", then the key will be "links:bar:".
-    $wildcard_length = strlen(reset(array_keys($wildcard_flushes[$table])));
+    $keys = array_keys($wildcard_flushes[$table]);
+    // All keys are the same length, so just get the length of the first one.
+    $wildcard_length = strlen(reset($keys));
     $wildcard_key = substr($cid, 0, $wildcard_length);
 
     // Determine which lookups we need to perform to determine whether or not
