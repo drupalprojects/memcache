@@ -153,7 +153,7 @@ function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
   $full_key = dmemcache_key($key, $bin);
   $_memcache_statistics[] = array('delete', $bin, $full_key, '');
   if ($mc || ($mc = dmemcache_object($bin))) {
-    return $mc->delete($full_key);
+    return $mc->delete($full_key, 0);
   }
   return FALSE;
 }
