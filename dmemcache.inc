@@ -100,9 +100,18 @@ function dmemcache_get($key, $bin = 'cache') {
   $statistics = array('get', $bin, $full_key);
   $success = '0';
   if ($mc = dmemcache_object($bin)) {
-    $result = $mc->get($full_key);
+    $track_errors = ini_set('track_errors', '1');
+    $php_errormsg = '';
+
+    $result = @$mc->get($full_key);
     $statistics[] = (bool) $result;
     $_memcache_statistics[] = $statistics;
+
+    if (!empty($php_errormsg)) {
+      register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+      $php_errormsg = '';
+    }
+    ini_set('track_errors', $track_errors);
 
     return $result;
   }
@@ -131,7 +140,16 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
       $results = $mc->getMulti($full_keys);
     }
     elseif ($mc instanceof Memcache) {
-      $results = $mc->get($full_keys);
+      $track_errors = ini_set('track_errors', '1');
+      $php_errormsg = '';
+
+      $results = @$mc->get($full_keys);
+
+      if (!empty($php_errormsg)) {
+        register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get_multi: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+        $php_errormsg = '';
+      }
+      ini_set('track_errors', $track_errors);
     }
   }
   foreach ($statistics as $key => $values) {
@@ -342,15 +360,24 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 
           // Using the Memcache PECL extension.
           if ($memcache instanceof Memcache) {
-            // When using the PECL memcache extension, we must use ->(p)connect 
+            // When using the PECL memcache extension, we must use ->(p)connect
             // for the first connection.
             if (!$init) {
-              if ($memcache_persistent && $memcache->pconnect($host, $port)) {
+              $track_errors = ini_set('track_errors', '1');
+              $php_errormsg = '';
+
+              if ($memcache_persistent && @$memcache->pconnect($host, $port)) {
                 $init = TRUE;
               }
-              elseif (!$memcache_persistent && $memcache->connect($host, $port)) {
+              elseif (!$memcache_persistent && @$memcache->connect($host, $port)) {
                 $init = TRUE;
               }
+
+              if (!empty($php_errormsg)) {
+                register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+                $php_errormsg = '';
+              }
+              ini_set('track_errors', $track_errors);
             }
             else {
               $memcache->addServer($host, $port, $memcache_persistent);
