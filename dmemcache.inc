@@ -137,6 +137,11 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
     $values[] = isset($results[$key]) ? '1': '0';
     $_memcache_statistics[] = $values;
   }
+
+  // If $results is FALSE, convert it to an empty array.
+  if (!$results) {
+    $results = array();
+  }
   return $results;
 }
 
