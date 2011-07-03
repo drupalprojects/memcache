@@ -329,7 +329,8 @@ function dmemcache_key($key, $bin = 'cache') {
   static $prefix;
   // memcache_key_prefix can be set in settings.php to support site namespaces
   // in a multisite environment.
-  if (empty($prefix)) {
+  if (!isset($prefix)) {
+    $prefix = '';
     if ($prefix = variable_get('memcache_key_prefix', '')) {
       $prefix .= '-';
     }
