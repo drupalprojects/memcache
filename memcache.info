@@ -1,7 +1,7 @@
 name = Memcache
 description = High performance integration with memcache.
-package = Caching
+package = Performance and scalability
 core = 7.x
-files[] = memcache.inc
-files[] = memcache.module
-files[] = memcache.test
+files[] = tests/memcache.test
+files[] = tests/memcache-session.test
+files[] = tests/memcache-lock.test
