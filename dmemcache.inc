@@ -326,19 +326,14 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 }
 
 function dmemcache_key($key, $bin = 'cache') {
-  static $prefix;
-  // memcache_key_prefix can be set in settings.php to support site namespaces
-  // in a multisite environment.
-  if (!isset($prefix)) {
-    $prefix = '';
-    if ($prefix = variable_get('memcache_key_prefix', '')) {
-      $prefix .= '-';
-    }
-    // When simpletest is running, emulate the simpletest database prefix here
-    // to avoid the child site setting cache entries in the parent site.
-    if (isset($GLOBALS['drupal_test_info']['test_run_id'])) {
-      $prefix .= $GLOBALS['drupal_test_info']['test_run_id'];
-    }
+  $prefix = '';
+  if ($prefix = variable_get('memcache_key_prefix', '')) {
+    $prefix .= '-';
+  }
+  // When simpletest is running, emulate the simpletest database prefix here
+  // to avoid the child site setting cache entries in the parent site.
+  if (isset($GLOBALS['drupal_test_info']['test_run_id'])) {
+    $prefix .= $GLOBALS['drupal_test_info']['test_run_id'];
   }
   $full_key = urlencode($prefix . $bin . '-' . $key);
 

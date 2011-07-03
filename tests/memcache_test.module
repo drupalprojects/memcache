@@ -25,8 +25,6 @@ function memcache_test_menu() {
  * Try to acquire a named lock and report the outcome.
  */
 function memcache_test_lock_acquire() {
-  dmemcache_key(FALSE, FALSE, TRUE);
-  $GLOBALS['drupal_test_info']['test_run_id'] = arg(2);
   if (lock_acquire('memcache_test_lock_acquire')) {
     lock_release('memcache_test_lock_acquire');
     return 'TRUE: Lock successfully acquired in memcache_test_lock_acquire()';
@@ -40,8 +38,6 @@ function memcache_test_lock_acquire() {
  * Try to acquire a specific lock, and then exit.
  */
 function memcache_test_lock_exit() {
-  dmemcache_key(FALSE, FALSE, TRUE);
-  $GLOBALS['drupal_test_info']['test_run_id'] = arg(2);
   if (lock_acquire('memcache_test_lock_exit', 900)) {
     echo 'TRUE: Lock successfully acquired in memcache_test_lock_exit()';
     // The shut-down function should release the lock.
