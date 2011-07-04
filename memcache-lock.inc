@@ -9,7 +9,7 @@
 /**
  * Initialize the locking system.
  */
-function lock_init() {
+function lock_initialize() {
   global $locks;
 
   $locks = array();
