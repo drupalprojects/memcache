@@ -96,6 +96,7 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   $full_key = dmemcache_key($key, $bin);
   $statistics = array('get', $bin, $full_key);
   $success = '0';
+  $result = NULL;
   if ($mc || ($mc = dmemcache_object($bin))) {
     $result = $mc->get($full_key);
     if ($result) {
