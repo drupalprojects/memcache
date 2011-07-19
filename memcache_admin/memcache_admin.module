@@ -19,9 +19,9 @@ function memcache_admin_init() {
 }
 
 /**
- * Implementation of hook_perm().
+ * Implements hook_perm().
  */
-function memcache_admin_perm() {
+function memcache_admin_permission() {
   return array(
     'access memcache statistics' => array(
       'title' => t('Access memcache statistics'),
@@ -30,7 +30,7 @@ function memcache_admin_perm() {
 }
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function memcache_admin_menu() {
   $items['admin/config/system/memcache'] = array(
@@ -133,8 +133,8 @@ function memcache_admin_stats($cluster = 'default', $type = 'default') {
               $values['limit_maxbytes'] = format_size($values['limit_maxbytes']);
 
               //Custom Entries
-              $values['hit_percentage'] = ($values['cmd_get'] > 0) 
-                ? number_format(100.0 * $values['get_hits'] / $values['cmd_get'], 2) . '%' 
+              $values['hit_percentage'] = ($values['cmd_get'] > 0)
+                ? number_format(100.0 * $values['get_hits'] / $values['cmd_get'], 2) . '%'
                 : '0';
 
               $mem_used = intval($values['bytes']) / (intval($values['limit_maxbytes']) * 1024);
@@ -160,7 +160,7 @@ function memcache_admin_stats($cluster = 'default', $type = 'default') {
 }
 
 /**
- * Implementation of hook_theme().
+ * Implements hook_theme().
  */
 function memcache_admin_theme() {
   return array(
