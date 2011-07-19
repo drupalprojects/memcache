@@ -225,6 +225,8 @@ function memcache_admin_bin_mapping($bin = 'cache') {
  * @return string
  */
 function memcache_admin_stats($bin = 'cache') {
+  module_load_include('inc', 'memcache', 'dmemcache');
+
   $bin = memcache_admin_bin_mapping($bin);
 
   $stats = dmemcache_stats($bin, 'default', TRUE);
