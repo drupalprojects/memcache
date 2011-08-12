@@ -194,26 +194,30 @@ class MemCacheGetMultipleUnitTest extends MemcacheTestCase {
   function testCacheMultiple() {
     $item1 = $this->randomName(10);
     $item2 = $this->randomName(10);
-    cache_set('item1', $item1, $this->default_bin);
-    cache_set('item2', $item2, $this->default_bin);
-    $this->assertTrue($this->checkCacheExists('item1', $item1), t('Item 1 is cached.'));
-    $this->assertTrue($this->checkCacheExists('item2', $item2), t('Item 2 is cached.'));
+    cache_set('test:item1', $item1, $this->default_bin);
+    cache_set('test:item2', $item2, $this->default_bin);
+    $this->assertTrue($this->checkCacheExists('test:item1', $item1), t('Item 1 is cached.'));
+    $this->assertTrue($this->checkCacheExists('test:item2', $item2), t('Item 2 is cached.'));
 
     // Fetch both records from the database with cache_get_multiple().
-    $item_ids = array('item1', 'item2');
+    $item_ids = array('test:item1', 'test:item2');
     $items = cache_get_multiple($item_ids, $this->default_bin);
-    $this->assertEqual($items['item1']->data, $item1, t('Item was returned from cache successfully.'));
-    $this->assertEqual($items['item2']->data, $item2, t('Item was returned from cache successfully.'));
+    $this->assertEqual($items['test:item1']->data, $item1, t('Item was returned from cache successfully.'));
+    $this->assertEqual($items['test:item2']->data, $item2, t('Item was returned from cache successfully.'));
+
+    $this->assertTrue(empty($item_ids), t('Ids of returned items have been removed.'));
 
     // Remove one item from the cache.
-    cache_clear_all('item2', $this->default_bin);
+    cache_clear_all('test:item2', $this->default_bin);
 
     // Confirm that only one item is returned by cache_get_multiple().
-    $item_ids = array('item1', 'item2');
+    $item_ids = array('test:item1', 'test:item2');
     $items = cache_get_multiple($item_ids, $this->default_bin);
-    $this->assertEqual($items['item1']->data, $item1, t('Item was returned from cache successfully.'));
-    $this->assertFalse(isset($items['item2']), t('Item was not returned from the cache.'));
+    $this->assertEqual($items['test:item1']->data, $item1, t('Item was returned from cache successfully.'));
+    $this->assertFalse(isset($items['test:item2']), t('Item was not returned from the cache.'));
     $this->assertTrue(count($items) == 1, t('Only valid cache entries returned.'));
+    $this->assertTrue(count($item_ids) == 1, t('Invalid cache ids still present.'));
+
   }
 }
 

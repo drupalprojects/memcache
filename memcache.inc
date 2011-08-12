@@ -32,12 +32,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // This object has expired, so don't return it.
         unset($results[$cid]);
       }
-      else {
-        // Remove items from the referenced $cids array that we are returning,
-        // per the comment in cache_get_multiple() in includes/cache.inc.
-        unset($cids[$result->cid]);
-      }
     }
+    // Remove items from the referenced $cids array that we are returning,
+    // per the comment in cache_get_multiple() in includes/cache.inc.
+    $cids = array_diff($cids, array_keys($results));
     return $results;
   }
 

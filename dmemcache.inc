@@ -143,7 +143,15 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   if (!$results) {
     $results = array();
   }
-  return $results;
+
+  // Convert the full keys back to the cid.
+  $cid_results = array();
+  foreach ($results as $value) {
+    if (is_object($value)) {
+      $cid_results[$value->cid] = $value;
+    }
+  }
+  return $cid_results;
 }
 
 /**
