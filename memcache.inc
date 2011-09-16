@@ -257,12 +257,11 @@ class MemCacheDrupal implements DrupalCacheInterface {
       foreach ($this->wildcard_flushes[$this->bin] as $flush_length => $timestamp) {
         if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $this->invalidate)) {
           $key = '.wildcard-' . substr($cid, 0, $flush_length);
-          $wildcard = dmemcache_key($key, $this->bin);
-          if (isset($wildcards[$this->bin][$wildcard])) {
-            $matching[$wildcard] = $wildcards[$this->bin][$wildcard];
+          if (isset($wildcards[$this->bin][$key])) {
+            $matching[$key] = $wildcards[$this->bin][$key];
           }
           else {
-            $lookup[$wildcard] = $key;
+            $lookup[$key] = $key;
           }
         }
       }
@@ -285,11 +284,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
 
         // Also store failed lookups in our static cache, so we don't have to
         // do repeat lookups on single page loads.
-        foreach ($lookup as $wildcard => $key) {
-          $wildcards[$this->bin][$wildcard] = 0;
+        foreach ($lookup as $key => $key) {
+          $wildcards[$this->bin][$key] = 0;
         }
       }
     }
+
     if ($flush) {
       // Avoid too many calls to variable_set() by only recording a flush for
       // a fraction of the wildcard invalidation variable, per cid length.
@@ -301,14 +301,13 @@ class MemCacheDrupal implements DrupalCacheInterface {
         $this->wildcard_flushes[$this->bin][$length] = $_SERVER['REQUEST_TIME'];
         variable_set('memcache_wildcard_flushes', $this->wildcard_flushes);
       }
-      $wildcard = dmemcache_key('.wildcard-' . $cid, $this->bin);
-      if (isset($wildcards[$this->bin][$wildcard]) && $wildcards[$this->bin][$wildcard] != 0) {
-        $this->memcache->increment($wildcard);
-        $wildcards[$this->bin][$wildcard]++;
+      $key = '.wildcard-' . $cid;
+      if (isset($wildcards[$this->bin][$key]) && $wildcards[$this->bin][$key] != 0) {
+        $this->memcache->increment($key);
+        $wildcards[$this->bin][$key]++;
       }
       else {
-        $wildcards[$this->bin][$wildcard] = 1;
-        dmemcache_set('.wildcard-' . $cid, '1', 0, $this->bin);
+        dmemcache_set($key, '1', 0, $this->bin);
       }
     }
     return $matching;

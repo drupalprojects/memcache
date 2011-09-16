@@ -129,7 +129,7 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   foreach ($keys as $key => $cid) {
     $full_key = dmemcache_key($cid, $bin);
     $statistics[$full_key] = array('getMulti', $bin, $full_key);
-    $full_keys[] = $full_key;
+    $full_keys[$cid] = $full_key;
   }
   $results = array();
   if ($mc || ($mc = dmemcache_object($bin))) {
@@ -161,10 +161,9 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
 
   // Convert the full keys back to the cid.
   $cid_results = array();
-  foreach ($results as $value) {
-    if (is_object($value)) {
-      $cid_results[$value->cid] = $value;
-    }
+  $cid_lookup = array_flip($full_keys);
+  foreach ($results as $key => $value) {
+    $cid_results[$cid_lookup[$key]] = $value;
   }
   return $cid_results;
 }
