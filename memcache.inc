@@ -1,6 +1,6 @@
 <?php
 
-require_once 'dmemcache.inc';
+require_once dirname(__FILE__) . '/dmemcache.inc';
 
 /**
  * Defines the period after which wildcard clears are not considered valid.

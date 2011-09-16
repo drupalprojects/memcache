@@ -6,6 +6,8 @@
  * See includes/lock.inc for documenation
  */
 
+require_once dirname(__FILE__) . '/dmemcache.inc';
+
 /**
  * Initialize the locking system.
  */
