@@ -37,7 +37,7 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   $full_key = dmemcache_key($key, $bin);
   $_memcache_statistics[] = array('set', $bin, $full_key, '');
   if ($mc || ($mc = dmemcache_object($bin))) {
-    if (class_exists('Memcached')) {
+    if ($mc instanceof Memcached) {
       return $mc->set($full_key, $value, $exp);
     }
     else {
@@ -73,7 +73,7 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
   $full_key = dmemcache_key($key, $bin);
   $_memcache_statistics[] = array('add', $bin, $full_key, '');
   if ($mc || ($mc = dmemcache_object($bin))) {
-    if (class_exists('Memcached')) {
+    if ($mc instanceof Memcached) {
       return $mc->add($full_key, $value, $exp);
     }
     else {
@@ -127,10 +127,10 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   }
   $results = array();
   if ($mc || ($mc = dmemcache_object($bin))) {
-    if (class_exists('Memcached')) {
+    if ($mc instanceof Memcached) {
       $results = $mc->getMulti($full_keys);
     }
-    else {
+    elseif ($mc instanceof Memcache) {
       $results = $mc->get($full_keys);
     }
   }
@@ -200,7 +200,7 @@ function dmemcache_stats($bin = 'cache', $type = '') {
     $bin = 'cache';
   }
   if ($mc = dmemcache_object($bin)) {
-    if (class_exists('Memcached')) {
+    if ($mc instanceof Memcached) {
       return $mc->getStats();
     }
     // The PHP Memcache extension 3.x version throws an error if the stats
@@ -208,20 +208,10 @@ function dmemcache_stats($bin = 'cache', $type = '') {
     // If $type is 'default', then no parameter should be passed to the
     // Memcache memcache_get_extended_stats() function.
     if ($type == 'default' || $type == '') {
-      if (class_exists('Memcached')) {
-        return $mc->getStats();
-      }
-      else if (class_exists('Memcache')) {
-        return $mc->getExtendedStats();
-      }
+      return $mc->getExtendedStats();
     }
     else {
-      if (class_exists('Memcached')) {
-        return $mc->getStats();
-      }
-      else if (class_exists('Memcache')) {
-        return $mc->getExtendedStats($type);
-      }
+      return $mc->getExtendedStats($type);
     }
   }
 }
@@ -240,7 +230,25 @@ function dmemcache_stats($bin = 'cache', $type = '') {
  * @return an Memcache object or FALSE.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
-  static $memcacheCache = array(), $memcache_servers, $memcache_bins;
+  static $extension, $memcacheCache = array(), $memcache_servers, $memcache_bins;
+
+  if (!isset($extension)) {
+    // If an extension is specified in settings.php, use that when available.
+    $preferred = variable_get('memcache_extension', NULL);
+    if (isset($preferred) && class_exists($preferred)) {
+      $extension = $preferred;
+    }
+    // If no extension is set, default to Memcache.
+    // The Memcached extension has some features that the older extension lacks
+    // but also an unfixed bug that affects cache clears.
+    // @see http://pecl.php.net/bugs/bug.php?id=16829
+    elseif (class_exists('Memcache')) {
+      $extension = 'Memcache';
+    }
+    elseif (class_exists('Memcached')) {
+      $extension = 'Memcached';
+    }
+  }
 
   if ($flush) {
     foreach ($memcacheCache as $cluster) {
@@ -271,7 +279,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
     }
     else {
       // Create a new Memcache object. Each cluster gets its own Memcache object.
-      if (class_exists('Memcached')) {
+      if ($extension == 'Memcached') {
         $memcache = new Memcached;
         $default_opts = array(
           Memcached::OPT_COMPRESSION => FALSE,
@@ -285,7 +293,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           $memcache->setOption($key, $value);
         }
       }
-      else if (class_exists('Memcache')) {
+      elseif ($extension == 'Memcache') {
         $memcache = new Memcache;
       }
       else {
@@ -301,7 +309,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           list($host, $port) = explode(':', $s);
 
           // This is a server that belongs to this cluster.
-          if (!class_exists('Memcached') && !$init) {
+          if ($memcache instanceof Memcache && !$init) {
             // If using PECL memcache extension, use ->connect for first server
             if ($memcache->connect($host, $port)) {
               $init = TRUE;
