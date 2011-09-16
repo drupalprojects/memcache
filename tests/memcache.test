@@ -1,12 +1,17 @@
 <?php
 
 class MemcacheTestCase extends DrupalWebTestCase {
-  protected $default_bin = 'cache';
+  protected $default_bin = 'cache_memcache';
   protected $default_cid = 'test_temporary';
   protected $default_value = 'MemcacheTest';
 
   function setUp() {
     parent::setUp();
+
+    variable_set("cache_flush_$this->default_bin", 0);
+    variable_set('cache_class_cache_memcache', 'MemcacheDrupal');
+
+    $this->resetVariables();
   }
 
   /**
@@ -92,15 +97,8 @@ class MemcacheTestCase extends DrupalWebTestCase {
     cache_clear_all(NULL, $bin);
   }
 
-  /**
-   * Setup the lifetime settings for caching.
-   *
-   * @param $time
-   *   The time in seconds the cache should minimal live.
-   */
-  protected function setupLifetime($time) {
-    variable_set('cache_lifetime', $time);
-    variable_set('cache_flush', 0);
+  function resetVariables() {
+    _cache_get_object($this->default_bin)->reloadVariables();
   }
 }
 
@@ -115,7 +113,6 @@ class MemCacheSavingCase extends MemcacheTestCase {
 
   function setUp() {
     parent::setUp();
-    variable_set("cache_flush_cache", 0);
   }
 
   /**
@@ -184,7 +181,6 @@ class MemCacheGetMultipleUnitTest extends MemcacheTestCase {
   }
 
   function setUp() {
-    $this->default_bin = 'cache_page';
     parent::setUp();
   }
 
@@ -234,10 +230,9 @@ class MemCacheClearCase extends MemcacheTestCase {
   }
 
   function setUp() {
-    $this->default_bin = 'cache_page';
-    $this->default_value = $this->randomName(10);
 
     parent::setUp();
+    $this->default_value = $this->randomName(10);
   }
 
 
@@ -275,7 +270,6 @@ class MemCacheClearCase extends MemcacheTestCase {
    * Test full bin flushes with no cache lifetime.
    */
   function testClearWildcardFull() {
-    variable_set("cache_flush_$this->default_bin", 0);
     cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
     cache_set('test_cid_clear2', $this->default_value, $this->default_bin);
     $this->assertTrue($this->checkCacheExists('test_cid_clear1', $this->default_value)
@@ -291,8 +285,8 @@ class MemCacheClearCase extends MemcacheTestCase {
    * Test full bin flushes with cache lifetime.
    */
   function testClearCacheLifetime() {
-    variable_set("cache_flush_$this->default_bin", 0);
     variable_set('cache_lifetime', 600);
+    $this->resetVariables();
 
     // Set a cache item with an expiry.
     cache_set('test_cid', $this->default_value, $this->default_bin, time() + 3600);
@@ -302,7 +296,7 @@ class MemCacheClearCase extends MemcacheTestCase {
     cache_set('test_cid_2', $this->default_value, $this->default_bin);
 
     // Clear the page and block caches.
-    cache_clear_all();
+    cache_clear_all(MEMCACHE_CONTENT_CLEAR, $this->default_bin);
     // Since the cache was cleared within the current session, cache_get()
     // should return false.
     $this->assertFalse($this->checkCacheExists('test_cid', $this->default_value), 'Cache item was cleared successfully.');
@@ -320,12 +314,13 @@ class MemCacheClearCase extends MemcacheTestCase {
     cache_set('test_cid_1', $this->default_value, $this->default_bin, time() + 6000);
     $this->assertTrue($this->checkCacheExists('test_cid', $this->default_value), 'Cache item was created successfully.');
     sleep(2);
-    cache_clear_all();
+    cache_clear_all(MEMCACHE_CONTENT_CLEAR, $this->default_bin);
     $this->assertFalse($this->checkCacheExists('test_cid', $this->default_value), 'Cache item is not returned once minimum cache lifetime has expired.');
 
     // Reset the cache clear variables.
     variable_set('cache_content_flush_' . $this->default_bin, 0);
     variable_set('cache_lifetime', 6000);
+    $this->resetVariables();
     sleep(1);
 
     // Confirm that cache_lifetime does not take effect for full bin flushes.
@@ -345,7 +340,6 @@ class MemCacheClearCase extends MemcacheTestCase {
    * Test clearing using a cid.
    */
   function clearCidTest() {
-    variable_set("cache_flush_$this->default_bin", 0);
     cache_set('test_cid_clear', $this->default_value, $this->default_bin);
 
     $this->assertCacheExists(t('Cache was set for clearing cid.'), $this->default_value, 'test_cid_clear');
@@ -368,7 +362,7 @@ class MemCacheClearCase extends MemcacheTestCase {
    * Test cache clears using wildcard prefixes.
    */
   function clearWildcardPrefixTest() {
-    variable_set("cache_flush_$this->default_bin", 0);
+    $this->resetVariables();
     cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
     cache_set('test_cid_clear2', $this->default_value, $this->default_bin);
     $this->assertTrue($this->checkCacheExists('test_cid_clear1', $this->default_value)
