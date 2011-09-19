@@ -43,3 +43,8 @@ function memcache_requirements($phase) {
   }
   return $requirements;
 }
+
+function memcache_admin_update_7001() {
+  drupal_flush_all_caches();
+  menu_rebuild();
+}
