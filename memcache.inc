@@ -155,17 +155,16 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // at the backtrace unless http://drupal.org/node/81461 is added.
     $backtrace = debug_backtrace();
     if ($cid == MEMCACHE_CONTENT_CLEAR || (isset($backtrace[2]) && $backtrace[2]['function'] == 'cache_clear_all' && empty($backtrace[2]['args']))) {
-      // Update the timestamp of the last global flushing of this table.  When
-      // retrieving data from this table, we will compare the cache creation
+      // Update the timestamp of the last global flushing of this bin.  When
+      // retrieving data from this bin, we will compare the cache creation
       // time minus the cache_flush time to the cache_lifetime to determine
       // whether or not the cached item is still valid.
       $this->cache_content_flush = time();
       $this->variable_set('cache_content_flush_' . $this->bin, $this->cache_content_flush);
       if (variable_get('cache_lifetime', 0)) {
-        // We store the time in the current user's session which is saved into
-        // the sessions table by sess_write().  We then simulate that the cache
-        // was flushed for this user by not returning cached data to this user
-        // that was cached before the timestamp.
+        // We store the time in the current user's session. We then simulate
+        // that the cache was flushed for this user by not returning cached
+        // data to this user that was cached before the timestamp.
         if (isset($_SESSION['cache_flush']) && is_array($_SESSION['cache_flush'])) {
           $cache_bins = $_SESSION['cache_flush'];
         }
@@ -245,8 +244,14 @@ class MemCacheDrupal implements DrupalCacheInterface {
 
     $length = strlen($cid);
 
-    if (isset($this->wildcard_flushes[$this->bin]) &&
-      is_array($this->wildcard_flushes[$this->bin])) {
+    if (isset($this->wildcard_flushes[$this->bin]) && is_array($this->wildcard_flushes[$this->bin])) {
+      // Wildcard flushes per table are keyed by a substring equal to the
+      // shortest wildcard clear on the table so far. So if the shortest
+      // wildcard was "links:foo:", and the cid we're checking for is
+      // "links:bar:bar", then the key will be "links:bar:".
+      $wildcard_length = strlen(reset(array_keys($this->wildcard_flushes[$table])));
+      $wildcard_key = substr($cid, 0, $wildcard_length); 
+
       // Determine which lookups we need to perform to determine whether or not
       // our cid was impacted by a wildcard flush.
       $lookup = array();
@@ -254,14 +259,17 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // Find statically cached wildcards, and determine possibly matching
       // wildcards for this cid based on a history of the lengths of past
       // valid wildcard flushes in this bin.
-      foreach ($this->wildcard_flushes[$this->bin] as $flush_length => $timestamp) {
-        if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $this->invalidate)) {
-          $key = '.wildcard-' . substr($cid, 0, $flush_length);
-          if (isset($wildcards[$this->bin][$key])) {
-            $matching[$key] = $wildcards[$this->bin][$key];
-          }
-          else {
-            $lookup[$key] = $key;
+      if (isset($wildcard_flushes[$table][$wildcard_key])) {
+        foreach ($wildcard_flushes[$table][$wildcard_key] as $flush_length => $timestamp) {
+          if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
+            $key = '.wildcard-' . substr($cid, 0, $flush_length);
+            $wildcard = dmemcache_key($key, $table);
+            if (isset($wildcards[$table][$wildcard])) {
+              $matching[$wildcard] = $wildcards[$table][$wildcard];
+            }
+            else {
+              $lookup[$wildcard] = $key;
+            }
           }
         }
       }
@@ -291,14 +299,32 @@ class MemCacheDrupal implements DrupalCacheInterface {
     }
 
     if ($flush) {
+      $key_length = isset($this->wildcard_flushes[$this->bin]) ? strlen(reset(array_keys($this->wildcard_flushes[$this->bin]))) : $length;
+      $key = substr($cid, 0, $key_length);
       // Avoid too many calls to variable_set() by only recording a flush for
       // a fraction of the wildcard invalidation variable, per cid length.
       // Defaults to 28 / 4, or one week.
-      $length = strlen($cid);
-      if (!isset($this->wildcard_flushes[$this->bin][$length]) ||
-          ($_SERVER['REQUEST_TIME'] - $this->wildcard_flushes[$this->bin][$length] > $this->invalidate / 4)) {
-        $this->wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
-        $this->wildcard_flushes[$this->bin][$length] = $_SERVER['REQUEST_TIME'];
+      if (!isset($this->wildcard_flushes[$this->bin][$key][$length]) || ($_SERVER['REQUEST_TIME'] - $this->wildcard_flushes[$this->bin][$key][$length] > $wildcard_invalidate / 4)) {
+
+        // If there are more than 50 different wildcard keys for this bin 
+        // shorten the key by one, this should reduce variability by
+        // an order of magnitude and ensure we don't use too much memory.
+        if (isset($this->wildcard_flushes[$this->bin]) && count($this->wildcard_flushes[$this->bin]) > 50) {
+          $key = substr($cid, 0, $key_length - 1);
+          $length = strlen($key);
+        }
+
+        // If this is the shortest key length so far, we need to remove all
+        // other wildcards lengths recorded so far for this bin and start
+        // again. This is equivalent to a full cache flush for this table, but
+        // it ensures the minimum possible number of wildcards are requested
+        // along with cache consistency.
+        if ($length < $key_length) {
+          $this->wildcard_flushes[$this->bin] = array();
+        }
+        $key = substr($cid, 0, $key_length);
+        $this->wildcard_flushes[$this->bin][$key][$length] = $_SERVER['REQUEST_TIME'];
+
         variable_set('memcache_wildcard_flushes', $this->wildcard_flushes);
       }
       $key = '.wildcard-' . $cid;
