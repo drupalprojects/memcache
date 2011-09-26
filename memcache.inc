@@ -52,7 +52,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
         if (variable_get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if (lock_acquire("memcache_$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
+          if (lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
             $cache = FALSE;
           }
         }
@@ -103,7 +103,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
           // The memcache_stampede_semaphore variable was used in previous releases
           // of memcache, but the max_wait variable was not, so by default divide
           // the semaphore value by 3 (5 seconds).
-          lock_wait("memcache_$cid:$table", variable_get('memcache_stampede_wait_time', 5));
+          lock_wait("memcache_$cid:$this->bin", variable_get('memcache_stampede_wait_time', 5));
           $cache = $this->get($cid);
         }
       }
@@ -245,7 +245,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // shortest wildcard clear on the table so far. So if the shortest
       // wildcard was "links:foo:", and the cid we're checking for is
       // "links:bar:bar", then the key will be "links:bar:".
-      $wildcard_length = strlen(reset(array_keys($this->wildcard_flushes[$table])));
+      $wildcard_length = strlen(reset(array_keys($this->wildcard_flushes[$this->bin])));
       $wildcard_key = substr($cid, 0, $wildcard_length); 
 
       // Determine which lookups we need to perform to determine whether or not
@@ -255,13 +255,13 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // Find statically cached wildcards, and determine possibly matching
       // wildcards for this cid based on a history of the lengths of past
       // valid wildcard flushes in this bin.
-      if (isset($wildcard_flushes[$table][$wildcard_key])) {
-        foreach ($wildcard_flushes[$table][$wildcard_key] as $flush_length => $timestamp) {
+      if (isset($wildcard_flushes[$this->bin][$wildcard_key])) {
+        foreach ($wildcard_flushes[$this->bin][$wildcard_key] as $flush_length => $timestamp) {
           if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
             $key = '.wildcard-' . substr($cid, 0, $flush_length);
-            $wildcard = dmemcache_key($key, $table);
-            if (isset($wildcards[$table][$wildcard])) {
-              $matching[$wildcard] = $wildcards[$table][$wildcard];
+            $wildcard = dmemcache_key($key, $this->bin);
+            if (isset($wildcards[$this->bin][$wildcard])) {
+              $matching[$wildcard] = $wildcards[$this->bin][$wildcard];
             }
             else {
               $lookup[$wildcard] = $key;
