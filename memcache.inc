@@ -78,7 +78,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       }
       // Finally, check for wildcard clears against this cid.
       else {
-        if (!$this->wildcard_valid($cid, $cache){
+        if (!$this->wildcard_valid($cid, $cache)) {
           $cache = FALSE;
         }
       }
@@ -302,7 +302,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // Defaults to 28 / 4, or one week.
       if (!isset($this->wildcard_flushes[$this->bin][$key][$length]) || ($_SERVER['REQUEST_TIME'] - $this->wildcard_flushes[$this->bin][$key][$length] > $wildcard_invalidate / 4)) {
 
-        // If there are more than 50 different wildcard keys for this bin 
+        // If there are more than 50 different wildcard keys for this bin
         // shorten the key by one, this should reduce variability by
         // an order of magnitude and ensure we don't use too much memory.
         if (isset($this->wildcard_flushes[$this->bin]) && count($this->wildcard_flushes[$this->bin]) > 50) {
