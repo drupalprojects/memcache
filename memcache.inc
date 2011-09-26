@@ -246,7 +246,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // wildcard was "links:foo:", and the cid we're checking for is
       // "links:bar:bar", then the key will be "links:bar:".
       $wildcard_length = strlen(reset(array_keys($this->wildcard_flushes[$this->bin])));
-      $wildcard_key = substr($cid, 0, $wildcard_length); 
+      $wildcard_key = substr($cid, 0, $wildcard_length);
 
       // Determine which lookups we need to perform to determine whether or not
       // our cid was impacted by a wildcard flush.
@@ -257,7 +257,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // valid wildcard flushes in this bin.
       if (isset($wildcard_flushes[$this->bin][$wildcard_key])) {
         foreach ($wildcard_flushes[$this->bin][$wildcard_key] as $flush_length => $timestamp) {
-          if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $wildcard_invalidate)) {
+          if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $this->invalidate)) {
             $key = '.wildcard-' . substr($cid, 0, $flush_length);
             $wildcard = dmemcache_key($key, $this->bin);
             if (isset($wildcards[$this->bin][$wildcard])) {
@@ -300,7 +300,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // Avoid too many calls to variable_set() by only recording a flush for
       // a fraction of the wildcard invalidation variable, per cid length.
       // Defaults to 28 / 4, or one week.
-      if (!isset($this->wildcard_flushes[$this->bin][$key][$length]) || ($_SERVER['REQUEST_TIME'] - $this->wildcard_flushes[$this->bin][$key][$length] > $wildcard_invalidate / 4)) {
+      if (!isset($this->wildcard_flushes[$this->bin][$key][$length]) || ($_SERVER['REQUEST_TIME'] - $this->wildcard_flushes[$this->bin][$key][$length] > $this->invalidate / 4)) {
 
         // If there are more than 50 different wildcard keys for this bin
         // shorten the key by one, this should reduce variability by
