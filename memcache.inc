@@ -245,7 +245,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // shortest wildcard clear on the table so far. So if the shortest
       // wildcard was "links:foo:", and the cid we're checking for is
       // "links:bar:bar", then the key will be "links:bar:".
-      $wildcard_length = strlen(reset(array_keys($this->wildcard_flushes[$this->bin])));
+      $keys = array_keys($this->wildcard_flushes[$this->bin]);
+      $wildcard_length = strlen(reset($keys));
       $wildcard_key = substr($cid, 0, $wildcard_length);
 
       // Determine which lookups we need to perform to determine whether or not
