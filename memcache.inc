@@ -296,7 +296,11 @@ class MemCacheDrupal implements DrupalCacheInterface {
     }
 
     if ($flush) {
-      $key_length = isset($this->wildcard_flushes[$this->bin]) ? strlen(reset(array_keys($this->wildcard_flushes[$this->bin]))) : $length;
+      $key_length = $length;
+      if (isset($this->wildcard_flushes[$this->bin])) {
+        $keys = array_keys($this->wildcard_flushes[$this->bin]);
+        $key_length = strlen(reset($keys));
+      }
       $key = substr($cid, 0, $key_length);
       // Avoid too many calls to variable_set() by only recording a flush for
       // a fraction of the wildcard invalidation variable, per cid length.
