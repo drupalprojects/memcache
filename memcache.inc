@@ -385,10 +385,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
       ->execute();
     // If the variables are cached, get a fresh copy, update with the new value
     // and set it again.
-    if ($cached = cache_get('variables', 'cache')) {
+    if ($cached = cache_get('variables', 'cache_bootstrap')) {
       $variables = $cached->data;
       $variables[$name] = $value;
-      cache_set('variables', $variables);
+      cache_set('variables', $variables, 'cache_bootstrap');
     }
     // If the variables aren't cached, there's no need to do anything.
     $conf[$name] = $value;
