@@ -259,13 +259,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
       if (isset($this->wildcard_flushes[$this->bin][$wildcard_key])) {
         foreach ($this->wildcard_flushes[$this->bin][$wildcard_key] as $flush_length => $timestamp) {
           if ($length >= $flush_length && $timestamp >= ($_SERVER['REQUEST_TIME'] - $this->invalidate)) {
-            $key = '.wildcard-' . substr($cid, 0, $flush_length);
-            $wildcard = dmemcache_key($key, $this->bin);
+            $wildcard = '.wildcard-' . substr($cid, 0, $flush_length);
             if (isset($wildcards[$this->bin][$wildcard])) {
               $matching[$wildcard] = $wildcards[$this->bin][$wildcard];
             }
             else {
-              $lookup[$wildcard] = $key;
+              $lookup[$wildcard] = $wildcard;
             }
           }
         }
