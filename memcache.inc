@@ -321,6 +321,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // along with cache consistency.
         if ($length < $key_length) {
           $this->wildcard_flushes[$this->bin] = array();
+          $this->variable_set("cache_flush_$this->bin", time());
+          $this->cache_flush = time();
         }
         $key = substr($cid, 0, $key_length);
         $this->wildcard_flushes[$this->bin][$key][$length] = $_SERVER['REQUEST_TIME'];

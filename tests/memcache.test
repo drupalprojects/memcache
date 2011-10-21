@@ -335,6 +335,49 @@ class MemCacheClearCase extends MemcacheTestCase {
     $this->assertFalse($this->checkCacheExists('test_cid_2', $this->default_value), 'Cache item was cleared successfully.');
   }
 
+  /**
+   * Test different wildcards to verify the wildcard optimizations.
+   */
+  function testWildCardOptimizations() {
+
+    // Set and clear a cache with a short cid/wildcard.
+    cache_set('foo:1', $this->default_value, $this->default_bin);
+
+    $this->assertCacheExists(t('Foo cache was set.'), $this->default_value, 'foo:1');
+
+    cache_clear_all('foo', $this->default_bin, TRUE);
+    $this->assertCacheRemoved(t('Foo cache was invalidated.'), 'foo:1');
+
+    // Set additional longer caches.
+    cache_set('foobar', $this->default_value, $this->default_bin);
+    cache_set('foofoo', $this->default_value, $this->default_bin);
+
+    $this->assertCacheExists(t('Foobar cache set.'), $this->default_value, 'foobar');
+    $this->assertCacheExists(t('Foofoo cache set.'), $this->default_value, 'foofoo');
+
+    // Clear one of them with a wildcard and make sure the other one is still
+    // valid.
+    cache_clear_all('foobar', $this->default_bin, TRUE);
+    $this->assertCacheRemoved(t('Foobar cache invalidated.'), 'foobar');
+    $this->assertCacheExists(t('Foofoo cache still valid.'), $this->default_value, 'foofoo');
+
+    // Set and clear a cache with a different, equally short cid/wildcard.
+    cache_set('bar:1', $this->default_value, $this->default_bin);
+    $this->assertCacheExists(t('Bar cache was set.'), $this->default_value, 'bar:1');
+
+    cache_clear_all('bar', $this->default_bin, TRUE);
+    $this->assertCacheRemoved(t('Bar cache invalidated.'), 'bar:1');
+    $this->assertCacheExists(t('Foofoo cache still valid.'), $this->default_value, 'foofoo');
+
+    // Clear cache with an even shorter wildcard. This results in a full bin
+    // bin clear, all entries are marked invalid.
+    cache_set('bar:2', $this->default_value, $this->default_bin);
+    cache_clear_all('ba', $this->default_bin, TRUE);
+    $this->assertCacheRemoved(t('Bar:1 cache invalidated.'), 'bar:1');
+    $this->assertCacheRemoved(t('Bar:2 cache invalidated.'), 'bar:2');
+    $this->assertCacheRemoved(t('Foofoo cache invalidated.'), 'foofoo');
+  }
+
 
   /**
    * Test clearing using a cid.
