@@ -140,7 +140,7 @@ class MemcacheSessionTestCase extends DrupalWebTestCase {
     $this->assertSessionEmpty(TRUE);
 
     // The same behavior is expected when caching is enabled.
-    variable_set('cache', CACHE_NORMAL);
+    variable_set('cache', TRUE);
     $this->drupalGet('');
     $this->assertSessionCookie(FALSE);
     $this->assertSessionEmpty(TRUE);
