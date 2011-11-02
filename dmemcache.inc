@@ -358,6 +358,14 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
         if ($c == $cluster) {
           list($host, $port) = explode(':', $s);
 
+          // Support unix sockets in the format 'unix:///path/to/socket'.
+          if ($host == 'unix') {
+            // When using unix sockets use the full path for $host.
+            $host = $s;
+            // Port is always 0 for unix sockets.
+            $port = 0;
+          }
+
           // Using the Memcache PECL extension.
           if ($memcache instanceof Memcache) {
             // When using the PECL memcache extension, we must use ->(p)connect
