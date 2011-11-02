@@ -225,7 +225,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * value against this single-value sum tells us whether or not a new wildcard
    * flush has affected the cached item.
    */
-  private function wildcard_flushes($cid) {
+  protected function wildcard_flushes($cid) {
     return array_sum($this->wildcards($cid));
   }
 
@@ -234,7 +234,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * statically so multiple cache requests for the same item on the same page
    * load doesn't add overhead.
    */
-  private function wildcards($cid, $flush = FALSE) {
+  protected function wildcards($cid, $flush = FALSE) {
     static $wildcards = array();
     $matching = array();
 
@@ -344,7 +344,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
   /**
    * Check if a wildcard flush has invalidated the current cached copy.
    */
-  private function wildcard_valid($cid, $cache) {
+  protected function wildcard_valid($cid, $cache) {
     // Previously cached content won't have ->flushes defined.  We could
     // force flush, but instead leave this up to the site admin.
     $flushes = isset($cache->flushes) ? (int)$cache->flushes : 0;
@@ -395,4 +395,3 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $conf[$name] = $value;
   }
 }
-
