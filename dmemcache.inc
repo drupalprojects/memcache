@@ -93,6 +93,7 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
  */
 function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
+  $result = FALSE;
   $full_key = dmemcache_key($key, $bin);
   $statistics = array('get', $bin, $full_key);
   $success = '0';
@@ -276,7 +277,7 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
  * @return an Memcache object or FALSE.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
-  static $extension, $memcacheCache = array(), $memcache_servers, $memcache_bins, $memcache_persistent;
+  static $extension, $memcacheCache = array(), $memcache_servers, $memcache_bins, $memcache_persistent, $failed_connection_cache;
 
   if (!isset($extension)) {
     // If an extension is specified in settings.php, use that when available.
@@ -361,7 +362,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 
       // Link all the servers to this cluster.
       foreach ($memcache_servers as $s => $c) {
-        if ($c == $cluster) {
+        if ($c == $cluster && !isset($failed_connection_cache[$s])) {
           list($host, $port) = explode(':', $s);
 
           // Support unix sockets in the format 'unix:///path/to/socket'.
@@ -399,6 +400,20 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           }
           else if ($memcache->addServer($host, $port) && !$init) {
             $init = TRUE;
+          }
+
+          if (!$init) {
+            // Ensure we use an available t() function.
+            $t = get_t();
+            $error_msg = $t(
+              'Failed to connect to memcache server: %server',
+              array('%server' => $s)
+            );
+            // We can't use watchdog because this happens in a bootstrap phase
+            // where watchdog is non-functional. Thus use trigger_error() to
+            // start drupal_error_handler().
+            trigger_error($error_msg, E_USER_ERROR);
+            $failed_connection_cache[$s] = FALSE;
           }
         }
       }

@@ -146,6 +146,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
   }
 
   function clear($cid = NULL, $wildcard = FALSE) {
+    if ($this->memcache === FALSE) {
+      // No memcache connection.
+      return;
+    }
 
     // It is not possible to detect a cache_clear_all() call other than looking
     // at the backtrace unless http://drupal.org/node/81461 is added.
