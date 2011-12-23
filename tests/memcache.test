@@ -6,7 +6,7 @@ class MemcacheTestCase extends DrupalWebTestCase {
   protected $default_value = 'MemcacheTest';
 
   function setUp() {
-    parent::setUp();
+    parent::setUp(func_get_args());
 
     variable_set("cache_flush_$this->default_bin", 0);
     variable_set('cache_class_cache_memcache', 'MemcacheDrupal');
@@ -231,7 +231,7 @@ class MemCacheClearCase extends MemcacheTestCase {
 
   function setUp() {
 
-    parent::setUp();
+    parent::setUp('memcache_test');
     $this->default_value = $this->randomName(10);
   }
 
@@ -428,5 +428,144 @@ class MemCacheClearCase extends MemcacheTestCase {
     // @todo: this is a class object in D7.
     //memcache_wildcards(FALSE, FALSE, FALSE, TRUE);
     $this->assertFalse($this->checkCacheExists('test_cid_clear:1', $this->default_value), 'The cache was cleared successfully.');
+  }
+
+  /**
+   * Test wildcard flushing on separate pages to ensure no static cache is used.
+   */
+  function testClearWildcardOnSeparatePages() {
+
+    $random_wildcard = $this->randomName(2) . ':' . $this->randomName(3);
+    $random_key = $random_wildcard . ':' . $this->randomName(4) . ':' . $this->randomName(2);
+    $random_value = $this->randomName();
+
+    $this->drupalGetAJAX('memcache-test/clear-cache');
+
+    $data = $this->drupalGetAJAX('memcache-test/set/' . $random_key . '/' . $random_value);
+
+    $this->assertTrue(is_array($data), 'Cache has data.');
+    $this->assertEqual($random_key, $data['cid'], 'Cache keys match.');
+    $this->assertEqual($random_value, $data['data'], 'Cache values match.');
+
+    $data = $this->drupalGetAJAX('memcache-test/get/' . $random_key);
+    $this->assertEqual($random_key, $data['cid'], 'Cache keys match.');
+    $this->assertEqual($random_value, $data['data'], 'Cache values match.');
+
+    $this->drupalGet('memcache-test/wildcard-clear/' . $random_wildcard);
+
+    $data = $this->drupalGetAJAX('memcache-test/get/' . $random_key);
+    $this->assertFalse($data, 'Cache was properly flushed.');
+
+    $data = $this->drupalGetAJAX('memcache-test/set/' . $random_key . '/' . $random_value);
+
+    $this->assertTrue(is_array($data), 'Cache has data.');
+    $this->assertEqual($random_key, $data['cid'], 'Cache keys match.');
+    $this->assertEqual($random_value, $data['data'], 'Cache values match.');
+
+    $data = $this->drupalGetAJAX('memcache-test/get/' . $random_key);
+    $this->assertEqual($random_key, $data['cid'], 'Cache keys match.');
+    $this->assertEqual($random_value, $data['data'], 'Cache values match.');
+
+    $this->drupalGet('memcache-test/wildcard-clear/' . $random_wildcard);
+
+    $data = $this->drupalGetAJAX('memcache-test/get/' . $random_key);
+    $this->assertFalse($data, 'Cache was properly flushed.');
+  }
+
+}
+
+/**
+ * Test some real world cache scenarios with default modules.
+ *
+ * Please make sure you've set the proper memcache settings in the settings.php.
+ * Looks like I've not chance to change the cache settings to what's needed by
+ * this test.
+ */
+class MemCacheRealWorldCase extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Real world cache tests',
+      'description' => 'Test some real world cache scenarios.',
+      'group' => 'Memcache'
+    );
+  }
+
+  function setUp() {
+    parent::setUp('menu');
+  }
+
+  /**
+   * Test if the menu module caching acts as expected.
+   *
+   * The menu module clears the affected menu if an menu item is changed using
+   * wildcards.
+   */
+  function testMenu() {
+    // Create and login user.
+    $account = $this->drupalCreateUser(array('access administration pages', 'administer blocks', 'administer menu', 'create article content'));
+    $this->drupalLogin($account);
+
+    // Add Menu Link to test with
+    $item = $this->addMenuLink();
+    $original_title = $item['link_title'];
+
+    // Check if menu link is displayed.
+    $this->drupalGet('');
+    $this->assertText($original_title, 'Menu item displayed in frontend');
+
+    // Change menu item multiple times and check if the change is reflected.
+    for($i=0; $i < 3; $i++) {
+      // Edit menu link.
+      $edit = array();
+      $edit['link_title'] = $this->randomName(16);;
+      $this->drupalPost("admin/structure/menu/item/{$item['mlid']}/edit", $edit, t('Save'));
+      if (!$this->assertResponse(200)) {
+        // One fail is enough.
+        break;
+      }
+      // Verify edited menu link.
+      if (!$this->drupalGet('admin/structure/menu/manage/' . $item['menu_name'])) {
+        // One fail is enough.
+        break;
+      }
+      $this->assertText($edit['link_title'], 'Menu link was edited');
+      $this->drupalGet('');
+      if (!$this->assertText($edit['link_title'], 'Change is reflected in frontend')) {
+        // One fail is enough.
+        break;
+      }
+    }
+  }
+
+  /**
+   * Adds a menu link.
+   *
+   * @see MenuTestCase::addMenuLink()
+   */
+  function addMenuLink($plid = 0, $link = '<front>', $menu_name = 'main-menu') {
+    // View add menu link page.
+    $this->drupalGet("admin/structure/menu/manage/$menu_name/add");
+    $this->assertResponse(200);
+
+    $title = '!OriginalLink_' . $this->randomName(16);
+    $edit = array(
+        'link_path' => $link,
+        'link_title' => $title,
+        'description' => '',
+        'enabled' => TRUE, // Use this to disable the menu and test.
+        'expanded' => TRUE, // Setting this to true should test whether it works when we do the std_user tests.
+        'parent' =>  $menu_name . ':' . $plid,
+        'weight' => '0',
+    );
+
+    // Add menu link.
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertResponse(200);
+    // Unlike most other modules, there is no confirmation message displayed.
+    $this->assertText($title, 'Menu link was added');
+
+    $item = db_query('SELECT * FROM {menu_links} WHERE link_title = :title', array(':title' => $title))->fetchAssoc();
+    return $item;
   }
 }
