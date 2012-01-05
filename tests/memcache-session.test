@@ -6,6 +6,8 @@
  */
 
 class MemcacheSessionTestCase extends DrupalWebTestCase {
+  protected $profile = 'testing';
+
   public static function getInfo() {
     return array(
       'name' => 'Session tests',

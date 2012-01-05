@@ -1,6 +1,7 @@
 <?php
 
 class MemcacheTestCase extends DrupalWebTestCase {
+  protected $profile = 'testing';
   protected $default_bin = 'cache_memcache';
   protected $default_cid = 'test_temporary';
   protected $default_value = 'MemcacheTest';

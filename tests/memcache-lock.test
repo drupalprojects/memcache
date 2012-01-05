@@ -4,6 +4,7 @@
  * Tests for the lock system.
  */
 class MemcacheLockFunctionalTest extends DrupalWebTestCase {
+  protected $profile = 'testing';
 
   public static function getInfo() {
     return array(
