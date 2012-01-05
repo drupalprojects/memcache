@@ -429,6 +429,9 @@ function memcache_admin_stats_types($bin) {
       return array('default');
     }
   }
+  else {
+    return array();
+  }
 }
  
 function theme_memcache_admin_stats_raw_table($variables) {
