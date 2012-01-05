@@ -415,6 +415,7 @@ function theme_memcache_admin_stats_table($variables) {
 }
 
 function memcache_admin_stats_types($bin) {
+  module_load_include('inc', 'memcache', 'dmemcache');
   if ($mc = dmemcache_object($bin)) {
     if ($mc instanceof Memcache) {
       // TODO: Determine which versions of the PECL memcache extension have
