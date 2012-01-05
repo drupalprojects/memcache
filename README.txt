@@ -125,10 +125,11 @@ $conf = array(
 
 ## SESSIONS ##
 
+NOTE: Session.inc is not yet ported to Drupal 7 and is not recommended for use
+in production..
+
 Here is a sample config that uses memcache for sessions. Note you MUST have
 a session and a users server set up for memcached sessions to work.
-
-NOTE: Session.inc is not yet ported to Drupal 7.
 
 $conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
 $conf['cache_default_class'] = 'MemCacheDrupal';

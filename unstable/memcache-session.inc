@@ -4,6 +4,9 @@
  * @file
  * User session handling functions.
  *
+ * Note session support is not fully ported to Drupal 7 and is not recommended
+ * for production sites.
+ *
  * An alternative to includes/session.inc.
  */
 
