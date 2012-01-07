@@ -363,7 +363,7 @@ function memcache_admin_stats_raw($bin, $server, $type = 'default') {
   }
   else {
     $output = theme('memcache_admin_stats_raw_table', array('cluster' => $cluster, 'server' => $server, 'stats' => array(), 'type' => $type));
-    drupal_set_message(t('No !type statistics for this bin.', array('!type' => $type)));
+    drupal_set_message(t('No @type statistics for this bin.', array('@type' => $type)));
   }
   return $output;
 }
