@@ -342,7 +342,8 @@ function _memcache_session_user_load($session) {
       $user = db_query('SELECT u.* FROM {users} u WHERE u.uid = :uid', array('uid' => $session->uid))->fetchObject();
 
       if (!$user->status) {
-        $user = drupal_anonymous_user($session->session);
+        $user = drupal_anonymous_user();
+        $user->session = empty($session->session) ? '' : $session->session;
       }
       else {
         $user = drupal_unpack($user);
@@ -376,14 +377,15 @@ function _memcache_session_user_load($session) {
       // comment in:
       // This is a rare case that we have a session cached, but no session user object cached.
       // This usually only happens if you kill memcached and restart it.
-      $user = drupal_anonymous_user($session->session);
+      $user = drupal_anonymous_user();
+      $user->session = empty($session->session) ? '' : $session->session;
     }
   }
   // We didn't find the client's record (session has expired), or they are an
   // anonymous user.
-  else  {
-    $session = isset($session->session) ? $session->session : '';
-    $user = drupal_anonymous_user($session);
+  else {
+    $user = drupal_anonymous_user();
+    $user->session = empty($session->session) ? '' : $session->session;
   }
 
   return $user;
