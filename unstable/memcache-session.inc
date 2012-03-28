@@ -354,6 +354,7 @@ function _memcache_session_user_load($session) {
         $user->hostname = $session->hostname;
         $user->timestamp = $session->timestamp;
         $user->session = empty($session->session) ? '' : $session->session;
+        $user->data = unserialize($user->data);
 
         // Add roles element to $user
         $user->roles = array();
