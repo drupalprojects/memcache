@@ -144,7 +144,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // as long into the future, this allows old items to be expired by memcache
     // rather than evicted along with a sufficient period for stampede
     // protection to continue to work.
-    $memcache_expire = $cache->expire + (($cache->expire - REQUEST_TIME) * 2);
+    if ($cache->expire == CACHE_PERMANENT) {
+      $memcache_expire = $cache->expire;
+    }
+    else {
+      $memcache_expire = $cache->expire + (($cache->expire - REQUEST_TIME) * 2);
+    }
     dmemcache_set($cid, $cache, $memcache_expire, $this->bin, $this->memcache);
   }
 
