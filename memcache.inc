@@ -27,7 +27,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
   function getMultiple(&$cids) {
     $results = dmemcache_get_multi($cids, $this->bin, $this->memcache);
     foreach ($results as $cid => $result) {
-      if (!$this->valid($result->cid, $result)) {
+      if (!$this->valid($cid, $result)) {
         // This object has expired, so don't return it.
         unset($results[$cid]);
       }
@@ -62,7 +62,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       }
       // Items created before the last full wildcard flush against this bin are
       // invalid.
-      elseif ($cache->created <= $this->cache_flush) {
+      elseif (!isset($cache->created) || $cache->created <= $this->cache_flush) {
         $cache = FALSE;
       }
       // Items created before the last content flush on this bin i.e.
