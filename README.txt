@@ -55,7 +55,8 @@ pattern:
 'memcache_servers' => array(
   host1:port => cluster, 
   host2:port => cluster, 
-  hostN:port => cluster
+  hostN:port => cluster,
+  'unix:///path/to/socket' => cluster
 )
 
 'memcache_bins' => array(bin1 => cluster, bin2 => cluster, binN => cluster)
@@ -74,20 +75,26 @@ The bin/cluster/server model can be described as follows:
 
 - The default cluster is 'default'.
 
-Here is a simple setup that has two memcached instances, both running on
-localhost. The 11212 instance belongs to the 'pages' cluster and the table
-cache_page is mapped to the 'pages' cluster. Thus everything that gets cached,
-with the exception of the page cache (cache_page), will be put into 'default',
-or the 11211 instance. The page cache will be in 11212.
+Here is a simple setup that has three memcached instances, two running on
+localhost, and one on a Unix socket. The 11212 instance belongs to the 'pages'
+cluster and the table cache_page is mapped to the 'pages' cluster. The Unix
+socket instance belongs to the 'blocks' cluster, and the table cache_block is
+mapped to the 'blocks' cluster. Thus everything that gets cached, with the
+exception of the page cache (cache_page) and block cache (cache_block), will be
+put into 'default', or the 11211 instance. The page cache will be in 11212, and
+the block cache in the Unix socket instance. Note that no port is specified for
+the socket.
 
 $conf = array(
   ...
   // Important to define a default cluster in both the servers
   // and in the bins. This links them together.
   'memcache_servers' => array('localhost:11211' => 'default',
-                              'localhost:11212' => 'pages'),
+                              'localhost:11212' => 'pages',
+                              'unix:///path/to/socket' => 'blocks'),
   'memcache_bins' => array('cache' => 'default',
-                           'cache_page' => 'pages'),
+                           'cache_page' => 'pages',
+                           'cache_block' => 'blocks'),
 );
 
 Here is an example configuration that has two clusters, 'default' and

@@ -365,16 +365,15 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
         if ($c == $cluster && !isset($failed_connection_cache[$s])) {
           list($host, $port) = explode(':', $s);
 
-          // Support unix sockets in the format 'unix:///path/to/socket'.
-          if ($host == 'unix') {
-            // When using unix sockets use the full path for $host.
-            $host = $s;
-            // Port is always 0 for unix sockets.
-            $port = 0;
-          }
-
           // Using the Memcache PECL extension.
           if ($memcache instanceof Memcache) {
+            // Support unix sockets in the format 'unix:///path/to/socket'.
+            if ($host == 'unix') {
+              // When using unix sockets with Memcache use the full path for $host.
+              $host = $s;
+              // Port is always 0 for unix sockets.
+              $port = 0;
+            }
             // When using the PECL memcache extension, we must use ->(p)connect
             // for the first connection.
             if (!$init) {
@@ -398,8 +397,17 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
               $memcache->addServer($host, $port, $memcache_persistent);
             }
           }
-          else if ($memcache->addServer($host, $port) && !$init) {
-            $init = TRUE;
+          else {
+            // Support unix sockets in the format 'unix:///path/to/socket'.
+            if ($host == 'unix') {
+              // Memcached expects just the path to the socket without the protocol
+              $host = substr($s, 7);
+              // Port is always 0 for unix sockets.
+              $port = 0;
+            }
+            if ($memcache->addServer($host, $port) && !$init) {
+              $init = TRUE;
+            }
           }
 
           if (!$init) {
