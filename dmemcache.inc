@@ -411,16 +411,10 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
           }
 
           if (!$init) {
-            // Ensure we use an available t() function.
-            $t = get_t();
-            $error_msg = $t(
-              'Failed to connect to memcache server: %server',
-              array('%server' => $s)
-            );
             // We can't use watchdog because this happens in a bootstrap phase
-            // where watchdog is non-functional. Thus use trigger_error() to
-            // start drupal_error_handler().
-            trigger_error($error_msg, E_USER_ERROR);
+            // where watchdog is non-functional. Register a shutdown handler
+            // instead so it gets recorded at the end of page load.
+            register_shutdown_function('watchdog', 'memcache', 'Failed to connect to memcache server: !server', array('!server' => $s), WATCHDOG_ERROR);
             $failed_connection_cache[$s] = FALSE;
           }
         }
