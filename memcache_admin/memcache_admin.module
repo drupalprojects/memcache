@@ -233,7 +233,7 @@ function memcache_admin_bin_mapping($bin = 'cache') {
  *
  * @return string
  */
-function memcache_admin_stats($bin = 'cache') {
+function memcache_admin_stats($bin = 'default') {
   $bin = memcache_admin_bin_mapping($bin);
 
   $stats = dmemcache_stats($bin, 'default', TRUE);
