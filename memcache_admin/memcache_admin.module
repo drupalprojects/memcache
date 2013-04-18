@@ -157,6 +157,7 @@ function _memcache_admin_stats_gets($stats) {
  * Statistics report: calculate # of increments and decrements.
  */
 function _memcache_admin_stats_counters($stats) {
+  $stats += array('incr_hits' => 0, 'incr_misses' => 0, 'decr_hits' => 0, 'decr_misses' => 0);
   return t('!incr increments, !decr decrements', array('!incr' => number_format($stats['incr_hits'] + $stats['incr_misses']), '!decr' => number_format($stats['decr_hits'] + $stats['decr_misses'])));
 }
 
