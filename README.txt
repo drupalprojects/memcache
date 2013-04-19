@@ -262,7 +262,8 @@ configure memcached in settings.php. Please look here for possible options:
 http://us2.php.net/manual/en/memcached.constants.php
 
 An example configuration block is below, this block also illustrates our
-default options. These will be set unless overridden in settings.php.
+default options (selected through performance testing). These options will be
+set unless overridden in settings.php.
 
 $conf['memcache_options'] = array(
   Memcached::OPT_COMPRESSION => FALSE,
@@ -271,14 +272,22 @@ $conf['memcache_options'] = array(
 
 These are as follows:
 
- * Turn off compression, as this takes more CPU cycles than its worth for most
+ * Turn off compression, as this takes more CPU cycles than it's worth for most
    users
  * Turn on consistent distribution, which allows you to add/remove servers
    easily
 
-If you are using memcached 1.4 or above, you can enable the binary protocol,
-which may be faster, by adding the following to settings.php:
+Other options you could experiment with:
+ + Memcached::OPT_BINARY_PROTOCOL => TRUE,
+    * This enables the Memcache binary protocol (only available in Memcached
+      1.4 and later). Note that some users have reported SLOWER performance
+      with this feature enabled. It should only be enabled on extremely high
+      traffic networks where memcache network traffic is a bottleneck.
+      Additional reading about the binary protocol:
+        http://code.google.com/p/memcached/wiki/MemcacheBinaryProtocol
 
-$conf['memcache_options'] = array(
-  Memcached::OPT_BINARY_PROTOCOL => TRUE,
-);
+ + Memcached::OPT_TCP_NODELAY => TRUE,
+    * This enables the no-delay feature for connecting sockets; it's been
+      reported that this can speed up the Binary protocol (see above). This
+      tells the TCP stack to send packets immediately and without waiting for
+      a full payload, reducing per-packet network latency (disabling "Nagling").
