@@ -186,6 +186,7 @@ function drupal_session_initialize() {
     $user = drupal_anonymous_user();
     session_id(md5(uniqid('', TRUE)));
   }
+  date_default_timezone_set(drupal_get_user_timezone());
 }
 
 
@@ -287,6 +288,7 @@ function drupal_session_regenerate() {
     // Clear the old data from the cache.
     dmemcache_delete($old_session_id, 'session');
   }
+  date_default_timezone_set(drupal_get_user_timezone());
 }
 
 
