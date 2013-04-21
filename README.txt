@@ -225,6 +225,17 @@ array of settings.php:
 
 $conf['memcache_key_prefix'] = 'something_unique';
 
+Note: if the length of your prefix + key + bin combine to be more than 250
+characters, they will be automatically hashed. Memcache only supports key
+lengths up to 250 bytes. You can optionally configure the hashing algorithm
+used, however sha1 was selected as the default because it performs quickly with
+minimal collisions.
+
+$conf['memcache_key_hash_algorithm'] = 'sha1';
+
+Visit http://www.php.net/manual/en/function.hash-algos.php to learn more about
+which hash algorithms are available.
+
 ## MULTIPLE SERVERS ##
 
 To use this module with multiple memcached servers, it is important that you set

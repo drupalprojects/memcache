@@ -452,10 +452,11 @@ function dmemcache_key($key, $bin = 'cache') {
   $full_key = urlencode($prefix . $bin . '-' . $key);
 
   // Memcache only supports key lengths up to 250 bytes.  If we have generated
-  // a longer key, hash it with sha1 which will shrink the key down to 40 bytes
-  // while still keeping it unique.
+  // a longer key, we shrink it to an acceptible length with a configurable
+  // hashing algorithm. Sha1 was selected as the default as it performs
+  // quickly with minimal collisions.
   if (strlen($full_key) > 250) {
-    $full_key = $prefix . $bin . '-' . sha1($key);
+    $full_key = urlencode(hash(variable_get('memcache_key_hash_algorithm', 'sha1'), $prefix . $bin . '-' . $key));
   }
 
   return $full_key;

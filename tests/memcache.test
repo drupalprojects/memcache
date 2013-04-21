@@ -158,13 +158,27 @@ class MemCacheSavingCase extends MemcacheTestCase {
     $this->assertTrue(isset($cache->data) && $cache->data == $test_object, t('Object is saved and restored properly.'));
   }
 
+  /**
+   * Test save and restoring a string with a long key.
+   */
+  function testStringLongKey() {
+    $this->checkVariable($this->randomName(100), 'ThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydog');
+  }
+
+  /**
+   * Test save and restoring a string using a key with special characters.
+   */
+  function testStringSpecialKey() {
+    $this->checkVariable($this->randomName(100), 'Qwerty!@#$%^&*()_+-=[]\;\',./<>?:"{}|£¢');
+  }
+
   /*
    * Check or a variable is stored and restored properly.
    **/
-  function checkVariable($var) {
-    cache_set('test_var', $var, 'cache');
-    $cache = cache_get('test_var', 'cache');
-    $this->assertTrue(isset($cache->data) && $cache->data === $var, t('@type is saved and restored properly.', array('@type' => ucfirst(gettype($var)))));
+  function checkVariable($var, $key = 'test_var') {
+    cache_set($key, $var, 'cache');
+    $cache = cache_get($key, 'cache');
+    $this->assertTrue(isset($cache->data) && $cache->data === $var, t('@type is saved and restored properly!key.', array('@type' => ucfirst(gettype($var)), '!key' => ($key != 'test_var') ? t(' with key @key', array('@key' => $key)) : '')));
   }
 }
 
