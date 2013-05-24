@@ -112,7 +112,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
     return (bool) $cache;
   }
 
-  function set($cid, $data, $expire = CACHE_PERMANENT, array $headers = NULL) {
+  function set($cid, $data, $expire = CACHE_PERMANENT) {
     $created = time();
 
     // Create new cache object.
@@ -120,7 +120,6 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $cache->cid = $cid;
     $cache->data = is_object($data) ? clone $data : $data;
     $cache->created = $created;
-    $cache->headers = $headers;
     // Record the previous number of wildcard flushes affecting our cid.
     $cache->flushes = $this->wildcard_flushes($cid);
     if ($expire == CACHE_TEMPORARY) {
