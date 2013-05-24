@@ -113,8 +113,9 @@ function _drupal_session_write($key, $value) {
     dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
     if ($user->uid && $session->timestamp - $user->access > variable_get('session_write_interval', 360)) {
       db_update('users')
-        ->fields(array('access' => $user->uid))
-        ->condition(array('uid' => $user->uid));
+        ->fields(array('access' => $session->timestamp))
+        ->condition('uid', $user->uid)
+        ->execute();
       // Update the user access time so that the dmemcache_set() call
       // caches the updated time.
       $user->access = $session->timestamp;
