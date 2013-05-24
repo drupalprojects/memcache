@@ -104,9 +104,10 @@ function memcache_admin_menu() {
  * Settings form.
  */
 function memcache_admin_admin_settings() {
-  $form['show_memcache_statistics'] = array('#type' => 'checkbox',
+  $form['show_memcache_statistics'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Show memcache statistics at the bottom of each page'),
-    '#default_value' => variable_get('show_memcache_statistics', 1),
+    '#default_value' => variable_get('show_memcache_statistics', FALSE),
     '#description' => t("These statistics will be visible to users with the 'access memcache statistics' permission."),
   );
   return system_settings_form($form);
@@ -434,7 +435,7 @@ function memcache_admin_stats_types($bin) {
     return array();
   }
 }
- 
+
 function theme_memcache_admin_stats_raw_table($variables) {
   $cluster = $variables['cluster'];
   $server = $variables['server'];
@@ -549,7 +550,7 @@ function memcache_admin_shutdown() {
     }
   }
 
-  if (variable_get('show_memcache_statistics', TRUE) && function_exists('user_access') && user_access('access memcache statistics')) {
+  if (variable_get('show_memcache_statistics', FALSE) && function_exists('user_access') && user_access('access memcache statistics')) {
     if (!empty($_memcache_statistics)) {
       foreach ($_memcache_statistics as $row => $stats) {
         $_memcache_statistics[$row][1] = check_plain($stats[1]);

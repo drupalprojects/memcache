@@ -35,7 +35,9 @@ $_memcache_statistics = array();
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
   $full_key = dmemcache_key($key, $bin);
-  $_memcache_statistics[] = array('set', $bin, $full_key, '');
+  if (dmemcache_collect_stats()) {
+    $_memcache_statistics[] = array('set', $bin, $full_key, '');
+  }
   if ($mc || ($mc = dmemcache_object($bin))) {
     if ($mc instanceof Memcached) {
       return $mc->set($full_key, $value, $exp);
@@ -71,7 +73,9 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
   global $_memcache_statistics;
   $full_key = dmemcache_key($key, $bin);
-  $_memcache_statistics[] = array('add', $bin, $full_key, '');
+  if (dmemcache_collect_stats()) {
+    $_memcache_statistics[] = array('add', $bin, $full_key, '');
+  }
   if ($mc || ($mc = dmemcache_object($bin))) {
     if ($mc instanceof Memcached) {
       return $mc->add($full_key, $value, $exp);
@@ -102,8 +106,10 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
     $php_errormsg = '';
 
     $result = @$mc->get($full_key);
-    $statistics[] = (bool) $result;
-    $_memcache_statistics[] = $statistics;
+    if (dmemcache_collect_stats()) {
+      $statistics[] = (bool) $result;
+      $_memcache_statistics[] = $statistics;
+    }
 
     if (!empty($php_errormsg)) {
       register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
@@ -129,7 +135,9 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   $statistics = array();
   foreach ($keys as $key => $cid) {
     $full_key = dmemcache_key($cid, $bin);
-    $statistics[$full_key] = array('getMulti', $bin, $full_key);
+    if (dmemcache_collect_stats()) {
+      $statistics[$full_key] = array('getMulti', $bin, $full_key);
+    }
     $full_keys[$cid] = $full_key;
   }
   $results = array();
@@ -150,9 +158,11 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
       ini_set('track_errors', $track_errors);
     }
   }
-  foreach ($statistics as $key => $values) {
-    $values[] = isset($results[$key]) ? '1': '0';
-    $_memcache_statistics[] = $values;
+  if (dmemcache_collect_stats()) {
+    foreach ($statistics as $key => $values) {
+      $values[] = isset($results[$key]) ? '1': '0';
+      $_memcache_statistics[] = $values;
+    }
   }
 
   // If $results is FALSE, convert it to an empty array.
@@ -180,7 +190,9 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
 function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
   $full_key = dmemcache_key($key, $bin);
-  $_memcache_statistics[] = array('delete', $bin, $full_key, '');
+  if (dmemcache_collect_stats()) {
+    $_memcache_statistics[] = array('delete', $bin, $full_key, '');
+  }
   if ($mc || ($mc = dmemcache_object($bin))) {
     return $mc->delete($full_key, 0);
   }
@@ -199,7 +211,9 @@ function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
  */
 function dmemcache_flush($bin = 'cache', $mc = NULL) {
   global $_memcache_statistics;
-  $_memcache_statistics[] = array('flush', $bin, '', '');
+  if (dmemcache_collect_stats()) {
+    $_memcache_statistics[] = array('flush', $bin, '', '');
+  }
   if ($mc || ($mc = dmemcache_object($bin))) {
     return memcache_flush($mc);
   }
@@ -460,4 +474,34 @@ function dmemcache_key($key, $bin = 'cache') {
   }
 
   return $full_key;
+}
+
+
+/**
+ * Checks whether memcache stats need to be collected.
+ */
+function dmemcache_collect_stats() {
+  global $user;
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast = &drupal_static(__FUNCTION__, array('variable_checked' => NULL, 'user_access_checked' => NULL));
+  }
+  $variable_checked = &$drupal_static_fast['variable_checked'];
+  $user_access_checked  = &$drupal_static_fast['user_access_checked'];
+
+  // Confirm DRUPAL_BOOTSTRAP_VARIABLES has been reached. We don't use
+  // drupal_get_bootstrap_phase() as it's buggy. We can use variable_get()
+  // here because _drupal_bootstrap_variables() includes module.inc
+  // immediately after it calls variable_initialize().
+  if (!isset($variable_checked) && function_exists('module_list')) {
+    $variable_checked = variable_get('show_memcache_statistics', FALSE);
+  }
+  // If statistics are enabled we need to check user access.
+  if (!empty($variable_checked) && !isset($user_access_checked) && !empty($user) && function_exists('user_access')) {
+    // Statistics are enabled and the $user object has been populated, so check
+    // that the user has access to view them.
+    $user_access_checked = user_access('access memcache statistics');
+  }
+  // Return whether or not statistics are enabled and the user can access them.
+  return (!isset($variable_checked) || $variable_checked) && (!isset($user_access_checked) || $user_access_checked);
 }

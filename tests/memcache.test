@@ -584,3 +584,116 @@ class MemCacheRealWorldCase extends DrupalWebTestCase {
     return $item;
   }
 }
+
+/**
+ * Test statistics generation.
+ */
+class MemCacheStatisticsTestCase extends MemcacheTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Statistics tests',
+      'description' => 'Test that statistics are being recorded appropriately.',
+      'group' => 'Memcache'
+    );
+  }
+
+  function setUp() {
+    parent::setUp('memcache_admin');
+
+    $conf['cache_default_class'] = 'MemCacheDrupal';
+    $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
+  }
+
+  /**
+   * Checks for early bootstrap statistics.
+   *
+   * Tests that bootstrap cache commands are recorded when statistics are
+   * enabled and tests that statistics are not recorded when the user doesn't
+   * have access or displaying statistics is disabled.
+   */
+  function testBootstrapStatistics() {
+    global $_memcache_statistics;
+    // Expected statistics for cache_set() and cache_get().
+    $test_full_key = dmemcache_key($this->default_cid, $this->default_bin);
+    $expected_statistic_set[] = array('set', $this->default_bin, $test_full_key, '');
+    $expected_statistic_get[] = array('get', $this->default_bin, $test_full_key, 1);
+
+    // List of bootstrap cids to check for.
+    $cache_bootstrap_cids = array('variables', 'bootstrap_modules', 'lookup_cache', 'system_list', 'module_implements');
+
+    // Turn on memcache statistics.
+    variable_set('show_memcache_statistics', TRUE);
+    drupal_static_reset('dmemcache_collect_stats');
+
+    $this->drupalGet('<front>');
+    // Check that statistics are not displayed for anonymous users.
+    $this->assertNoRaw('<div id="memcache-devel">', 'Statistics not present.');
+
+    // Create and login a user without access to view statistics.
+    $account = $this->drupalCreateUser();
+    $this->drupalLogin($account);
+
+    // Check that statistics are not displayed for authenticated users without
+    // permission.
+    $this->assertNoRaw('<div id="memcache-devel">', 'Statistics not present.');
+
+    // Create and login a user with access to view statistics.
+    $account = $this->drupalCreateUser(array('access memcache statistics'));
+    $this->drupalLogin($account);
+
+    $this->drupalGet('<front>');
+    // Check that bootstrap statistics are visible.
+    foreach ($cache_bootstrap_cids as $stat) {
+      $key = $GLOBALS['drupal_test_info']['test_run_id'] . 'cache_bootstrap-' . $stat;
+      $this->assertRaw("<td>get</td><td>cache_bootstrap</td><td>{$key}</td>", t('Key @key found.', array('@key' => $key)));
+    }
+
+    // Clear boostrap cache items.
+    foreach ($cache_bootstrap_cids as $stat) {
+      _cache_get_object('cache_bootstrap')->clear($stat);
+    }
+
+    $this->drupalGet('<front>');
+    // Check that early bootstrap statistics are still visible and are being
+    // set too, after they were removed.
+    foreach ($cache_bootstrap_cids as $stat) {
+      $key = $GLOBALS['drupal_test_info']['test_run_id'] . 'cache_bootstrap-' . $stat;
+      $this->assertRaw("<td>get</td><td>cache_bootstrap</td><td>{$key}</td>", t('Key @key found (get).', array('@key' => $key)));
+      $this->assertRaw("<td>set</td><td>cache_bootstrap</td><td>{$key}</td>", t('Key @key found (set).', array('@key' => $key)));
+    }
+
+    // Clear the internal statistics store.
+    $_memcache_statistics = array();
+    // Check that cache_set() statistics are being recorded.
+    cache_set($this->default_cid, $this->default_value, $this->default_bin);
+    $this->assertEqual($_memcache_statistics, $expected_statistic_set);
+
+    // Clear the internal statistics store.
+    $_memcache_statistics = array();
+    // Check that cache_get() statistics are being recorded.
+    cache_get($this->default_cid, $this->default_bin);
+    $this->assertEqual($_memcache_statistics, $expected_statistic_get);
+
+    // Turn off memcache statistics.
+    variable_set('show_memcache_statistics', FALSE);
+    drupal_static_reset('dmemcache_collect_stats');
+
+    $this->drupalGet('<front>');
+    // Check that statistics are not when the user has access, but statistics
+    // are disabled.
+    $this->assertNoRaw('<div id="memcache-devel">', 'Statistics not present.');
+
+    // Clear the internal statistics store.
+    $_memcache_statistics = array();
+    // Confirm that statistics are not recorded for get()'s when disabled.
+    cache_set($this->default_cid, $this->default_value, $this->default_bin);
+    $this->assertEqual($_memcache_statistics, array());
+
+    // Clear the internal statistics store.
+    $_memcache_statistics = array();
+    // Confirm that statistics are not recorded for set()'s when disabled.
+    cache_get($this->default_cid, $this->default_bin);
+    $this->assertEqual($_memcache_statistics, array());
+  }
+}
