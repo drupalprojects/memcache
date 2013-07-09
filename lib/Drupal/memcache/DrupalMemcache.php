@@ -282,14 +282,14 @@ class DrupalMemcache {
     foreach ($memcache_bins as $bin => $target) {
       if ($stats_bin == $bin) {
         if ($mc = static::getObject($bin)) {
-          if ($mc instanceof Memcached) {
+          if ($mc instanceof \Memcached) {
             $stats[$bin] = $mc->getStats();
           }
           // The PHP Memcache extension 3.x version throws an error if the stats
           // type is NULL or not in {reset, malloc, slabs, cachedump, items,
           // sizes}. If $stats_type is 'default', then no parameter should be
           // passed to the Memcache memcache_get_extended_stats() function.
-          else if ($mc instanceof Memcache) {
+          else if ($mc instanceof \Memcache) {
             if ($stats_type == 'default' || $stats_type == '') {
               $stats[$bin] = $mc->getExtendedStats();
             }
@@ -489,7 +489,7 @@ class DrupalMemcache {
             list($host, $port) = explode(':', $s);
 
             // Using the Memcache PECL extension.
-            if ($memcache instanceof Memcache) {
+            if ($memcache instanceof \Memcache) {
               // Support unix sockets in the format 'unix:///path/to/socket'.
               if ($host == 'unix') {
                 // When using unix sockets with Memcache use the full path for $host.
