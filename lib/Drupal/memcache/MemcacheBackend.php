@@ -41,6 +41,13 @@ class MemcacheBackend implements CacheBackendInterface {
   protected $wildcards = array();
 
   /**
+   * @todo
+   *
+   * @var int
+   */
+  protected $lockCount = 0;
+
+  /**
    * The lock backend that should be used.
    *
    * @var \Drupal\Core\Lock\LockBackendInterface
@@ -73,28 +80,32 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * {@inheritdoc}
    */
-  public function get($cid) {
-    $cache = DrupalMemcache::get($cid, $this->bin, $this->memcache);
-    return $this->valid($cid, $cache) ? $cache : FALSE;
+  public function get($cid, $allow_invalid = FALSE) {
+    $cids = array($cid);
+    $cache = $this->getMultiple($cids, $allow_invalid);
+    return reset($cache);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getMultiple(&$cids) {
-    $results = DrupalMemcache::getMulti($cids, $this->bin, $this->memcache);
+  public function getMultiple(&$cids, $allow_invalid = FALSE) {
+    $cache = DrupalMemcache::getMulti($cids, $this->bin, $this->memcache);
 
-    foreach ($results as $cid => $result) {
-      if (!$this->valid($cid, $result)) {
-        // This object has expired, so don't return it.
-        unset($results[$cid]);
+    if (!$allow_invalid) {
+      foreach ($cache as $cid => $result) {
+        if (!$this->valid($cid, $result)) {
+          // This object has expired, so don't return it.
+          unset($cache[$cid]);
+        }
       }
     }
+
     // Remove items from the referenced $cids array that we are returning,
     // per the comment in cache_get_multiple() in includes/cache.inc.
-    $cids = array_diff($cids, array_keys($results));
+    $cids = array_diff($cids, array_keys($cache));
 
-    return $results;
+    return $cache;
   }
 
   /**
@@ -104,7 +115,7 @@ class MemcacheBackend implements CacheBackendInterface {
     if ($cache) {
       $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
       // Items that have expired are invalid.
-      if (isset($cache->expire) && $cache->expire !== CacheBackendInterface::CACHE_PERMANENT && $cache->expire <= $_SERVER['REQUEST_TIME']) {
+      if (isset($cache->expire) && $cache->expire !== CacheBackendInterface::CACHE_PERMANENT && $cache->expire <= REQUEST_TIME) {
         // If the memcache_stampede_protection variable is set, allow one process
         // to rebuild the cache entry while serving expired content to the
         // rest. Note that core happily returns expired cache items as valid and
@@ -149,7 +160,7 @@ class MemcacheBackend implements CacheBackendInterface {
     // On cache misses, attempt to avoid stampedes when the
     // memcache_stampede_protection variable is enabled.
     if (!$cache) {
-      if (variable_get('memcache_stampede_protection', FALSE) && !lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
+      if (variable_get('memcache_stampede_protection', FALSE) && !$this->lock->acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
         // Prevent any single request from waiting more than three times due to
         // stampede protection. By default this is a maximum total wait of 15
         // seconds. This accounts for two possibilities - a cache and lock miss
@@ -159,9 +170,8 @@ class MemcacheBackend implements CacheBackendInterface {
         // number of waits, but the lock API does not currently provide this
         // information. Currently the limit will kick in for three waits of 25ms
         // or three waits of 5000ms.
-        static $lock_count = 0;
-        $lock_count++;
-        if ($lock_count <= variable_get('memcache_stampede_wait_limit', 3)) {
+        $this->lockCount++;
+        if ($$this->lockCount <= variable_get('memcache_stampede_wait_limit', 3)) {
           // The memcache_stampede_semaphore variable was used in previous releases
           // of memcache, but the max_wait variable was not, so by default divide
           // the semaphore value by 3 (5 seconds).
@@ -177,14 +187,13 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * {@inheritdoc}
    */
-  public function set($cid, $data, $expire = CacheBackendInterface::CACHE_PERMANENT) {
-    $created = time();
+  public function set($cid, $data, $expire = CacheBackendInterface::CACHE_PERMANENT, array $tags = array()) {
 
     // Create new cache object.
-    $cache = new \stdClass;
+    $cache = new \stdClass();
     $cache->cid = $cid;
     $cache->data = is_object($data) ? clone $data : $data;
-    $cache->created = $created;
+    $cache->created = time();
     // Record the previous number of wildcard flushes affecting our cid.
     $cache->flushes = $this->wildcardFlushes($cid);
     if ($expire == CacheBackendInterface::CACHE_TEMPORARY) {
@@ -301,7 +310,7 @@ class MemcacheBackend implements CacheBackendInterface {
   }
 
   /**
-   * Sum of all matching wildcards.  Checking any single cache item's flush
+   * Sum of all matching wildcards. Checking any single cache item's flush
    * value against this single-value sum tells us whether or not a new wildcard
    * flush has affected the cached item.
    *
@@ -323,7 +332,7 @@ class MemcacheBackend implements CacheBackendInterface {
 
     $length = strlen($cid);
 
-    if (isset($this->wildcard_flushes[$this->bin]) && is_array($this->wildcard_flushes[$this->bin])) {
+    if (isset($this->wildcardFlushes[$this->bin]) && is_array($this->wildcardFlushes[$this->bin])) {
       // Wildcard flushes per table are keyed by a substring equal to the
       // shortest wildcard clear on the table so far. So if the shortest
       // wildcard was "links:foo:", and the cid we're checking for is
