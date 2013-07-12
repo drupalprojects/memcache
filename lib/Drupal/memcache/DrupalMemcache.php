@@ -62,18 +62,22 @@ class DrupalMemcache {
   static protected $failedConnectionCache = array();
 
   /**
-   *  Place an item into memcache
+   * Places an item into Memcache.
    *
-   * @param $key The string with which you will retrieve this item later.
-   * @param $value The item to be stored.
-   * @param $exp Parameter expire is expiration time in seconds. If it's 0, the
-   *   item never expires (but memcached server doesn't guarantee this item to be
-   *   stored all the time, it could be deleted from the cache to make place for
-   *   other items).
-   * @param $bin The name of the Drupal subsystem that is making this call.
-   *   Examples could be 'cache', 'alias', 'taxonomy term' etc. It is possible to
-   *   map different $bin values to different memcache servers.
-   * @param $mc Optionally pass in the memcache object.  Normally this value is
+   * @param string $key
+   *   The string with which you will retrieve this item later.
+   * @param mixed $value
+   *   The item to be stored.
+   * @param int $exp
+   *   Parameter expire is expiration time in seconds. If it's 0, the item never
+   *   expires (but memcached server doesn't guarantee this item to be stored
+   *   all the time, it could be deleted from the cache to make place for other
+   *   items).
+   * @param string $bin
+   *   The name of the Drupal subsystem that is making this call. Examples could
+   *   be 'cache', 'alias', 'taxonomy term' etc. It is possible to map different
+   *   $bin values to different memcache servers.
+   * @param $mc Optionally pass in the memcache object. Normally this value is
    *   determined automatically based on the bin the object is being stored to.
    *
    * @return bool
@@ -84,7 +88,7 @@ class DrupalMemcache {
       static::$memcacheStatistics[] = array('set', $bin, $full_key, '');
     }
     if ($mc || ($mc = static::getObject($bin))) {
-      if ($mc instanceof Memcached) {
+      if ($mc instanceof \Memcached) {
         return $mc->set($full_key, $value, $exp);
       }
       else {
@@ -96,7 +100,7 @@ class DrupalMemcache {
   }
 
   /**
-   *  Adds an item into memcache.
+   * Adds an item into memcache.
    *
    * @param $key The string with which you will retrieve this item later.
    * @param $value The item to be stored.
@@ -133,7 +137,7 @@ class DrupalMemcache {
   }
 
   /**
-   * Retrieve a value from the cache.
+   * Retrieves a value from Memcache.
    *
    * @param $key The key with which the item was stored.
    * @param $bin The bin in which the item was stored.
@@ -157,8 +161,8 @@ class DrupalMemcache {
 
       if (!empty($php_errormsg)) {
         register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
-        $php_errormsg = '';
       }
+
       ini_set('track_errors', $track_errors);
     }
 
@@ -166,7 +170,7 @@ class DrupalMemcache {
   }
 
   /**
-   * Retrieves multiple values from the cache.
+   * Retrieves multiple values from Memcache.
    *
    * @param $keys The keys with which the items were stored.
    * @param $bin The bin in which the item was stored.
@@ -178,7 +182,7 @@ class DrupalMemcache {
     $statistics = array();
     $results = array();
 
-    foreach ($keys as $key => $cid) {
+    foreach ($keys as $cid) {
       $full_key = static::key($cid, $bin);
       if (static::collectStats()) {
         $statistics[$full_key] = array('getMulti', $bin, $full_key);
@@ -187,10 +191,10 @@ class DrupalMemcache {
     }
 
     if ($mc || ($mc = static::getObject($bin))) {
-      if ($mc instanceof Memcached) {
+      if ($mc instanceof \Memcached) {
         $results = $mc->getMulti($full_keys);
       }
-      elseif ($mc instanceof Memcache) {
+      elseif ($mc instanceof \Memcache) {
         $track_errors = ini_set('track_errors', '1');
         $php_errormsg = '';
 
@@ -198,8 +202,8 @@ class DrupalMemcache {
 
         if (!empty($php_errormsg)) {
           register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get_multi: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
-          $php_errormsg = '';
         }
+
         ini_set('track_errors', $track_errors);
       }
     }
@@ -226,7 +230,7 @@ class DrupalMemcache {
   }
 
   /**
-   * Deletes an item from the cache.
+   * Deletes an item from Memcache.
    *
    * @param $key The key with which the item was stored.
    * @param $bin The bin in which the item was stored.
@@ -241,23 +245,28 @@ class DrupalMemcache {
     if ($mc || ($mc = static::getObject($bin))) {
       return $mc->delete($full_key, 0);
     }
+
     return FALSE;
   }
 
   /**
-   * Immediately invalidates all existing items. dmemcache_flush doesn't actually free any
-   * resources, it only marks all the items as expired, so occupied memory will be overwritten by
-   * new items.
+   * Immediately invalidates all existing items.
    *
-   * @param $bin The bin to flush. Note that this will flush all bins mapped to the same server
-   *   as $bin. There is no way at this time to empty just one bin.
+   * dmemcache_flush doesn't actually free any resources, it only marks all the
+   * items as expired, so occupied memory will be overwritten by new items.
    *
-   * @return Returns TRUE on success or FALSE on failure.
+   * @param string $bin
+   *   The bin to flush. Note that this will flush all bins mapped to the same
+   *   server as $bin. There is no way at this time to empty just one bin.
+   *
+   * @return bool
+   *   TRUE on success or FALSE on failure.
    */
   public static function flush($bin = 'cache', $mc = NULL) {
     if (static::collectStats()) {
       static::$memcacheStatistics[] = array('flush', $bin, '', '');
     }
+
     if ($mc || ($mc = static::getObject($bin))) {
       return memcache_flush($mc);
     }
@@ -354,7 +363,7 @@ class DrupalMemcache {
     $full_key = urlencode($prefix . $bin . '-' . $key);
 
     // Memcache only supports key lengths up to 250 bytes.  If we have generated
-    // a longer key, we shrink it to an acceptible length with a configurable
+    // a longer key, we shrink it to an acceptable length with a configurable
     // hashing algorithm. Sha1 was selected as the default as it performs
     // quickly with minimal collisions.
     if (strlen($full_key) > 250) {
@@ -389,17 +398,22 @@ class DrupalMemcache {
   }
 
   /**
-   * Returns a Memcache object based on the bin requested. Note that there is
+   * Returns a Memcache object based on the bin requested.
+   *
+   * Note that there is
    * nothing preventing developers from calling this function directly to get the
    * Memcache object. Do this if you need functionality not provided by this API
    * or if you need to use legacy code. Otherwise, use the dmemcache (get, set,
    * delete, flush) API functions provided here.
    *
-   * @param $bin The bin which is to be used.
+   * @param string $bin
+   *   The bin which is to be used.
    *
-   * @param $flush Rebuild the bin/server/cache mapping.
+   * @param bool $flush
+   *   Rebuild the bin/server/cache mapping.
    *
-   * @return an Memcache object or FALSE.
+   * @return mixed
+   *   A Memcache object or FALSE.
    */
   public static function getObject($bin = NULL, $flush = FALSE) {
     if (!isset(static::$extension)) {
@@ -409,8 +423,8 @@ class DrupalMemcache {
         $extension = $preferred;
       }
       // If no extension is set, default to Memcache.
-      // The Memcached extension has some features that the older extension lacks
-      // but also an unfixed bug that affects cache clears.
+      // The Memcached extension has some features that the older extension
+      // lacks but also an unfixed bug that affects cache clears.
       // @see http://pecl.php.net/bugs/bug.php?id=16829
       elseif (class_exists('Memcache')) {
         static::$extension = 'Memcache';
@@ -512,8 +526,8 @@ class DrupalMemcache {
 
                 if (!empty($php_errormsg)) {
                   register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
-                  $php_errormsg = '';
                 }
+
                 ini_set('track_errors', $track_errors);
               }
               else {

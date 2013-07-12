@@ -7,6 +7,7 @@
 
 namespace Drupal\memcache;
 
+use Drupal\Component\Utility\Settings;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Lock\LockBackendInterface;
@@ -25,6 +26,13 @@ class MemcacheBackend implements CacheBackendInterface {
    * @todo
    */
   const MEMCACHE_CONTENT_CLEAR = 'MEMCACHE_CONTENT_CLEAR';
+
+  /**
+   * The cache bin to use.
+   *
+   * @var string
+   */
+  protected $bin;
 
   /**
    * @todo
@@ -61,6 +69,11 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   protected $configFactory;
 
+  /**
+   * @var bool
+   */
+  protected $cacheFlush = FALSE;
+
 //$this->wildcardFlushes = variable_get('memcache_wildcard_flushes', array());
 //$this->invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
 //$this->cacheLifetime = variable_get('cache_lifetime', 0);
@@ -68,13 +81,14 @@ class MemcacheBackend implements CacheBackendInterface {
 //$this->cacheContentFlush = variable_get('cache_content_flush_' . $this->bin, 0);
 //$this->flushed = min($this->cacheFlush, REQUEST_TIME - $this->cacheLifetime);
 
-  public function __construct($bin, LockBackendInterface $lock, ConfigFactory $config_factory) {
+  public function __construct($bin, LockBackendInterface $lock, Settings $settings) {
     $this->bin = $bin;
     $this->lock = $lock;
-    $this->configFactory = $config_factory;
+    $this->settings = $settings;
+    //$this->configFactory = $config_factory;
     $this->memcache = DrupalMemcache::getObject($bin);
 
-    $this->reloadVariables();
+    //$this->reloadVariables();
   }
 
   /**
@@ -91,7 +105,7 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
     $cache = DrupalMemcache::getMulti($cids, $this->bin, $this->memcache);
-
+    //dpm($cache, 'cache');
     if (!$allow_invalid) {
       foreach ($cache as $cid => $result) {
         if (!$this->valid($cid, $result)) {
@@ -188,7 +202,6 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function set($cid, $data, $expire = CacheBackendInterface::CACHE_PERMANENT, array $tags = array()) {
-
     // Create new cache object.
     $cache = new \stdClass();
     $cache->cid = $cid;
@@ -196,13 +209,13 @@ class MemcacheBackend implements CacheBackendInterface {
     $cache->created = time();
     // Record the previous number of wildcard flushes affecting our cid.
     $cache->flushes = $this->wildcardFlushes($cid);
-    if ($expire == CacheBackendInterface::CACHE_TEMPORARY) {
-      // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
-      // until the next flush.
-      $cache->expire = REQUEST_TIME + 2591999;
-    }
+//    if ($expire == CacheBackendInterface::CACHE_TEMPORARY) {
+//      // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
+//      // until the next flush.
+//      $cache->expire = REQUEST_TIME + 2591999;
+//    }
     // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
-    else if ($expire != CacheBackendInterface::CACHE_PERMANENT && $expire < 2592000) {
+    if ($expire != CacheBackendInterface::CACHE_PERMANENT && $expire < 2592000) {
       // Expire is expressed in seconds, convert to the proper future timestamp
       // as expected in dmemcache_get().
       $cache->expire = REQUEST_TIME + $expire;
@@ -224,8 +237,109 @@ class MemcacheBackend implements CacheBackendInterface {
       $memcache_expire = $cache->expire + (($cache->expire - REQUEST_TIME) * 2);
     }
 
-    DrupalMemcache::set($cid, $cache, $memcache_expire, $this->bin, $this->memcache);
+    return DrupalMemcache::set($cid, $cache, $memcache_expire, $this->bin, $this->memcache);
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function delete($cid) {
+    DrupalMemcache::delete($cid, $this->bin, $this->memcache);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteMultiple(array $cids) {
+    foreach ($cids as $cid) {
+      DrupalMemcache::delete($cid, $this->bin);
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteAll() {
+    // Invalidate all keys, as we can't actually delete all?
+    $this->invalidateAll();
+  }
+
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteTags(array $tags) {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function invalidate($cid) {
+    // @todo Implement a deleteMulti on DrupalMemcache.
+    return DrupalMemcache::delete($cid, $this->bin);
+  }
+
+  /**
+   * Marks cache items as invalid.
+   *
+   * Invalid items may be returned in later calls to get(), if the $allow_invalid
+   * argument is TRUE.
+   *
+   * @param string $cids
+   *   An array of cache IDs to invalidate.
+   *
+   * @see Drupal\Core\Cache\CacheBackendInterface::deleteMultiple()
+   * @see Drupal\Core\Cache\CacheBackendInterface::invalidate()
+   * @see Drupal\Core\Cache\CacheBackendInterface::invalidateTags()
+   * @see Drupal\Core\Cache\CacheBackendInterface::invalidateAll()
+   */
+  public function invalidateMultiple(array $cids) {
+    // @todo implement deleteMulti instead.
+    foreach ($cids as $cid) {
+      $this->invalidate($cid);
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function invalidateTags(array $tags) {
+    // TODO: Implement invalidateTags() method.
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function removeBin() {
+    // TODO: Implement removeBin() method.
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function garbageCollection() {
+    // TODO: Implement garbageCollection() method.
+  }
+
+
+  /**
+   * Marks all cache items as invalid.
+   *
+   * Invalid items may be returned in later calls to get(), if the $allow_invalid
+   * argument is TRUE.
+   *
+   * @param string $cids
+   *   An array of cache IDs to invalidate.
+   *
+   * @see Drupal\Core\Cache\CacheBackendInterface::deleteAll()
+   * @see Drupal\Core\Cache\CacheBackendInterface::invalidate()
+   * @see Drupal\Core\Cache\CacheBackendInterface::invalidateMultiple()
+   * @see Drupal\Core\Cache\CacheBackendInterface::invalidateTags()
+   */
+  public function invalidateAll() {
+    DrupalMemcache::flush($this->bin);
+  }
+
 
   /**
    * {@inheritdoc}
