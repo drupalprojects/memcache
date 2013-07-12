@@ -150,20 +150,18 @@ class DrupalMemcache {
     $statistics = array('get', $bin, $full_key);
 
     if ($mc || $mc = static::getObject($bin)) {
-      $track_errors = ini_set('track_errors', '1');
-      $php_errormsg = '';
-
+      ini_set('track_errors', '1');
+      $error = '';
       $result = @$mc->get($full_key);
+
       if (static::collectStats()) {
         $statistics[] = (bool) $result;
         static::$memcacheStatistics[] = $statistics;
       }
 
-      if (!empty($php_errormsg)) {
-        register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+      if (!empty($error)) {
+        register_shutdown_function('watchdog', 'memcache', 'Exception caught in DrupalMemcache::get !msg', array('!msg' => $error), WATCHDOG_WARNING);
       }
-
-      ini_set('track_errors', $track_errors);
     }
 
     return $result;
@@ -195,22 +193,19 @@ class DrupalMemcache {
         $results = $mc->getMulti($full_keys);
       }
       elseif ($mc instanceof \Memcache) {
-        $track_errors = ini_set('track_errors', '1');
-        $php_errormsg = '';
-
+        ini_set('track_errors', 1);
+        $error = '';
         $results = @$mc->get($full_keys);
 
-        if (!empty($php_errormsg)) {
-          register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get_multi: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+        if (!empty($error)) {
+          register_shutdown_function('watchdog', 'memcache', 'Exception caught in DrupalMemcache::getMulti: !msg', array('!msg' => $error), WATCHDOG_WARNING);
         }
-
-        ini_set('track_errors', $track_errors);
       }
     }
 
     if (static::collectStats()) {
       foreach ($statistics as $key => $values) {
-        $values[] = isset($results[$key]) ? '1': '0';
+        $values[] = isset($results[$key]) ? 1 : 0;
         static::$memcacheStatistics[] = $values;
       }
     }
@@ -226,6 +221,7 @@ class DrupalMemcache {
     foreach ($results as $key => $value) {
       $cid_results[$cid_lookup[$key]] = $value;
     }
+
     return $cid_results;
   }
 
@@ -514,8 +510,8 @@ class DrupalMemcache {
               // When using the PECL memcache extension, we must use ->(p)connect
               // for the first connection.
               if (!$init) {
-                $track_errors = ini_set('track_errors', '1');
-                $php_errormsg = '';
+                ini_set('track_errors', '1');
+                $error = '';
 
                 if (static::$memcachePersistent && @$memcache->pconnect($host, $port)) {
                   $init = TRUE;
@@ -524,11 +520,9 @@ class DrupalMemcache {
                   $init = TRUE;
                 }
 
-                if (!empty($php_errormsg)) {
-                  register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+                if (!empty($error)) {
+                  register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $error), WATCHDOG_WARNING);
                 }
-
-                ini_set('track_errors', $track_errors);
               }
               else {
                 $memcache->addServer($host, $port, static::$memcachePersistent);
@@ -564,7 +558,7 @@ class DrupalMemcache {
           // Now that all the servers have been mapped to this cluster, look for
           // other bins that belong to the cluster and map them too.
           foreach (static::$memcacheBins as $b => $c) {
-            if ($c == $cluster && $b != $bin) {
+            if (($c == $cluster) && ($b != $bin)) {
               // Map this bin and cluster by reference.
               static::$memcacheCache[$b] = &static::$memcacheCache[$bin];
             }

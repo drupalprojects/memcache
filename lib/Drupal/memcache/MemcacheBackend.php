@@ -105,7 +105,7 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
     $cache = DrupalMemcache::getMulti($cids, $this->bin, $this->memcache);
-    //dpm($cache, 'cache');
+
     if (!$allow_invalid) {
       foreach ($cache as $cid => $result) {
         if (!$this->valid($cid, $result)) {
