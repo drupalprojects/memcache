@@ -1,4 +1,4 @@
 services:
   cache.backend.memcache:
     class: Drupal\memcache\MemcacheBackendFactory
-    arguments: ['@lock', '@settings']
+    arguments: ['@lock', '@settings', '@state']

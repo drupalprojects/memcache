@@ -347,23 +347,14 @@ class DrupalMemcache {
    * @return string
    */
   public static function key($key, $bin = 'cache') {
-    $prefix = '';
-    if ($prefix = variable_get('memcache_key_prefix', '')) {
-      $prefix .= '-';
-    }
-    // When simpletest is running, emulate the simpletest database prefix here
-    // to avoid the child site setting cache entries in the parent site.
-    if (isset($GLOBALS['drupal_test_info']['test_run_id'])) {
-      $prefix .= $GLOBALS['drupal_test_info']['test_run_id'];
-    }
-    $full_key = urlencode($prefix . $bin . '-' . $key);
+    $full_key = urlencode($bin . '-' . $key);
 
     // Memcache only supports key lengths up to 250 bytes.  If we have generated
     // a longer key, we shrink it to an acceptable length with a configurable
     // hashing algorithm. Sha1 was selected as the default as it performs
     // quickly with minimal collisions.
     if (strlen($full_key) > 250) {
-      $full_key = urlencode(hash(variable_get('memcache_key_hash_algorithm', 'sha1'), $prefix . $bin . '-' . $key));
+      $full_key = urlencode(hash(variable_get('memcache_key_hash_algorithm', 'sha1'), $bin . '-' . $key));
     }
 
     return $full_key;

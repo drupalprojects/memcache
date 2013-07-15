@@ -9,18 +9,13 @@ namespace Drupal\memcache;
 
 use Drupal\Component\Utility\Settings;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Config\ConfigFactory;
+use Drupal\Core\KeyValueStore\KeyValueStoreInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 
 /**
  * Defines a Memcache cache backend.
  */
 class MemcacheBackend implements CacheBackendInterface {
-
-  /**
-   * @todo
-   */
-  const MEMCACHE_CONTENT_CLEAR = 'MEMCACHE_CONTENT_CLEAR';
 
   /**
    * The cache bin to use.
@@ -51,22 +46,18 @@ class MemcacheBackend implements CacheBackendInterface {
   protected $settings;
 
   /**
-   * @var bool
+   * @todo
+   *
+   * @var \Drupal\Core\Lock\LockBackendInterface
    */
-  protected $cacheFlush = FALSE;
+  protected $state;
 
-//$this->cacheLifetime = variable_get('cache_lifetime', 0);
-//$this->cacheFlush = variable_get('cache_flush_' . $this->bin);
-//$this->cacheContentFlush = variable_get('cache_content_flush_' . $this->bin, 0);
-//$this->flushed = min($this->cacheFlush, REQUEST_TIME - $this->cacheLifetime);
-
-  public function __construct($bin, LockBackendInterface $lock, Settings $settings) {
+  public function __construct($bin, LockBackendInterface $lock, Settings $settings, KeyValueStoreInterface $state) {
     $this->bin = $bin;
     $this->lock = $lock;
     $this->settings = $settings;
+    $this->state = $state;
     $this->memcache = DrupalMemcache::getObject($bin);
-
-    //$this->reloadVariables();
   }
 
   /**
@@ -105,7 +96,6 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   protected function valid($cid, $cache) {
     if ($cache) {
-      $cache_tables = isset($_SESSION['cache_flush']) ? $_SESSION['cache_flush'] : NULL;
       // Items that have expired are invalid.
       if (isset($cache->expire) && ($cache->expire !== CacheBackendInterface::CACHE_PERMANENT) && ($cache->expire <= REQUEST_TIME)) {
         // If the memcache_stampede_protection variable is set, allow one process
@@ -114,10 +104,10 @@ class MemcacheBackend implements CacheBackendInterface {
         // relies on cron to expire them, but this is mostly reliant on its
         // use of CACHE_TEMPORARY which does not map well to memcache.
         // @see http://drupal.org/node/534092
-        if (variable_get('memcache_stampede_protection', FALSE)) {
+        if ($this->settings->get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if ($this->lock->acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
+          if ($this->lock->acquire("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_semaphore', 15))) {
             $cache = FALSE;
           }
         }
@@ -125,27 +115,12 @@ class MemcacheBackend implements CacheBackendInterface {
           $cache = FALSE;
         }
       }
-      // Items created before the last full flush against this bin are invalid.
-      elseif (!isset($cache->created) || $cache->created <= $this->cacheFlush) {
-        $cache = FALSE;
-      }
-      // Items created before the last content flush on this bin i.e.
-      // cache_clear_all() are invalid.
-      elseif ($cache->expire != CacheBackendInterface::CACHE_PERMANENT && $cache->created + $this->cacheLifetime <= $this->cacheContentFlush) {
-        $cache = FALSE;
-      }
-      // Items cached before the cache was last flushed by the current user are
-      // invalid.
-      elseif ($cache->expire != CacheBackendInterface::CACHE_PERMANENT && is_array($cache_tables) && isset($cache_tables[$this->bin]) && $cache_tables[$this->bin] >= $cache->created) {
-        // Cache item expired, return FALSE.
-        $cache = FALSE;
-      }
     }
 
     // On cache misses, attempt to avoid stampedes when the
     // memcache_stampede_protection variable is enabled.
     if (!$cache) {
-      if (variable_get('memcache_stampede_protection', FALSE) && !$this->lock->acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
+      if ($this->settings->get('memcache_stampede_protection', FALSE) && !$this->lock->acquire("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_semaphore', 15))) {
         // Prevent any single request from waiting more than three times due to
         // stampede protection. By default this is a maximum total wait of 15
         // seconds. This accounts for two possibilities - a cache and lock miss
@@ -156,11 +131,11 @@ class MemcacheBackend implements CacheBackendInterface {
         // information. Currently the limit will kick in for three waits of 25ms
         // or three waits of 5000ms.
         $this->lockCount++;
-        if ($$this->lockCount <= variable_get('memcache_stampede_wait_limit', 3)) {
+        if ($$this->lockCount <= $this->settings->get('memcache_stampede_wait_limit', 3)) {
           // The memcache_stampede_semaphore variable was used in previous releases
           // of memcache, but the max_wait variable was not, so by default divide
           // the semaphore value by 3 (5 seconds).
-         $this->lock->wait("memcache_$cid:$this->bin", variable_get('memcache_stampede_wait_time', 5));
+         $this->lock->wait("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_wait_time', 5));
           $cache = $this->get($cid);
         }
       }
@@ -217,7 +192,7 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   public function deleteMultiple(array $cids) {
     foreach ($cids as $cid) {
-      DrupalMemcache::delete($cid, $this->bin);
+      DrupalMemcache::delete($cid, $this->bin, $this->memcache);
     }
   }
 
@@ -240,8 +215,7 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function invalidate($cid) {
-    // @todo Implement a deleteMulti on DrupalMemcache.
-    return DrupalMemcache::delete($cid, $this->bin);
+    $this->invalidateMultiple((array) $cid);
   }
 
   /**
@@ -259,10 +233,17 @@ class MemcacheBackend implements CacheBackendInterface {
    * @see Drupal\Core\Cache\CacheBackendInterface::invalidateAll()
    */
   public function invalidateMultiple(array $cids) {
-    // @todo implement deleteMulti instead.
+    // @todo implement deleteMulti instead?
     foreach ($cids as $cid) {
-      $this->invalidate($cid);
+      DrupalMemcache::delete($cid, $this->bin, $this->memcache);
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function invalidateAll() {
+    DrupalMemcache::flush($this->bin);
   }
 
   /**
@@ -276,75 +257,15 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function removeBin() {
-    // TODO: Implement removeBin() method.
+    // Do nothing here too?
   }
 
   /**
    * {@inheritdoc}
    */
   public function garbageCollection() {
-    // TODO: Implement garbageCollection() method.
-  }
-
-
-  /**
-   * Marks all cache items as invalid.
-   *
-   * Invalid items may be returned in later calls to get(), if the $allow_invalid
-   * argument is TRUE.
-   *
-   * @param string $cids
-   *   An array of cache IDs to invalidate.
-   *
-   * @see Drupal\Core\Cache\CacheBackendInterface::deleteAll()
-   * @see Drupal\Core\Cache\CacheBackendInterface::invalidate()
-   * @see Drupal\Core\Cache\CacheBackendInterface::invalidateMultiple()
-   * @see Drupal\Core\Cache\CacheBackendInterface::invalidateTags()
-   */
-  public function invalidateAll() {
-    DrupalMemcache::flush($this->bin);
-  }
-
-
-  /**
-   * {@inheritdoc}
-   */
-  public function clear($cid = NULL) {
-    if ($this->memcache === FALSE) {
-      // No memcache connection.
-      return;
-    }
-
-    if (empty($cid)) {
-      // Update the timestamp of the last global flushing of this bin.  When
-      // retrieving data from this bin, we will compare the cache creation
-      // time minus the cache_flush time to the cache_lifetime to determine
-      // whether or not the cached item is still valid.
-      $this->cacheFlush = time();
-      $this->variable_set("cache_flush_$this->bin", $this->cacheFlush);
-      $this->flushed = min($this->cacheFlush, time() - $this->cacheLifetime);
-
-      if ($this->cacheLifetime) {
-        // We store the time in the current user's session which is saved into
-        // the sessions table by sess_write().  We then simulate that the cache
-        // was flushed for this user by not returning cached data to this user
-        // that was cached before the timestamp.
-        if (isset($_SESSION['cache_flush']) && is_array($_SESSION['cache_flush'])) {
-          $cache_bins = $_SESSION['cache_flush'];
-        }
-        else {
-          $cache_bins = array();
-        }
-        $cache_bins[$this->bin] = $this->cacheFlush;
-        $_SESSION['cache_flush'] = $cache_bins;
-      }
-    }
-    else {
-      $cids = is_array($cid) ? $cid : array($cid);
-      foreach ($cids as $cid) {
-        DrupalMemcache::delete($cid, $this->bin, $this->memcache);
-      }
-    }
+    // Memcache will invalidate items; That items memory allocation is then
+    // freed up and reused. So nothing needs to be deleted/cleaned up here.
   }
 
   /**
@@ -353,40 +274,6 @@ class MemcacheBackend implements CacheBackendInterface {
   public function isEmpty() {
     // We do not know so err on the safe side?
     return FALSE;
-  }
-
-  /**
-   * Helper function to reload variables.
-   *
-   * This is used by the tests to verify that the cache object used the correct
-   * settings.
-   */
-  function reloadVariables() {
-    $this->cacheLifetime = variable_get('cache_lifetime', 0);
-    $this->cacheFlush = variable_get('cache_flush_' . $this->bin);
-    $this->cacheContentFlush = variable_get('cache_content_flush_' . $this->bin, 0);
-    $this->flushed = min($this->cacheFlush, REQUEST_TIME - $this->cacheLifetime);
-  }
-
-  /**
-   * Re-implementation of variable_set() that writes through instead of clearing.
-   */
-  function variable_set($name, $value) {
-    global $conf;
-
-    db_merge('variable')
-      ->key(array('name' => $name))
-      ->fields(array('value' => serialize($value)))
-      ->execute();
-    // If the variables are cached, get a fresh copy, update with the new value
-    // and set it again.
-    if ($cached = cache_get('variables', 'cache_bootstrap')) {
-      $variables = $cached->data;
-      $variables[$name] = $value;
-      cache_set('variables', $variables, 'cache_bootstrap');
-    }
-    // If the variables aren't cached, there's no need to do anything.
-    $conf[$name] = $value;
   }
 
 }
