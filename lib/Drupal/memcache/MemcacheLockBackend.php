@@ -20,6 +20,11 @@ class MemcacheLockBackend extends LockBackendAbstract {
   protected $locks = array();
 
   /**
+   * @var string
+   */
+  protected $bin = 'semaphore';
+
+  /**
    * Constructs a new MemcacheLockBackend.
    */
   public function __construct() {
@@ -37,12 +42,12 @@ class MemcacheLockBackend extends LockBackendAbstract {
     $timeout = (int) max($timeout, 1);
     $lock_id = $this->getLockId();
 
-    if (DrupalMemcache::add($name, $lock_id, $timeout, 'semaphore')) {
+    if (DrupalMemcache::add($name, $lock_id, $timeout, $this->bin)) {
       $this->locks[$name] = $lock_id;
     }
-    elseif (($result = DrupalMemcache::get($name, 'semaphore')) && isset($this->locks[$name]) && ($this->locks[$name] == $lock_id)) {
+    elseif (($result = DrupalMemcache::get($name, $this->bin)) && isset($this->locks[$name]) && ($this->locks[$name] == $lock_id)) {
       // Only renew the lock if we already set it and it has not expired.
-      DrupalMemcache::set($name, $lock_id, $timeout, 'semaphore');
+      DrupalMemcache::set($name, $lock_id, $timeout, $this->bin);
     }
     else {
       // Failed to acquire the lock. Unset the key from the $locks array even if
@@ -57,14 +62,14 @@ class MemcacheLockBackend extends LockBackendAbstract {
    * {@inheritdoc}
    */
   public function lockMayBeAvailable($name) {
-    return !DrupalMemcache::get($name, 'semaphore');
+    return !DrupalMemcache::get($name, $this->bin);
   }
 
   /**
    * {@inheritdoc}
    */
   public function release($name) {
-    DrupalMemcache::delete($name, 'semaphore');
+    DrupalMemcache::delete($name, $this->bin);
     // We unset unconditionally since caller assumes lock is released anyway.
     unset($this->locks[$name]);
   }
@@ -74,9 +79,9 @@ class MemcacheLockBackend extends LockBackendAbstract {
    */
   public function releaseAll($lock_id = NULL) {
     foreach ($this->locks as $name => $id) {
-      $value = DrupalMemcache::get($name, 'semaphore');
+      $value = DrupalMemcache::get($name, $this->bin);
       if ($value == $id) {
-        DrupalMemcache::delete($name, 'semaphore');
+        DrupalMemcache::delete($name, $this->bin);
       }
     }
   }
