@@ -264,7 +264,7 @@ class DrupalMemcache {
     }
 
     if ($mc || ($mc = static::getObject($bin))) {
-      return memcache_flush($mc);
+      return $mc->flush();
     }
   }
 

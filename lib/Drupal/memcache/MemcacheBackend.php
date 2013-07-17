@@ -46,9 +46,9 @@ class MemcacheBackend implements CacheBackendInterface {
   protected $settings;
 
   /**
-   * @todo
+   * The state keyvalue store.
    *
-   * @var \Drupal\Core\Lock\LockBackendInterface
+   * @var \Drupal\Core\KeyValueStore\KeyValueStoreInterface
    */
   protected $state;
 
@@ -74,13 +74,10 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
     $cache = DrupalMemcache::getMulti($cids, $this->bin, $this->memcache);
-
-    if (!$allow_invalid) {
-      foreach ($cache as $cid => $result) {
-        if (!$this->valid($cid, $result)) {
-          // This object has expired, so don't return it.
-          unset($cache[$cid]);
-        }
+    foreach ($cache as $cid => $result) {
+      if (!$this->valid($cid, $result) && !$allow_invalid) {
+        // This object has expired, so don't return it.
+        unset($cache[$cid]);
       }
     }
 
@@ -100,26 +97,25 @@ class MemcacheBackend implements CacheBackendInterface {
       if (isset($cache->expire) && ($cache->expire !== CacheBackendInterface::CACHE_PERMANENT) && ($cache->expire <= REQUEST_TIME)) {
         // If the memcache_stampede_protection variable is set, allow one process
         // to rebuild the cache entry while serving expired content to the
-        // rest. Note that core happily returns expired cache items as valid and
-        // relies on cron to expire them, but this is mostly reliant on its
-        // use of CACHE_TEMPORARY which does not map well to memcache.
-        // @see http://drupal.org/node/534092
+        // rest.
         if ($this->settings->get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
           if ($this->lock->acquire("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_semaphore', 15))) {
-            $cache = FALSE;
+            $cache->valid = FALSE;
           }
         }
         else {
-          $cache = FALSE;
+          $cache->valid = FALSE;
         }
       }
+      else {
+        $cache->valid = TRUE;
+      }
     }
-
     // On cache misses, attempt to avoid stampedes when the
     // memcache_stampede_protection variable is enabled.
-    if (!$cache) {
+    else {
       if ($this->settings->get('memcache_stampede_protection', FALSE) && !$this->lock->acquire("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_semaphore', 15))) {
         // Prevent any single request from waiting more than three times due to
         // stampede protection. By default this is a maximum total wait of 15
@@ -141,7 +137,7 @@ class MemcacheBackend implements CacheBackendInterface {
       }
     }
 
-    return (bool) $cache;
+    return (bool) $cache->valid;
   }
 
   /**
@@ -152,12 +148,12 @@ class MemcacheBackend implements CacheBackendInterface {
     $cache = new \stdClass();
     $cache->cid = $cid;
     $cache->data = is_object($data) ? clone $data : $data;
-    $cache->created = time();
+    $cache->created = REQUEST_TIME;
 
     // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
-    if ($expire != CacheBackendInterface::CACHE_PERMANENT && $expire < 2592000) {
+    if ($expire != CacheBackendInterface::CACHE_PERMANENT && ($expire < 2592000)) {
       // Expire is expressed in seconds, convert to the proper future timestamp
-      // as expected in dmemcache_get().
+      // as expected in DrupalMemcache::set().
       $cache->expire = REQUEST_TIME + $expire;
     }
     else {
@@ -170,11 +166,14 @@ class MemcacheBackend implements CacheBackendInterface {
     // as long into the future, this allows old items to be expired by memcache
     // rather than evicted along with a sufficient period for stampede
     // protection to continue to work.
-    if ($cache->expire == CacheBackendInterface::CACHE_PERMANENT) {
+    if (($cache->expire == CacheBackendInterface::CACHE_PERMANENT)) {
       $memcache_expire = $cache->expire;
     }
+    elseif (($cache->expire < REQUEST_TIME)) {
+      $memcache_expire = CacheBackendInterface::CACHE_PERMANENT;
+    }
     else {
-      $memcache_expire = $cache->expire + (($cache->expire - REQUEST_TIME) * 2);
+      $memcache_expire = $cache->expire + ($cache->expire - REQUEST_TIME * 2);
     }
 
     return DrupalMemcache::set($cid, $cache, $memcache_expire, $this->bin, $this->memcache);
@@ -272,8 +271,8 @@ class MemcacheBackend implements CacheBackendInterface {
    * (@inheritdoc)
    */
   public function isEmpty() {
-    // We do not know so err on the safe side?
-    return FALSE;
+    // We do not know so err on the safe side? Not sure if we can know this?
+    return TRUE;
   }
 
 }

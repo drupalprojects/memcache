@@ -1,8 +1,0 @@
-wildcard_flushes: { }
-wildcard_invalidate: 2419200
-cache_lifetime: 0
-stampede_semaphore: 15
-stampede_wait_time: 5
-servers: { }
-bins: { }
-key_hash_algorithm: sha1
