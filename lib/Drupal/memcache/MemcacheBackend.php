@@ -25,11 +25,18 @@ class MemcacheBackend implements CacheBackendInterface {
   protected $bin;
 
   /**
-   * @todo
+   * The lock count.
    *
    * @var int
    */
   protected $lockCount = 0;
+
+  /**
+   * The memcache wrapper object.
+   *
+   * @var \Drupal\memcache\DrupalMemcacheInterface
+   */
+  protected $memcache;
 
   /**
    * The lock backend that should be used.
@@ -41,7 +48,7 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * The Settings instance.
    *
-   * @var array|\Drupal\Component\Utility\Settings
+   * @var \Drupal\Component\Utility\Settings
    */
   protected $settings;
 
@@ -52,12 +59,12 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   protected $state;
 
-  public function __construct($bin, LockBackendInterface $lock, Settings $settings, KeyValueStoreInterface $state) {
+  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, Settings $settings, KeyValueStoreInterface $state) {
     $this->bin = $bin;
+    $this->memcache = $memcache;
     $this->lock = $lock;
     $this->settings = $settings;
     $this->state = $state;
-    $this->memcache = DrupalMemcache::getObject($bin);
   }
 
   /**
@@ -73,7 +80,7 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
-    $cache = DrupalMemcache::getMulti($cids, $this->bin, $this->memcache);
+    $cache = $this->memcache->getMulti($cids);
     foreach ($cache as $cid => $result) {
       if (!$this->valid($cid, $result) && !$allow_invalid) {
         // This object has expired, so don't return it.
@@ -82,7 +89,7 @@ class MemcacheBackend implements CacheBackendInterface {
     }
 
     // Remove items from the referenced $cids array that we are returning,
-    // per the comment in cache_get_multiple() in Drupal\Core\Cache\CacheBackendInterface
+    // per comment in Drupal\Core\Cache\CacheBackendInterface::getMultiple().
     $cids = array_diff($cids, array_keys($cache));
 
     return $cache;
@@ -92,16 +99,18 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   protected function valid($cid, $cache) {
+    $lock_key = "memcache_$cid:$this->bin";
+
     if ($cache) {
       // Items that have expired are invalid.
       if (isset($cache->expire) && ($cache->expire !== CacheBackendInterface::CACHE_PERMANENT) && ($cache->expire <= REQUEST_TIME)) {
-        // If the memcache_stampede_protection variable is set, allow one process
-        // to rebuild the cache entry while serving expired content to the
-        // rest.
+        // If the memcache_stampede_protection variable is set, allow one
+        // process to rebuild the cache entry while serving expired content to
+        // the rest.
         if ($this->settings->get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if ($this->lock->acquire("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_semaphore', 15))) {
+          if ($this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
             $cache->valid = FALSE;
           }
         }
@@ -116,7 +125,7 @@ class MemcacheBackend implements CacheBackendInterface {
     // On cache misses, attempt to avoid stampedes when the
     // memcache_stampede_protection variable is enabled.
     else {
-      if ($this->settings->get('memcache_stampede_protection', FALSE) && !$this->lock->acquire("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_semaphore', 15))) {
+      if ($this->settings->get('memcache_stampede_protection', FALSE) && !$this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
         // Prevent any single request from waiting more than three times due to
         // stampede protection. By default this is a maximum total wait of 15
         // seconds. This accounts for two possibilities - a cache and lock miss
@@ -127,11 +136,11 @@ class MemcacheBackend implements CacheBackendInterface {
         // information. Currently the limit will kick in for three waits of 25ms
         // or three waits of 5000ms.
         $this->lockCount++;
-        if ($$this->lockCount <= $this->settings->get('memcache_stampede_wait_limit', 3)) {
-          // The memcache_stampede_semaphore variable was used in previous releases
-          // of memcache, but the max_wait variable was not, so by default divide
-          // the semaphore value by 3 (5 seconds).
-         $this->lock->wait("memcache_$cid:$this->bin", $this->settings->get('memcache_stampede_wait_time', 5));
+        if ($this->lockCount <= $this->settings->get('memcache_stampede_wait_limit', 3)) {
+          // The memcache_stampede_semaphore variable was used in previous
+          // releases of memcache, but the max_wait variable was not, so by
+          // default divide the semaphore value by 3 (5 seconds).
+         $this->lock->wait($lock_key, $this->settings->get('memcache_stampede_wait_time', 5));
           $cache = $this->get($cid);
         }
       }
@@ -176,14 +185,14 @@ class MemcacheBackend implements CacheBackendInterface {
       $memcache_expire = $cache->expire + ($cache->expire - REQUEST_TIME * 2);
     }
 
-    return DrupalMemcache::set($cid, $cache, $memcache_expire, $this->bin, $this->memcache);
+    return $this->memcache->set($cid, $cache, $memcache_expire);
   }
 
   /**
    * {@inheritdoc}
    */
   public function delete($cid) {
-    DrupalMemcache::delete($cid, $this->bin, $this->memcache);
+    $this->memcache->delete($cid);
   }
 
   /**
@@ -191,7 +200,7 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   public function deleteMultiple(array $cids) {
     foreach ($cids as $cid) {
-      DrupalMemcache::delete($cid, $this->bin, $this->memcache);
+      $this->memcache->delete($cid);
     }
   }
 
@@ -201,13 +210,6 @@ class MemcacheBackend implements CacheBackendInterface {
   public function deleteAll() {
     // Invalidate all keys, as we can't actually delete all?
     $this->invalidateAll();
-  }
-
-
-  /**
-   * {@inheritdoc}
-   */
-  public function deleteTags(array $tags) {
   }
 
   /**
@@ -234,7 +236,7 @@ class MemcacheBackend implements CacheBackendInterface {
   public function invalidateMultiple(array $cids) {
     // @todo implement deleteMulti instead?
     foreach ($cids as $cid) {
-      DrupalMemcache::delete($cid, $this->bin, $this->memcache);
+      $this->memcache->delete($cid);
     }
   }
 
@@ -242,7 +244,13 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function invalidateAll() {
-    DrupalMemcache::flush($this->bin);
+    $this->memcache->flush();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteTags(array $tags) {
   }
 
   /**

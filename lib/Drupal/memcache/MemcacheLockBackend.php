@@ -15,19 +15,31 @@ use Drupal\Core\Lock\LockBackendAbstract;
 class MemcacheLockBackend extends LockBackendAbstract {
 
   /**
+   * An array of currently acquired locks.
+   *
    * @var array
    */
   protected $locks = array();
 
   /**
+   * The bin name for this lock.
+   *
    * @var string
    */
   protected $bin = 'semaphore';
 
   /**
+   * The memcache wrapper object.
+   *
+   * @var \Drupal\memcache\DrupalMemcacheInterface
+   */
+  protected $memcache;
+
+  /**
    * Constructs a new MemcacheLockBackend.
    */
-  public function __construct() {
+  public function __construct(DrupalMemcacheFactory $memcache_factory) {
+    $this->memcache = $memcache_factory->get($this->bin);
     // __destruct() is causing problems with garbage collections, register a
     // shutdown function instead.
     drupal_register_shutdown_function(array($this, 'releaseAll'));
@@ -42,12 +54,12 @@ class MemcacheLockBackend extends LockBackendAbstract {
     $timeout = (int) max($timeout, 1);
     $lock_id = $this->getLockId();
 
-    if (DrupalMemcache::add($name, $lock_id, $timeout, $this->bin)) {
+    if ($this->memcache->set($name, $lock_id, $timeout)) {
       $this->locks[$name] = $lock_id;
     }
-    elseif (($result = DrupalMemcache::get($name, $this->bin)) && isset($this->locks[$name]) && ($this->locks[$name] == $lock_id)) {
+    elseif (($result = $this->memcache->get($name)) && isset($this->locks[$name]) && ($this->locks[$name] == $lock_id)) {
       // Only renew the lock if we already set it and it has not expired.
-      DrupalMemcache::set($name, $lock_id, $timeout, $this->bin);
+      $this->memcache->set($name, $lock_id, $timeout);
     }
     else {
       // Failed to acquire the lock. Unset the key from the $locks array even if
@@ -62,14 +74,14 @@ class MemcacheLockBackend extends LockBackendAbstract {
    * {@inheritdoc}
    */
   public function lockMayBeAvailable($name) {
-    return !DrupalMemcache::get($name, $this->bin);
+    return !$this->memcache->get($name);
   }
 
   /**
    * {@inheritdoc}
    */
   public function release($name) {
-    DrupalMemcache::delete($name, $this->bin);
+    $this->memcache->delete($name);
     // We unset unconditionally since caller assumes lock is released anyway.
     unset($this->locks[$name]);
   }
@@ -79,9 +91,9 @@ class MemcacheLockBackend extends LockBackendAbstract {
    */
   public function releaseAll($lock_id = NULL) {
     foreach ($this->locks as $name => $id) {
-      $value = DrupalMemcache::get($name, $this->bin);
+      $value = $this->memcache->get($name);
       if ($value == $id) {
-        DrupalMemcache::delete($name, $this->bin);
+        $this->memcache->delete($name);
       }
     }
   }
