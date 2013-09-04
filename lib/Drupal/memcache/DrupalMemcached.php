@@ -57,7 +57,7 @@ class DrupalMemcached extends DrupalMemcacheBase {
    */
   public function set($key, $value, $exp = 0, $flag = FALSE) {
     $full_key = $this->key($key);
-    return $this->memcache->add($full_key, $value, $exp);
+    return $this->memcache->set($full_key, $value, $exp);
   }
 
   /**
