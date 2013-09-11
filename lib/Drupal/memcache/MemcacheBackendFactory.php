@@ -8,7 +8,6 @@
 namespace Drupal\memcache;
 
 use Drupal\Component\Utility\Settings;
-use Drupal\Core\KeyValueStore\KeyValueStoreInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 
 /**
@@ -31,13 +30,6 @@ class MemcacheBackendFactory {
   protected $settings;
 
   /**
-   * The state key value store.
-   *
-   * @var \Drupal\Core\KeyValueStore\KeyValueStoreInterface
-   */
-  protected $state;
-
-  /**
    * The memcache factory object.
    *
    * @var \Drupal\memcache\DrupalMemcacheFactory
@@ -52,10 +44,9 @@ class MemcacheBackendFactory {
    * @param \Drupal\Component\Utility\Settings $settings
    * @param \Drupal\memcache\DrupalMemcacheFactory $memcache_factory
    */
-  function __construct(LockBackendInterface $lock, Settings $settings, KeyValueStoreInterface $state, DrupalMemcacheFactory $memcache_factory) {
+  function __construct(LockBackendInterface $lock, Settings $settings, DrupalMemcacheFactory $memcache_factory) {
     $this->lock = $lock;
     $this->settings = $settings;
-    $this->state = $state;
     $this->memcacheFactory = $memcache_factory;
   }
 
@@ -69,7 +60,7 @@ class MemcacheBackendFactory {
    *   The cache backend object for the specified cache bin.
    */
   public function get($bin) {
-    return new MemcacheBackend($bin, $this->memcacheFactory->get($bin), $this->lock, $this->settings, $this->state);
+    return new MemcacheBackend($bin, $this->memcacheFactory->get($bin), $this->lock, $this->settings);
   }
 
 }

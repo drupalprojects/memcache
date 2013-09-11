@@ -9,7 +9,6 @@ namespace Drupal\memcache;
 
 use Drupal\Component\Utility\Settings;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\KeyValueStore\KeyValueStoreInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 
 /**
@@ -52,19 +51,11 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   protected $settings;
 
-  /**
-   * The state keyvalue store.
-   *
-   * @var \Drupal\Core\KeyValueStore\KeyValueStoreInterface
-   */
-  protected $state;
-
-  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, Settings $settings, KeyValueStoreInterface $state) {
+  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, Settings $settings) {
     $this->bin = $bin;
     $this->memcache = $memcache;
     $this->lock = $lock;
     $this->settings = $settings;
-    $this->state = $state;
   }
 
   /**
