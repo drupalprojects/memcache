@@ -16,6 +16,27 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $this->memcache = dmemcache_object($bin);
     $this->bin = $bin;
 
+    // If page_cache_without_database is enabled, we have to manually load the
+    // $conf array out of cache_bootstrap.
+    static $variables_loaded = FALSE;
+    if (!empty($GLOBALS['conf']['page_cache_without_database']) && !$variables_loaded) {
+      global $conf;
+      $variables_loaded = TRUE;
+      // Try loading variables from cache. If that fails, we have to bootstrap
+      // further in order to fetch them.
+      if ($cached = cache_get('variables', 'cache_bootstrap')) {
+        $variables = $cached->data;
+        // Make sure variable overrides are applied, see variable_initialize().
+        foreach ($conf as $name => $value) {
+          $variables[$name] = $value;
+        }
+        $conf = $variables;
+      }
+      else {
+        drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES, FALSE);
+      }
+    }
+
     $this->reloadVariables();
   }
 

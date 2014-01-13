@@ -39,7 +39,14 @@ is important.
  8. Make sure the following line also exists, to ensure that the special
     cache_form bin is assigned to non-volatile storage:
       $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
- 9. Bring your site back online.
+ 9. Optionally also add the following two lines to tell Drupal not to bootstrap
+    the database when serving cached pages to anonymous visitors:
+      $conf['page_cache_without_database'] = TRUE;
+      $conf['page_cache_invoke_hooks'] = FALSE;
+    If setting page_cache_without_database to TRUE, you also have to set
+    page_cache_invoke_hooks to FALSE or you'll see an error like "Fatal error:
+    Call to undefined function module_list()".
+10. Bring your site back online.
 
 For more detailed instructions on (1) and (2) above, please see the
 documentation online on drupal.org which includes links to external
@@ -141,14 +148,20 @@ Example 1:
 First, the most basic configuration which consists of one memcached instance
 running on localhost port 11211 and all caches except for cache_form being
 stored in memcache. We also enable stampede protection, and the memcache
-locking mechanism.
+locking mechanism. Finally, we tell Drupal to not bootstrap the database when
+serving cached pages to anonymous visitors.
 
   $conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
   $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
   $conf['memcache_stampede_protection'] = TRUE;
   $conf['cache_default_class'] = 'MemCacheDrupal';
+
   // The 'cache_form' bin must be assigned to non-volatile storage.
   $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
+
+  // Don't bootstrap the database when serving pages from the cache.
+  $conf['page_cache_without_database'] = TRUE;
+  $conf['page_cache_invoke_hooks'] = FALSE;
 
 Note that no servers or bins are defined.  The default server and bin
 configuration which is used in this case is equivalant to setting:
@@ -181,6 +194,10 @@ sockets do not have ports.
   // The 'cache_form' bin must be assigned no non-volatile storage.
   $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
 
+  // Don't bootstrap the database when serving pages from the cache.
+  $conf['page_cache_without_database'] = TRUE;
+  $conf['page_cache_invoke_hooks'] = FALSE;
+
   // Important to define a default cluster in both the servers
   // and in the bins. This links them together.
   $conf['memcache_servers'] = array('10.1.1.1:11211' => 'default',
@@ -202,8 +219,13 @@ go to 'cluster2'. All other bins go to 'default'.
   $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
   $conf['memcache_stampede_protection'] = TRUE;
   $conf['cache_default_class'] = 'MemCacheDrupal';
+
   // The 'cache_form' bin must be assigned no non-volatile storage.
   $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
+
+  // Don't bootstrap the database when serving pages from the cache.
+  $conf['page_cache_without_database'] = TRUE;
+  $conf['page_cache_invoke_hooks'] = FALSE;
 
   $conf['memcache_servers'] = array('10.1.1.6:11211' => 'default',
                                     '10.1.1.6:11212' => 'default',
