@@ -73,7 +73,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
         if (variable_get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if (lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
+          if ($this->lockInit && lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
             $cache = FALSE;
           }
         }
@@ -108,7 +108,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // On cache misses, attempt to avoid stampedes when the
     // memcache_stampede_protection variable is enabled.
     if (!$cache) {
-      if (variable_get('memcache_stampede_protection', FALSE) && !lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
+      if (variable_get('memcache_stampede_protection', FALSE) && $this->lockInit() && !lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
         // Prevent any single request from waiting more than three times due to
         // stampede protection. By default this is a maximum total wait of 15
         // seconds. This accounts for two possibilities - a cache and lock miss
@@ -395,6 +395,18 @@ class MemCacheDrupal implements DrupalCacheInterface {
   function isEmpty() {
     // We do not know so err on the safe side?
     return FALSE;
+  }
+
+  /**
+   * Helper function to load locking framework if not already loaded.
+   */
+  function lockInit() {
+    // On a cache miss when page_cache_without_database is enabled, we can end
+    // up here without the lock system being initialized. Bootstrap drupal far
+    // enough to load the lock system.
+    if (!function_exists('lock_acquire')) {
+      drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES, FALSE);
+    }
   }
 
   /**
