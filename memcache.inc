@@ -171,6 +171,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
       $memcache_expire = $cache->expire + (($cache->expire - REQUEST_TIME) * 2);
     }
     dmemcache_set($cid, $cache, $memcache_expire, $this->bin, $this->memcache);
+
+    // Release lock if acquired in $this->valid().
+    $lock = "memcache_$cid:$this->bin";
+    if (variable_get('memcache_stampede_protection', FALSE) && isset($GLOBALS['locks'][$lock])) {
+      lock_release("$lock");
+    }
   }
 
   function clear($cid = NULL, $wildcard = FALSE) {
