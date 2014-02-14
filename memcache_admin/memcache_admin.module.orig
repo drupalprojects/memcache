@@ -328,7 +328,7 @@ function memcache_admin_stats($bin = 'default') {
           $data['memory_available']),
         array_merge(
           array('header' => t('Evictions')),
-          array('total' => number_format($stats['total']['evictions'])),
+          array('total' => $stats['total']['evictions']),
           $data['memory_evictions']),
       ),
     );
