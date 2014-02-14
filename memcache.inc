@@ -97,6 +97,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // Cache item expired, return FALSE.
         $cache = FALSE;
       }
+      // Temporary items created before the cache was last flushed by
+      // cache_clear_all(NULL, $bin) are invalid.
+      elseif (!empty($cache->temporary) && $cache->created + $this->cache_lifetime <= $this->cache_temporary_flush) {
+        // CACHE_TEMPORARY item expired, return FALSE.
+        $cache = FALSE;
+      }
       // Finally, check for wildcard clears against this cid.
       else {
         if (!$this->wildcard_valid($cid, $cache)) {
@@ -147,15 +153,19 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // Convert CACHE_TEMPORARY (-1) into something that will live in memcache
       // until the next flush.
       $cache->expire = REQUEST_TIME + 2591999;
+      // This is a temporary cache item.
+      $cache->temporary = TRUE;
     }
     // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
     else if ($expire != CACHE_PERMANENT && $expire < 2592000) {
       // Expire is expressed in seconds, convert to the proper future timestamp
       // as expected in dmemcache_get().
       $cache->expire = REQUEST_TIME + $expire;
+      $cache->temporary = FALSE;
     }
     else {
       $cache->expire = $expire;
+      $cache->temporary = FALSE;
     }
 
     // Manually track the expire time in $cache->expire.  When the object
@@ -212,10 +222,16 @@ class MemCacheDrupal implements DrupalCacheInterface {
     }
     if (empty($cid) || $wildcard === TRUE) {
       // system_cron() flushes all cache bins returned by hook_flush_caches()
-      // with cache_clear_all(NULL, $bin); This is for garbage collection with
-      // the database cache, but serves no purpose with memcache. So return
-      // early here.
+      // with cache_clear_all(NULL, $bin); The expected behaviour in this case
+      // is to perform garbage collection on expired cache items (which is
+      // irrelevant to memcache) but also to remove all CACHE_TEMPORARY items.
+      // @see https://api.drupal.org/api/drupal/includes!cache.inc/function/cache_clear_all/7
       if (!isset($cid)) {
+        // Update the timestamp of the last CACHE_TEMPORARY clear. All
+        // temporary cache items created before this will be invalidated.
+        $this->cache_temporary_flush = time();
+        $this->variable_set("cache_temporary_flush_$this->bin", $this->cache_temporary_flush);
+        // Return early here as we do not want to register a wildcard flush.
         return;
       }
       elseif ($cid == '*') {
@@ -421,6 +437,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
     $this->cache_lifetime = variable_get('cache_lifetime', 0);
     $this->cache_flush = variable_get('cache_flush_' . $this->bin);
     $this->cache_content_flush = variable_get('cache_content_flush_' . $this->bin, 0);
+    $this->cache_temporary_flush = variable_get('cache_temporary_flush_' . $this->bin, 0);
     $this->flushed = min($this->cache_flush, REQUEST_TIME - $this->cache_lifetime);
   }
 

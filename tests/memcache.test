@@ -393,6 +393,30 @@ class MemCacheClearCase extends MemcacheTestCase {
     $this->assertCacheRemoved(t('Foofoo cache invalidated.'), 'foofoo');
   }
 
+  /**
+   * Test CACHE_TEMPORARY and CACHE_PERMANENT behaviour.
+   */
+  function testClearTemporaryPermanent() {
+    cache_set('test_cid_clear_temporary', $this->default_value, $this->default_bin, CACHE_TEMPORARY);
+    cache_set('test_cid_clear_permanent', $this->default_value, $this->default_bin, CACHE_PERMANENT);
+    cache_set('test_cid_clear_future', $this->default_value, $this->default_bin, time() + 3600);
+
+    $this->assertTrue($this->checkCacheExists('test_cid_clear_temporary', $this->default_value)
+                      && $this->checkCacheExists('test_cid_clear_permanent', $this->default_value)
+                      && $this->checkCacheExists('test_cid_clear_future', $this->default_value),
+                      t('Three cache items were created for checking cache expiry.'));
+
+    // This should clear only expirable items (CACHE_TEMPORARY).
+    cache_clear_all(NULL, $this->default_bin, TRUE);
+
+    $this->assertFalse($this->checkCacheExists('test_cid_clear_temporary', $this->default_value),
+                      t('Temporary cache item was removed after clearing cid NULL.'));
+    $this->assertTrue($this->checkCacheExists('test_cid_clear_permanent', $this->default_value),
+                      t('Permanent cache item was not removed after clearing cid NULL.'));
+    $this->assertTrue($this->checkCacheExists('test_cid_clear_future', $this->default_value),
+                      t('Future cache item was not removed after clearing cid NULL.'));
+  }
+
 
   /**
    * Test clearing using a cid.
