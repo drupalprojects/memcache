@@ -403,12 +403,6 @@ function theme_memcache_admin_stats_table($variables) {
   foreach ($stats as $table => $data) {
     $rows = array();
     foreach ($data as $row) {
-      if (isset($row[2]) && is_array($row[2])) {
-        $row[2] = implode(', ', $row[2]);
-      }
-      else {
-        $row[2] = '';
-      }
       $rows[] = $row;
     }
     $output .= theme('table', array('header' => $headers, 'rows' => $rows));
