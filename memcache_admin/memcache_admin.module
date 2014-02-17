@@ -166,6 +166,9 @@ function _memcache_admin_stats_gets($stats) {
  * Statistics report: calculate # of increments and decrements.
  */
 function _memcache_admin_stats_counters($stats) {
+  if (!is_array($stats)) {
+    $stats = array();
+  }
   $stats += array('incr_hits' => 0, 'incr_misses' => 0, 'decr_hits' => 0, 'decr_misses' => 0);
   return t('!incr increments, !decr decrements', array('!incr' => number_format($stats['incr_hits'] + $stats['incr_misses']), '!decr' => number_format($stats['decr_hits'] + $stats['decr_misses'])));
 }
@@ -260,6 +263,15 @@ function memcache_admin_stats($bin = 'default') {
     foreach ($memcache_servers as $server => $b) {
       $b = memcache_admin_bin_mapping($b);
       if ($b == $bin) {
+        if (strncmp($server, 'unix://', 7) == 0) {
+          if ($mc instanceof Memcached) {
+            // Memcached expects path to the socket without the protocol.
+            $server = substr($server, 7) . ':11211';
+          }
+          else {
+            $server .= ':0';
+          }
+        }
         $servers[] = $server;
 
         if (empty($stats[$server]['uptime'])) {
