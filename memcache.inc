@@ -73,7 +73,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
         if (variable_get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if ($this->lockInit && lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
+          if ($this->lockInit() && lock_acquire("memcache_$cid:$this->bin", variable_get('memcache_stampede_semaphore', 15))) {
             $cache = FALSE;
           }
         }
