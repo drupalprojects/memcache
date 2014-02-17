@@ -9,39 +9,88 @@ function memcache_requirements($phase) {
   $memcache = extension_loaded('memcache');
   $memcached = extension_loaded('memcached');
   if ($phase == 'install' || $phase == 'runtime') {
+    $requirements['memcache_extension']['title'] = $t('Memcache');
     if (!$memcache && !$memcached) {
       $requirements['memcache_extension']['severity'] = REQUIREMENT_ERROR;
-      $requirements['memcache_extension']['title'] = $t('Extensions not available');
-      $requirements['memcache_extension']['value'] = $t('Either the <a href="http://php.net/manual/en/book.memcache.php">memcache</a> or <a href="http://php.net/manual/en/book.memcached.php">memcached</a> extensions must be installed in order to use memcache integration.');
+      $requirements['memcache_extension']['value'] = $t('Required PHP extension not found. Install the <a href="http://php.net/manual/en/book.memcache.php">memcache</a> (recommended) or <a href="http://php.net/manual/en/book.memcached.php">memcached</a> extension.');
     }
   }
   if ($phase == 'runtime') {
-    if ($memcache) {
-      // @todo: consider adding minimum version requirement for extensions.
-      $requirements['memcache_extension_version']['severity'] = REQUIREMENT_OK;
-      $requirements['memcache_extension_version']['title'] = $t('Memcache version');
-      $requirements['memcache_extension_version']['value'] = phpversion('memcache');
+    $errors = array();
+    if (!$memcache && !$memcached) {
+      $errors[] = $t('Required PHP extension not found. Install the <a href="http://php.net/manual/en/book.memcache.php">memcache</a> (recommended) or <a href="http://php.net/manual/en/book.memcached.php">memcached</a> extension.');
     }
-    if ($memcached) {
-      $requirements['memcached_extension_version']['severity'] = REQUIREMENT_OK;
-      $requirements['memcached_extension_version']['title'] = $t('Memcached version');
-      $requirements['memcached_extension_version']['value'] = phpversion('memcached');
-    }
-    // Confirm that dmemcache.inc has been included.
-    $requirements['memcache_inc']['title'] = $t('Memcache integration');
-    if (function_exists('dmemcache_set')) {
-      $requirements['memcache_inc']['severity'] = REQUIREMENT_OK;
-      $requirements['memcache_inc']['title'] = $t('Memcache integration');
-      $requirements['memcache_inc']['value'] = $t('Memcache integration functions are loaded');
+
+    if (!function_exists('dmemcache_set')) {
+      // dmemcache.inc isn't loaded.
+      $errors[] = $t('Failed to load required file %dmemcache.', array('%dmemcache' => drupal_get_path('module', 'memcache') . '/' . 'dmemcache.inc'));
     }
     else {
-      $requirements['memcache_inc']['severity'] = REQUIREMENT_WARNING;
-      $requirements['memcache_inc']['title'] = $t('Memcache integration');
-      $requirements['memcache_inc']['value'] = $t('Memcache integration is not currently loaded.');
-      $requirements['memcache_inc']['description'] = $t('Check README.txt and ensure that memcache.inc is configured correctly in settings.php');
+      $extension = dmemcache_extension();
+      if ($extension == 'Memcache') {
+        $requirements['memcache_extension']['value'] = phpversion('memcache') . _memcache_statistics_link();
+      }
+      else if ($extension == 'Memcached') {
+        $requirements['memcache_extension']['value'] = phpversion('memcached') . _memcache_statistics_link();
+      }
+
+      // Make a test connection to all configured memcache servers.
+      $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
+      $memcache = dmemcache_instance();
+      foreach ($memcache_servers as $server => $bin) {
+        if (dmemcache_connect($memcache, $server, FALSE) === FALSE) {
+          $errors[] = $t('Failed to connect to memcached server instance at %server.', array('%server' => $server));
+        }
+        else {
+          dmemcache_close($memcache);
+        }
+      }
+
+      // Set up a temporary bin to see if we can store a value and then
+      // successfully retreive it.
+      try {
+        $bin = 'memcache_requirements';
+        $cid = 'memcache_requirements_check';
+        $value = 'OK';
+        // Create a temporary memcache cache bin.
+        $GLOBALS['conf']["cache_class_cache_{$bin}"] = 'MemCacheDrupal';
+        // Store a test value in memcache.
+        cache_set($cid, $value, $bin, 60);
+        // Retreive the test value from memcache.
+        $data = cache_get($cid, $bin);
+        if (!isset($data->data) || $data->data !== $value) {
+          $errors[] = $t('Failed to store and retreive data with memcache.');
+        }
+      }
+      catch (Exception $e) {
+        // An unexpected exception occurred.
+        $errors[] = $t('Unexpected failure when connecting to memcache.');
+      }
+    }
+
+    if (empty($errors)) {
+      $requirements['memcache_extension']['severity'] = REQUIREMENT_OK;
+    }
+    else {
+      $requirements['memcache_extension']['severity'] = REQUIREMENT_ERROR;
+      $requirements['memcache_extension']['description'] = $t('There is a problem with your memcache configuration, check the Drupal logs for additional errors. Please review %readme for help resolving the following !issue: !errors', array('%readme' => 'README.txt', '!issue' => format_plural(count($errors), 'issue', 'issues'), '!errors' => '<ul><li>' . implode('<li>', $errors)));
     }
   }
   return $requirements;
+}
+
+/**
+ * Add "(more information)" link after memcache version if memcache_admin
+ * module is enabled and user has access to memcache statistics.
+ */
+function _memcache_statistics_link() {
+  $t = get_t();
+  if (module_exists('memcache_admin') && user_access('access memcache statistics')) {
+    return ' (' . l($t('more information'), 'admin/reports/memcache') . ')';
+  }
+  else {
+    return '';
+  }
 }
 
 /**

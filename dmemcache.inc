@@ -278,46 +278,179 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
 }
 
 /**
- * Returns an Memcache object based on the bin requested. Note that there is
- * nothing preventing developers from calling this function directly to get the
- * Memcache object. Do this if you need functionality not provided by this API
- * or if you need to use legacy code. Otherwise, use the dmemcache (get, set,
- * delete, flush) API functions provided here.
+ * Determine which memcache extension to use: memcache or memcached.
  *
- * @param $bin The bin which is to be used.
- *
- * @param $flush Rebuild the bin/server/cache mapping.
- *
- * @return an Memcache object or FALSE.
+ * By default prefer the 'Memcache' PHP extension, though the default can be
+ * overridden by setting memcache_extension in settings.php.
  */
-function dmemcache_object($bin = NULL, $flush = FALSE) {
-  static $extension, $memcacheCache = array(), $memcache_servers, $memcache_bins, $memcache_persistent, $failed_connection_cache;
-
-  if (!isset($extension)) {
+function dmemcache_extension() {
+  static $extension = NULL;
+  if ($extension === NULL) {
     // If an extension is specified in settings.php, use that when available.
     $preferred = variable_get('memcache_extension', NULL);
     if (isset($preferred) && class_exists($preferred)) {
-      $extension = $preferred;
+      $extension = ucfirst(strtolower($preferred));
     }
     // If no extension is set, default to Memcache.
-    // The Memcached extension has some features that the older extension lacks
-    // but also an unfixed bug that affects cache clears.
-    // @see http://pecl.php.net/bugs/bug.php?id=16829
     elseif (class_exists('Memcache')) {
       $extension = 'Memcache';
     }
     elseif (class_exists('Memcached')) {
       $extension = 'Memcached';
     }
+    else {
+      $extension = FALSE;
+    }
+  }
+  return $extension;
+}
 
-    // Indicate whether to connect to memcache using a persistent connection.
-    // Note: this only affects the Memcache PECL extension, and does not
-    // affect the Memcached PECL extension.  For a detailed explanation see:
-    //  http://drupal.org/node/822316#comment-4427676
+/**
+ * Return a new memcache instance.
+ */
+function dmemcache_instance() {
+  static $error = FALSE;
+  $extension = dmemcache_extension();
+  if ($extension == 'Memcache') {
+    return new Memcache;
+  }
+  elseif ($extension == 'Memcached') {
+    $memcache = new Memcached;
+    $default_opts = array(
+      Memcached::OPT_COMPRESSION => FALSE,
+      Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
+    );
+    foreach ($default_opts as $key => $value) {
+      $memcache->setOption($key, $value);
+    }
+    // See README.txt for setting custom Memcache options when using the
+    // memcached PECL extension.
+    $memconf = variable_get('memcache_options', array());
+    foreach ($memconf as $key => $value) {
+      $memcache->setOption($key, $value);
+    }
+    return $memcache;
+  }
+  else {
+    if (!$error) {
+      register_shutdown_function('watchdog', 'memcache', 'You must enable the PHP <a href="http://php.net/manual/en/book.memcache.php">memcache</a> (recommended) or <a href="http://php.net/manual/en/book.memcached.php">memcached</a> extension to use memcache.inc.', array(), WATCHDOG_ERROR);
+      $error = TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Initiate a connection to memcache.
+ *
+ * @param $memcache A memcache instance obtained through dmemcache_instance.
+ *
+ * @param $server A server string of the format "localhost:11211" or
+ *   "unix:///path/to/socket".
+ *
+ * @connection TRUE or FALSE, whether the $memcache instance already has at
+ *   least one open connection.
+ *
+ * @return TRUE or FALSE if connection was successful.
+ */
+function dmemcache_connect($memcache, $server, $connection) {
+  static $memcache_persistent = NULL;
+
+  $extension = dmemcache_extension();
+
+  list($host, $port) = explode(':', $server);
+
+  if ($extension == 'Memcache') {
+    // Allow persistent connection via Memcache extension -- note that this
+    // module currently doesn't support persistent connections with the
+    // Memcached extension. See http://drupal.org/node/822316#comment-4427676
+    // for details.
     if (!isset($memcache_persistent)) {
       $memcache_persistent = variable_get('memcache_persistent', FALSE);
     }
+
+    // Support unix sockets of the format 'unix:///path/to/socket'.
+    if ($host == 'unix') {
+      // Use full protocol and path as expected by Memcache extension.
+      $host = $server;
+      $port = 0;
+    }
+
+    // When using the PECL memcache extension, we must use ->(p)connect
+    // for the first connection.
+    if (!$connection) {
+      $track_errors = ini_set('track_errors', '1');
+      $php_errormsg = '';
+
+      // The Memcache extension requires us to use (p)connect for the first
+      // server we connect to.
+      if ($memcache_persistent) {
+        $rc = @$memcache->pconnect($host, $port);
+      }
+      else {
+        $rc = @$memcache->connect($host, $port);
+      }
+      if (!empty($php_errormsg)) {
+        register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+        $php_errormsg = '';
+      }
+      ini_set('track_errors', $track_errors);
+    }
+    else {
+      $rc = $memcache->addServer($host, $port, $memcache_persistent);
+    }
   }
+  else if ($extension == 'Memcached') {
+    // Support unix sockets of the format 'unix:///path/to/socket'.
+    if ($host == 'unix') {
+      // Strip 'unix://' as expected by Memcached extension.
+      $host = substr($server, 7);
+      $port = 0;
+    }
+    $rc = $memcache->addServer($host, $port);
+  }
+  else {
+    $rc = FALSE;
+  }
+  return $rc;
+}
+
+/**
+ * Close the connection to the memcache instance.
+ */
+function dmemcache_close($memcache) {
+  $extension = dmemcache_extension();
+  if ($extension == 'Memcache' && $memcache instanceof Memcache) {
+    $rc = @$memcache->close;
+  }
+  else if ($extension == 'Memcached' && $memcache instanceof Memcached) {
+    $rc = @$memcache->quit;
+  }
+  else {
+    $rc = FALSE;
+  }
+  return $rc;
+}
+
+/**
+ * Return a Memcache object for the specified bin.
+ *
+ * Note that there is nothing preventing developers from calling this function
+ * directly to get the Memcache object. Do this if you need functionality not
+ * provided by this API or if you need to use legacy code. Otherwise, use the
+ * dmemcache (get, set, delete, flush) API functions provided here.
+ *
+ * @param $bin The bin which is to be used.
+ *
+ * @param $flush Rebuild the bin/server/cache mapping.
+ *
+ * @return a Memcache object or FALSE.
+ */
+function dmemcache_object($bin = NULL, $flush = FALSE) {
+  static $memcacheCache = array();
+  static $memcache_servers = array();
+  static $memcache_bins = array();
+  static $failed_connections = array();
 
   if ($flush) {
     foreach ($memcacheCache as $cluster) {
@@ -326,115 +459,49 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
     $memcacheCache = array();
   }
 
+  $extension = dmemcache_extension();
+
   if (empty($memcacheCache) || empty($memcacheCache[$bin])) {
-    // $memcache_servers and $memcache_bins originate from settings.php.
-    // $memcache_servers_custom and $memcache_bins_custom get set by
-    // memcache.module. They are then merged into $memcache_servers and
-    // $memcache_bins, which are statically cached for performance.
     if (empty($memcache_servers)) {
-      // Values from settings.php
+      // Load the variables from settings.php if set.
       $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
-      $memcache_bins    = variable_get('memcache_bins', array('cache' => 'default'));
+      $memcache_bins = variable_get('memcache_bins', array('cache' => 'default'));
     }
 
-    // If there is no cluster for this bin in $memcache_bins, cluster is 'default'.
+    // If not manually set, default this cluster to 'default'.
     $cluster = empty($memcache_bins[$bin]) ? 'default' : $memcache_bins[$bin];
 
-    // If this bin isn't in our $memcache_bins configuration array, and the
-    // 'default' cluster is already initialized, map the bin to 'cache' because
-    // we always map the 'cache' bin to the 'default' cluster.
+    // If not manually set, map this bin to 'cache' which maps to the 'default'
+    // cluster.
     if (empty($memcache_bins[$bin]) && !empty($memcacheCache['cache'])) {
       $memcacheCache[$bin] = &$memcacheCache['cache'];
     }
     else {
-      // Create a new Memcache object. Each cluster gets its own Memcache object.
-      if ($extension == 'Memcached') {
-        $memcache = new Memcached;
-        $default_opts = array(
-          Memcached::OPT_COMPRESSION => FALSE,
-          Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
-        );
-        foreach ($default_opts as $key => $value) {
-          $memcache->setOption($key, $value);
-        }
-        // See README.txt for setting custom Memcache options when using the
-        // memcached PECL extension.
-        $memconf = variable_get('memcache_options', array());
-        foreach ($memconf as $key => $value) {
-          $memcache->setOption($key, $value);
-        }
-      }
-      elseif ($extension == 'Memcache') {
-        $memcache = new Memcache;
-      }
-      else {
-        drupal_set_message(t('You must enable the PECL memcached or memcache extension to use memcache.inc.'), 'error');
-        return;
-      }
-      // A variable to track whether we've connected to the first server.
-      $init = FALSE;
+      // Create a new memcache object for each cluster.
+      $memcache = dmemcache_instance();
+
+      // Track whether or not we've opened any memcache connections.
+      $connection = FALSE;
 
       // Link all the servers to this cluster.
-      foreach ($memcache_servers as $s => $c) {
-        if ($c == $cluster && !isset($failed_connection_cache[$s])) {
-          list($host, $port) = explode(':', $s);
-
-          // Using the Memcache PECL extension.
-          if ($memcache instanceof Memcache) {
-            // Support unix sockets in the format 'unix:///path/to/socket'.
-            if ($host == 'unix') {
-              // When using unix sockets with Memcache use the full path for $host.
-              $host = $s;
-              // Port is always 0 for unix sockets.
-              $port = 0;
-            }
-            // When using the PECL memcache extension, we must use ->(p)connect
-            // for the first connection.
-            if (!$init) {
-              $track_errors = ini_set('track_errors', '1');
-              $php_errormsg = '';
-
-              if ($memcache_persistent && @$memcache->pconnect($host, $port)) {
-                $init = TRUE;
-              }
-              elseif (!$memcache_persistent && @$memcache->connect($host, $port)) {
-                $init = TRUE;
-              }
-
-              if (!empty($php_errormsg)) {
-                register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
-                $php_errormsg = '';
-              }
-              ini_set('track_errors', $track_errors);
-            }
-            else {
-              $memcache->addServer($host, $port, $memcache_persistent);
-            }
+      foreach ($memcache_servers as $server => $c) {
+        if ($c == $cluster && !isset($failed_connections[$server])) {
+          $rc = dmemcache_connect($memcache, $server, $connection);
+          if ($rc !== FALSE) {
+            // We've made at least one successful connection.
+            $connection = TRUE;
           }
           else {
-            // Support unix sockets in the format 'unix:///path/to/socket'.
-            if ($host == 'unix') {
-              // Memcached expects just the path to the socket without the protocol
-              $host = substr($s, 7);
-              // Port is always 0 for unix sockets.
-              $port = 0;
-            }
-            if ($memcache->addServer($host, $port) && !$init) {
-              $init = TRUE;
-            }
-          }
-
-          if (!$init) {
-            // We can't use watchdog because this happens in a bootstrap phase
-            // where watchdog is non-functional. Register a shutdown handler
-            // instead so it gets recorded at the end of page load.
-            register_shutdown_function('watchdog', 'memcache', 'Failed to connect to memcache server: !server', array('!server' => $s), WATCHDOG_ERROR);
-            $failed_connection_cache[$s] = FALSE;
+            // Memcache connection failure. We can't log to watchdog directly
+            // because we're in an early Drupal bootstrap phase where watchdog
+            // is non-functional. Instead, register a shutdown handler so it
+            // gets recorded at the end of the page load.
+            register_shutdown_function('watchdog', 'memcache', 'Failed to connect to memcache server: !server', array('!server' => $server), WATCHDOG_ERROR);
+            $failed_connections[$server] = FALSE;
           }
         }
       }
-
-      if ($init) {
+      if ($connection) {
         // Map the current bin with the new Memcache object.
         $memcacheCache[$bin] = $memcache;
 
