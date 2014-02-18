@@ -10,7 +10,7 @@
  * An alternative to includes/session.inc.
  */
 
-require_once dirname(__FILE__) . '/dmemcache.inc';
+require_once dirname(__FILE__) . '/../dmemcache.inc';
 
 /**
  * Implement hook_user() using a required module's namespace since memcache is 

@@ -291,7 +291,7 @@ $conf['cache_default_class'] = 'MemCacheDrupal';
 
 // The 'cache_form' bin must be assigned no non-volatile storage.
 $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
-$conf['session_inc'] = './sites/all/modules/memcache/memcache-session.inc';
+$conf['session_inc'] = 'sites/all/modules/memcache/unstable/memcache-session.inc';
 
 $conf['memcache_servers'] = array(
     '10.1.1.1:11211' => 'default',
