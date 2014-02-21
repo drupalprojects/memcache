@@ -6,13 +6,140 @@ class MemcacheTestCase extends DrupalWebTestCase {
   protected $default_cid = 'test_temporary';
   protected $default_value = 'MemcacheTest';
 
+  /**
+   * Re-implements DrupalWebTestCase::setUp() so that we can override $conf.
+   *
+   * @see DrupalWebTestCase::setUp()
+   */
   function setUp() {
-    parent::setUp(func_get_args());
+    global $user, $language, $conf;
 
-    variable_set("cache_flush_$this->default_bin", 0);
-    variable_set('cache_class_cache_memcache', 'MemcacheDrupal');
+    // Create the database prefix for this test.
+    $this->prepareDatabasePrefix();
+
+    // Prepare the environment for running tests.
+    $this->prepareEnvironment();
+    if (!$this->setupEnvironment) {
+      return FALSE;
+    }
+
+    // Reset all statics and variables to perform tests in a clean environment.
+    $conf = array();
+    drupal_static_reset();
+
+    // Setup our own memcache variables here. We can't use variable_set() yet.
+    if ($this->default_bin) {
+      $conf["cache_flush_$this->default_bin"] = 0;
+      $conf["cache_class_$this->default_bin"] = 'MemcacheDrupal';
+    }
+
+    // Change the database prefix.
+    // All static variables need to be reset before the database prefix is
+    // changed, since DrupalCacheArray implementations attempt to
+    // write back to persistent caches when they are destructed.
+    $this->changeDatabasePrefix();
+    if (!$this->setupDatabasePrefix) {
+      return FALSE;
+    }
+
+    // Preset the 'install_profile' system variable, so the first call into
+    // system_rebuild_module_data() (in drupal_install_system()) will register
+    // the test's profile as a module. Without this, the installation profile of
+    // the parent site (executing the test) is registered, and the test
+    // profile's hook_install() and other hook implementations are never invoked.
+    $conf['install_profile'] = $this->profile;
+
+    // Perform the actual Drupal installation.
+    include_once DRUPAL_ROOT . '/includes/install.inc';
+    drupal_install_system();
+
+    $this->preloadRegistry();
+
+    // Set path variables.
+    variable_set('file_public_path', $this->public_files_directory);
+    variable_set('file_private_path', $this->private_files_directory);
+    variable_set('file_temporary_path', $this->temp_files_directory);
+
+    // Set the 'simpletest_parent_profile' variable to add the parent profile's
+    // search path to the child site's search paths.
+    // @see drupal_system_listing()
+    // @todo This may need to be primed like 'install_profile' above.
+    variable_set('simpletest_parent_profile', $this->originalProfile);
+
+    // Include the testing profile.
+    variable_set('install_profile', $this->profile);
+    $profile_details = install_profile_info($this->profile, 'en');
+
+    // Install the modules specified by the testing profile.
+    module_enable($profile_details['dependencies'], FALSE);
+
+    // Install modules needed for this test. This could have been passed in as
+    // either a single array argument or a variable number of string arguments.
+    // @todo Remove this compatibility layer in Drupal 8, and only accept
+    // $modules as a single array argument.
+    $modules = func_get_args();
+    if (isset($modules[0]) && is_array($modules[0])) {
+      $modules = $modules[0];
+    }
+    if ($modules) {
+      $success = module_enable($modules, TRUE);
+      $this->assertTrue($success, t('Enabled modules: %modules', array('%modules' => implode(', ', $modules))));
+    }
+
+    // Run the profile tasks.
+    $install_profile_module_exists = db_query("SELECT 1 FROM {system} WHERE type = 'module' AND name = :name", array(
+      ':name' => $this->profile,
+    ))->fetchField();
+    if ($install_profile_module_exists) {
+      module_enable(array($this->profile), FALSE);
+    }
+
+    // Reset/rebuild all data structures after enabling the modules.
+    $this->resetAll();
+
+    // Run cron once in that environment, as install.php does at the end of
+    // the installation process.
+    drupal_cron_run();
+
+    // Ensure that the session is not written to the new environment and replace
+    // the global $user session with uid 1 from the new test site.
+    drupal_save_session(FALSE);
+    // Login as uid 1.
+    $user = user_load(1);
+
+    // Restore necessary variables.
+    variable_set('install_task', 'done');
+    variable_set('clean_url', $this->originalCleanUrl);
+    variable_set('site_mail', 'simpletest@example.com');
+    variable_set('date_default_timezone', date_default_timezone_get());
+
+    // Set up English language.
+    unset($conf['language_default']);
+    $language = language_default();
+
+    // Use the test mail class instead of the default mail handler class.
+    variable_set('mail_system', array('default-system' => 'TestingMailSystem'));
+
+    drupal_set_time_limit($this->timeLimit);
+    $this->setup = TRUE;
+
+    if ($this->default_bin) {
+      // Save our memcache variables.
+      variable_set("cache_flush_$this->default_bin", 0);
+      variable_set("cache_class_$this->default_bin", 'MemcacheDrupal');
+    }
 
     $this->resetVariables();
+  }
+
+  /**
+   * Test that memcache is configured correctly.
+   */
+  function testCacheBin() {
+    if ($this->default_bin) {
+      // Confirm that the default cache bin is handled by memcache.
+      $this->assertEqual(get_class(_cache_get_object($this->default_bin)), 'MemCacheDrupal', t('Memcache caching is configured correctly.'));
+    }
   }
 
   /**
@@ -99,7 +226,12 @@ class MemcacheTestCase extends DrupalWebTestCase {
   }
 
   function resetVariables() {
-    _cache_get_object($this->default_bin)->reloadVariables();
+    if ($this->default_bin) {
+      $cache = _cache_get_object($this->default_bin);
+      if ($cache instanceof MemCacheDrupal) {
+        $cache->reloadVariables();
+      }
+    }
   }
 }
 
@@ -153,8 +285,8 @@ class MemCacheSavingCase extends MemcacheTestCase {
     $test_object->test2 = 100;
     $test_object->test3 = array('drupal1', 'drupal2' => 'drupal3', 'drupal4' => array('drupal5', 'drupal6'));
 
-    cache_set('test_object', $test_object, 'cache');
-    $cache = cache_get('test_object', 'cache');
+    cache_set('test_object', $test_object, $this->default_bin);
+    $cache = cache_get('test_object', $this->default_bin);
     $this->assertTrue(isset($cache->data) && $cache->data == $test_object, t('Object is saved and restored properly.'));
   }
 
@@ -176,8 +308,8 @@ class MemCacheSavingCase extends MemcacheTestCase {
    * Check or a variable is stored and restored properly.
    **/
   function checkVariable($var, $key = 'test_var') {
-    cache_set($key, $var, 'cache');
-    $cache = cache_get($key, 'cache');
+    cache_set($key, $var, $this->default_bin);
+    $cache = cache_get($key, $this->default_bin);
     $this->assertTrue(isset($cache->data) && $cache->data === $var, t('@type is saved and restored properly!key.', array('@type' => ucfirst(gettype($var)), '!key' => ($key != 'test_var') ? t(' with key @key', array('@key' => $key)) : '')));
   }
 }
@@ -520,7 +652,9 @@ class MemCacheClearCase extends MemcacheTestCase {
  * Looks like I've not chance to change the cache settings to what's needed by
  * this test.
  */
-class MemCacheRealWorldCase extends DrupalWebTestCase {
+class MemCacheRealWorldCase extends MemcacheTestCase {
+  protected $profile = 'standard';
+  protected $default_bin = 'cache_menu';
 
   public static function getInfo() {
     return array(

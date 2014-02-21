@@ -5,8 +5,8 @@
  * Provides SimpleTests for core session handling functionality.
  */
 
-class MemcacheSessionTestCase extends DrupalWebTestCase {
-  protected $profile = 'testing';
+class MemcacheSessionTestCase extends MemcacheTestCase {
+  protected $default_bin = '';
 
   public static function getInfo() {
     return array(
@@ -79,6 +79,9 @@ class MemcacheSessionTestCase extends DrupalWebTestCase {
     $this->sessionReset($user->uid);
 
     $this->drupalLogin($user);
+
+    // Confirm that the session value really exists in memcache.
+    $this->assertTrue(dmemcache_get($user->uid, 'users'), t('Memcache sessions are configured correctly.'));
 
     $value_1 = $this->randomName();
     $this->drupalGet('session-test/set/' . $value_1);
