@@ -13,14 +13,12 @@
 require_once dirname(__FILE__) . '/../dmemcache.inc';
 
 /**
- * Implement hook_user() using a required module's namespace since memcache is 
- * not a module and thus can't implement hooks directly.
+ * Implement hook_user_update() using a required module's namespace since
+ * memcache is not a module and thus can't implement hooks directly.
  */
-function filter_user($op, &$edit, &$account, $category = NULL) {
-  if ($op == 'update') {
-    // Invalidate cached user object.
-    cache_clear_all($account->uid, 'users');
-  }
+function filter_user_update(&$edit, &$account, $category = NULL) {
+  // Invalidate cached user object.
+  cache_clear_all($account->uid, 'users');
 }
 
 function _drupal_session_open() {
