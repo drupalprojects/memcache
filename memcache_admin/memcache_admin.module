@@ -528,12 +528,24 @@ function _memcache_admin_get_bin_for_cluster($cluster) {
   return $cluster_map[$cluster];
 }
 
+function _memcache_admin_stats_percent($a, $b) {
+  if ($a == 0) {
+    return 0;
+  }
+  else if ($b == 0) {
+    return 100;
+  }
+  else {
+    return $a / ($a + $b) * 100;
+  }
+}
+
 /**
  * See memcache_admin_init() which registers this function as a shutdown function.
  * Displays memcache stats in the footer.
  */
 function memcache_admin_shutdown() {
-  global $_memcache_statistics;
+  global $_dmemcache_stats;
 
   // Don't call theme() during shutdown if the registry has been rebuilt (such
   // as when enabling/disabling modules on admin/build/modules) as things break.
@@ -557,16 +569,33 @@ function memcache_admin_shutdown() {
   }
 
   if (variable_get('show_memcache_statistics', FALSE) && function_exists('user_access') && user_access('access memcache statistics')) {
-    if (!empty($_memcache_statistics)) {
-      foreach ($_memcache_statistics as $row => $stats) {
-        $_memcache_statistics[$row][1] = check_plain($stats[1]);
-        $_memcache_statistics[$row][2] = check_plain($stats[2]);
+    $output = '';
+    if (!empty($_dmemcache_stats['ops'])) {
+      foreach ($_dmemcache_stats['ops'] as $row => $stats) {
+        $_dmemcache_stats['ops'][$row][0] = check_plain($stats[0]);
+        $_dmemcache_stats['ops'][$row][1] = number_format($stats[1], 2);
+        $hits = number_format(_memcache_admin_stats_percent($stats[2], $stats[3]), 1);
+        $misses = number_format(_memcache_admin_stats_percent($stats[3], $stats[2]), 1);
+        $_dmemcache_stats['ops'][$row][2] = number_format($stats[2]) . " ($hits%)";
+        $_dmemcache_stats['ops'][$row][3] = number_format($stats[3]) . " ($misses%)";
+      }
+      $variables = array('header' => array(t('operation'), t('total ms'), t('total hits'), t('total misses')),
+                         'rows' => $_dmemcache_stats['ops']);
+      $output .= theme('table', $variables);
+    }
+    if (!empty($_dmemcache_stats['all'])) {
+      foreach ($_dmemcache_stats['all'] as $row => $stats) {
+        $_dmemcache_stats['all'][$row][1] = check_plain($stats[1]);
+        $_dmemcache_stats['all'][$row][2] = check_plain($stats[2]);
+        $_dmemcache_stats['all'][$row][3] = check_plain($stats[3]);
       }
 
-      $variables = array('header' => array(t('Operation'), t('Bin'), t('Key'), t('Hit')),
-                         'rows' => $_memcache_statistics);
-      $output = theme('table', $variables);
+      $variables = array('header' => array(t('ms'), t('operation'), t('bin'), t('key'), t('status')),
+                         'rows' => $_dmemcache_stats['all']);
+      $output .= theme('table', $variables);
 
+    }
+    if (!empty($output)) {
       // this makes sure all of the HTML is within the <body> even though this <script> is outside it
       print '<div id="memcache-devel"><h2>'. t('Memcache statistics'). '</h2>'. $output. '</div>';
     }
