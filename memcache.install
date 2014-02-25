@@ -49,22 +49,23 @@ function memcache_requirements($phase) {
       // Set up a temporary bin to see if we can store a value and then
       // successfully retreive it.
       try {
-        $bin = 'memcache_requirements';
-        $cid = 'memcache_requirements_check';
+        $cid = 'memcache_requirements_test';
         $value = 'OK';
-        // Create a temporary memcache cache bin.
-        $GLOBALS['conf']["cache_class_cache_{$bin}"] = 'MemCacheDrupal';
-        // Store a test value in memcache.
-        cache_set($cid, $value, $bin, 60);
+        // Temporarily store a test value in memcache.
+        cache_set($cid, $value, 'cache', 60);
         // Retreive the test value from memcache.
-        $data = cache_get($cid, $bin);
+        $data = cache_get($cid);
         if (!isset($data->data) || $data->data !== $value) {
-          $errors[] = $t('Failed to store and retreive data with memcache.');
+          $errors[] = $t('Failed to store to then retrieve data from memcache.');
+        }
+        else {
+          // Test a delete as well.
+          cache_clear_all($cid, 'cache');
         }
       }
       catch (Exception $e) {
         // An unexpected exception occurred.
-        $errors[] = $t('Unexpected failure when connecting to memcache.');
+        $errors[] = $t('Unexpected failure when testing memcache configuration.');
       }
     }
 
