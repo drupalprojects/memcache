@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Test cases for the memcache cache backend.
+ */
+
 class MemcacheTestCase extends DrupalWebTestCase {
   protected $profile = 'testing';
   protected $default_bin = 'cache_memcache';
@@ -11,7 +16,7 @@ class MemcacheTestCase extends DrupalWebTestCase {
    *
    * @see DrupalWebTestCase::setUp()
    */
-  function setUp() {
+  public function setUp() {
     global $user, $language, $conf;
 
     // Create the database prefix for this test.
@@ -46,7 +51,8 @@ class MemcacheTestCase extends DrupalWebTestCase {
     // system_rebuild_module_data() (in drupal_install_system()) will register
     // the test's profile as a module. Without this, the installation profile of
     // the parent site (executing the test) is registered, and the test
-    // profile's hook_install() and other hook implementations are never invoked.
+    // profile's hook_install() and other hook implementations are never
+    // invoked.
     $conf['install_profile'] = $this->profile;
 
     // Perform the actual Drupal installation.
@@ -135,7 +141,7 @@ class MemcacheTestCase extends DrupalWebTestCase {
   /**
    * Test that memcache is configured correctly.
    */
-  function testCacheBin() {
+  public function testCacheBin() {
     if ($this->default_bin) {
       // Confirm that the default cache bin is handled by memcache.
       $this->assertEqual(get_class(_cache_get_object($this->default_bin)), 'MemCacheDrupal', t('Memcache caching is configured correctly.'));
@@ -145,13 +151,14 @@ class MemcacheTestCase extends DrupalWebTestCase {
   /**
    * Check whether or not a cache entry exists.
    *
-   * @param $cid
+   * @param string $cid
    *   The cache id.
-   * @param $var
+   * @param mixed $var
    *   The variable the cache should contain.
-   * @param $bin
-   *   The bin the cache item was stored in.
-   * @return
+   * @param string $bin
+   *   Defaults to $this->default_bin. The bin the cache item was stored in.
+   *
+   * @return bool
    *   TRUE on pass, FALSE on fail.
    */
   protected function checkCacheExists($cid, $var, $bin = NULL) {
@@ -167,14 +174,14 @@ class MemcacheTestCase extends DrupalWebTestCase {
   /**
    * Assert or a cache entry exists.
    *
-   * @param $message
+   * @param string $message
    *   Message to display.
-   * @param $var
-   *   The variable the cache should contain.
-   * @param $cid
-   *   The cache id.
-   * @param $bin
-   *   The bin the cache item was stored in.
+   * @param mixed $var
+   *   Defaults to $this->default_value. The variable the cache should contain.
+   * @param string $cid
+   *   Defaults to $this->default_cid. The cache id.
+   * @param string $bin
+   *   Defaults to $this->default_bin. The bin the cache item was stored in.
    */
   protected function assertCacheExists($message, $var = NULL, $cid = NULL, $bin = NULL) {
     if ($bin == NULL) {
@@ -193,14 +200,14 @@ class MemcacheTestCase extends DrupalWebTestCase {
   /**
    * Assert or a cache entry has been removed.
    *
-   * @param $message
+   * @param string $message
    *   Message to display.
-   * @param $cid
-   *   The cache id.
-   * @param $bin
-   *   The bin the cache item was stored in.
+   * @param string $cid
+   *   Defaults to $this->default_cid. The cache id.
+   * @param string $bin
+   *   Defaults to $this->default_bin. The bin the cache item was stored in.
    */
-  function assertCacheRemoved($message, $cid = NULL, $bin = NULL) {
+  public function assertCacheRemoved($message, $cid = NULL, $bin = NULL) {
     if ($bin == NULL) {
       $bin = $this->default_bin;
     }
@@ -214,8 +221,9 @@ class MemcacheTestCase extends DrupalWebTestCase {
 
   /**
    * Perform the general wipe.
-   * @param $bin
-   *   The bin to perform the wipe on.
+   *
+   * @param string $bin
+   *   Defaults to $this->default_bin. The bin to perform the wipe on.
    */
   protected function generalWipe($bin = NULL) {
     if ($bin == NULL) {
@@ -225,7 +233,10 @@ class MemcacheTestCase extends DrupalWebTestCase {
     cache_clear_all(NULL, $bin);
   }
 
-  function resetVariables() {
+  /**
+   * Reloads internal MemCacheDrupal variables.
+   */
+  protected function resetVariables() {
     if ($this->default_bin) {
       $cache = _cache_get_object($this->default_bin);
       if ($cache instanceof MemCacheDrupal) {
@@ -236,54 +247,66 @@ class MemcacheTestCase extends DrupalWebTestCase {
 }
 
 class MemCacheSavingCase extends MemcacheTestCase {
+
   public static function getInfo() {
     return array(
       'name' => 'Memcache saving test',
       'description' => 'Check our variables are saved and restored the right way.',
-      'group' => 'Memcache'
+      'group' => 'Memcache',
     );
   }
 
-  function setUp() {
+  /**
+   * @see MemcacheTestCase::setUp()
+   */
+  public function setUp() {
     parent::setUp();
   }
 
   /**
    * Test the saving and restoring of a string.
    */
-  function testString() {
+  public function testString() {
     $this->checkVariable($this->randomName(100));
   }
 
   /**
    * Test the saving and restoring of an integer.
    */
-  function testInteger() {
+  public function testInteger() {
     $this->checkVariable(100);
   }
 
   /**
    * Test the saving and restoring of a double.
    */
-  function testDouble() {
+  public function testDouble() {
     $this->checkVariable(1.29);
   }
 
   /**
    * Test the saving and restoring of an array.
    */
-  function testArray() {
-    $this->checkVariable(array('drupal1', 'drupal2' => 'drupal3', 'drupal4' => array('drupal5', 'drupal6')));
+  public function testArray() {
+    $this->checkVariable(array(
+      'drupal1',
+      'drupal2' => 'drupal3',
+      'drupal4' => array('drupal5', 'drupal6'),
+    ));
   }
 
   /**
    * Test the saving and restoring of an object.
    */
-  function testObject() {
+  public function testObject() {
     $test_object = new stdClass();
     $test_object->test1 = $this->randomName(100);
     $test_object->test2 = 100;
-    $test_object->test3 = array('drupal1', 'drupal2' => 'drupal3', 'drupal4' => array('drupal5', 'drupal6'));
+    $test_object->test3 = array(
+      'drupal1',
+      'drupal2' => 'drupal3',
+      'drupal4' => array('drupal5', 'drupal6'),
+    );
 
     cache_set('test_object', $test_object, $this->default_bin);
     $cache = cache_get('test_object', $this->default_bin);
@@ -293,21 +316,21 @@ class MemCacheSavingCase extends MemcacheTestCase {
   /**
    * Test save and restoring a string with a long key.
    */
-  function testStringLongKey() {
+  public function testStringLongKey() {
     $this->checkVariable($this->randomName(100), 'ThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydogThequickbrownfoxjumpsoverthelazydog');
   }
 
   /**
    * Test save and restoring a string using a key with special characters.
    */
-  function testStringSpecialKey() {
+  public function testStringSpecialKey() {
     $this->checkVariable($this->randomName(100), 'Qwerty!@#$%^&*()_+-=[]\;\',./<>?:"{}|£¢');
   }
 
-  /*
+  /**
    * Check or a variable is stored and restored properly.
-   **/
-  function checkVariable($var, $key = 'test_var') {
+   */
+  public function checkVariable($var, $key = 'test_var') {
     cache_set($key, $var, $this->default_bin);
     $cache = cache_get($key, $this->default_bin);
     $this->assertTrue(isset($cache->data) && $cache->data === $var, t('@type is saved and restored properly!key.', array('@type' => ucfirst(gettype($var)), '!key' => ($key != 'test_var') ? t(' with key @key', array('@key' => $key)) : '')));
@@ -327,6 +350,9 @@ class MemCacheGetMultipleUnitTest extends MemcacheTestCase {
     );
   }
 
+  /**
+   * @see MemcacheTestCase::setUp()
+   */
   function setUp() {
     parent::setUp();
   }
@@ -334,7 +360,7 @@ class MemCacheGetMultipleUnitTest extends MemcacheTestCase {
   /**
    * Test cache_get_multiple().
    */
-  function testCacheMultiple() {
+  public function testCacheMultiple() {
     $item1 = $this->randomName(10);
     $item2 = $this->randomName(10);
     cache_set('test:item1', $item1, $this->default_bin);
@@ -372,11 +398,14 @@ class MemCacheClearCase extends MemcacheTestCase {
     return array(
       'name' => 'Cache clear test',
       'description' => 'Check our clearing is done the proper way.',
-      'group' => 'Memcache'
+      'group' => 'Memcache',
     );
   }
 
-  function setUp() {
+  /**
+   * @see MemcacheTestCase::setUp()
+   */
+  public function setUp() {
 
     parent::setUp('memcache_test');
     $this->default_value = $this->randomName(10);
@@ -386,14 +415,14 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test clearing the cache with a cid, no cache lifetime.
    */
-  function testClearCidNoLifetime() {
+  public function testClearCidNoLifetime() {
     $this->clearCidTest();
   }
 
   /**
    * Test clearing the cache with a cid, with cache lifetime.
    */
-  function testClearCidLifetime() {
+  public function testClearCidLifetime() {
     variable_set('cache_lifetime', 6000);
     $this->clearCidTest();
   }
@@ -401,14 +430,14 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test clearing using wildcard prefixes, no cache lifetime.
    */
-  function testClearWildcardNoLifetime() {
+  public function testClearWildcardNoLifetime() {
     $this->clearWildcardPrefixTest();
   }
 
   /**
    * Test clearing using wildcard prefix, with cache lifetime.
    */
-  function testClearWildcardLifetime() {
+  public function testClearWildcardLifetime() {
     variable_set('cache_lifetime', 6000);
     $this->clearWildcardPrefixTest();
   }
@@ -416,7 +445,7 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test full bin flushes with no cache lifetime.
    */
-  function testClearWildcardFull() {
+  public function testClearWildcardFull() {
     cache_set('test_cid_clear1', $this->default_value, $this->default_bin);
     cache_set('test_cid_clear2', $this->default_value, $this->default_bin);
     $this->assertTrue($this->checkCacheExists('test_cid_clear1', $this->default_value)
@@ -431,7 +460,7 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test full bin flushes with cache lifetime.
    */
-  function testClearCacheLifetime() {
+  public function testClearCacheLifetime() {
     variable_set('cache_lifetime', 600);
     $this->resetVariables();
 
@@ -451,7 +480,8 @@ class MemCacheClearCase extends MemcacheTestCase {
     // However permament items should stay in place.
     $this->assertTrue($this->checkCacheExists('test_cid_2', $this->default_value), 'Cache item was not cleared');
 
-    // If $_SESSION['cache_flush'] is not set, then the expired item should be returned.
+    // If $_SESSION['cache_flush'] is not set, then the expired item should
+    // be returned.
     unset($_SESSION['cache_flush']);
     $this->assertTrue($this->checkCacheExists('test_cid', $this->default_value), 'Cache item is still returned due to minimum cache lifetime.');
 
@@ -485,7 +515,7 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test different wildcards to verify the wildcard optimizations.
    */
-  function testWildCardOptimizations() {
+  public function testWildCardOptimizations() {
 
     // Set and clear a cache with a short cid/wildcard.
     cache_set('foo:1', $this->default_value, $this->default_bin);
@@ -528,7 +558,7 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test CACHE_TEMPORARY and CACHE_PERMANENT behaviour.
    */
-  function testClearTemporaryPermanent() {
+  public function testClearTemporaryPermanent() {
     cache_set('test_cid_clear_temporary', $this->default_value, $this->default_bin, CACHE_TEMPORARY);
     cache_set('test_cid_clear_permanent', $this->default_value, $this->default_bin, CACHE_PERMANENT);
     cache_set('test_cid_clear_future', $this->default_value, $this->default_bin, time() + 3600);
@@ -553,7 +583,7 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test clearing using a cid.
    */
-  function clearCidTest() {
+  public function clearCidTest() {
     cache_set('test_cid_clear', $this->default_value, $this->default_bin);
 
     $this->assertCacheExists(t('Cache was set for clearing cid.'), $this->default_value, 'test_cid_clear');
@@ -575,7 +605,7 @@ class MemCacheClearCase extends MemcacheTestCase {
   /**
    * Test cache clears using wildcard prefixes.
    */
-  function clearWildcardPrefixTest() {
+  public function clearWildcardPrefixTest() {
     $this->resetVariables();
     cache_set('test_cid_clear:1', $this->default_value, $this->default_bin);
     cache_set('test_cid_clear:2', $this->default_value, $this->default_bin);
@@ -593,18 +623,18 @@ class MemCacheClearCase extends MemcacheTestCase {
     cache_clear_all('test_', $this->default_bin, TRUE);
     $this->assertFalse($this->checkCacheExists('test_cid_clear:1', $this->default_value), 'The cache was cleared successfully.');
     // Delete the wildcard manually to simulate an eviction.
-    $wildcard = '.wildcard-' . 'test_cid_clear:';
+    $wildcard = '.wildcard-test_cid_clear:';
     dmemcache_delete($wildcard, $this->default_bin);
     // Reset the memcache_wildcards() static cache.
     // @todo: this is a class object in D7.
-    //memcache_wildcards(FALSE, FALSE, FALSE, TRUE);
+    // memcache_wildcards(FALSE, FALSE, FALSE, TRUE);
     $this->assertFalse($this->checkCacheExists('test_cid_clear:1', $this->default_value), 'The cache was cleared successfully.');
   }
 
   /**
    * Test wildcard flushing on separate pages to ensure no static cache is used.
    */
-  function testClearWildcardOnSeparatePages() {
+  public function testClearWildcardOnSeparatePages() {
 
     $random_wildcard = $this->randomName(2) . ':' . $this->randomName(3);
     $random_key = $random_wildcard . ':' . $this->randomName(4) . ':' . $this->randomName(2);
@@ -660,11 +690,14 @@ class MemCacheRealWorldCase extends MemcacheTestCase {
     return array(
       'name' => 'Real world cache tests',
       'description' => 'Test some real world cache scenarios.',
-      'group' => 'Memcache'
+      'group' => 'Memcache',
     );
   }
 
-  function setUp() {
+  /**
+   * @see MemcacheTestCase::setUp()
+   */
+  public function setUp() {
     parent::setUp('menu');
   }
 
@@ -674,12 +707,17 @@ class MemCacheRealWorldCase extends MemcacheTestCase {
    * The menu module clears the affected menu if an menu item is changed using
    * wildcards.
    */
-  function testMenu() {
+  public function testMenu() {
     // Create and login user.
-    $account = $this->drupalCreateUser(array('access administration pages', 'administer blocks', 'administer menu', 'create article content'));
+    $account = $this->drupalCreateUser(array(
+      'access administration pages',
+      'administer blocks',
+      'administer menu',
+      'create article content',
+    ));
     $this->drupalLogin($account);
 
-    // Add Menu Link to test with
+    // Add Menu Link to test with.
     $item = $this->addMenuLink();
     $original_title = $item['link_title'];
 
@@ -688,7 +726,7 @@ class MemCacheRealWorldCase extends MemcacheTestCase {
     $this->assertText($original_title, 'Menu item displayed in frontend');
 
     // Change menu item multiple times and check if the change is reflected.
-    for($i=0; $i < 3; $i++) {
+    for ($i = 0; $i < 3; $i++) {
       // Edit menu link.
       $edit = array();
       $edit['link_title'] = $this->randomName(16);;
@@ -716,20 +754,23 @@ class MemCacheRealWorldCase extends MemcacheTestCase {
    *
    * @see MenuTestCase::addMenuLink()
    */
-  function addMenuLink($plid = 0, $link = '<front>', $menu_name = 'main-menu') {
+  public function addMenuLink($plid = 0, $link = '<front>', $menu_name = 'main-menu') {
     // View add menu link page.
     $this->drupalGet("admin/structure/menu/manage/$menu_name/add");
     $this->assertResponse(200);
 
     $title = '!OriginalLink_' . $this->randomName(16);
     $edit = array(
-        'link_path' => $link,
-        'link_title' => $title,
-        'description' => '',
-        'enabled' => TRUE, // Use this to disable the menu and test.
-        'expanded' => TRUE, // Setting this to true should test whether it works when we do the std_user tests.
-        'parent' =>  $menu_name . ':' . $plid,
-        'weight' => '0',
+      'link_path' => $link,
+      'link_title' => $title,
+      'description' => '',
+      // Use this to disable the menu and test.
+      'enabled' => TRUE,
+      // Setting this to true should test whether it works when we do the
+      // std_user tests.
+      'expanded' => TRUE,
+      'parent' => $menu_name . ':' . $plid,
+      'weight' => '0',
     );
 
     // Add menu link.
@@ -752,11 +793,14 @@ class MemCacheStatisticsTestCase extends MemcacheTestCase {
     return array(
       'name' => 'Statistics tests',
       'description' => 'Test that statistics are being recorded appropriately.',
-      'group' => 'Memcache'
+      'group' => 'Memcache',
     );
   }
 
-  function setUp() {
+  /**
+   * @see MemcacheTestCase::setUp()
+   */
+  public function setUp() {
     parent::setUp('memcache_admin');
 
     $conf['cache_default_class'] = 'MemCacheDrupal';
@@ -770,7 +814,7 @@ class MemCacheStatisticsTestCase extends MemcacheTestCase {
    * enabled and tests that statistics are not recorded when the user doesn't
    * have access or displaying statistics is disabled.
    */
-  function testBootstrapStatistics() {
+  public function testBootstrapStatistics() {
     global $_memcache_statistics;
     // Expected statistics for cache_set() and cache_get().
     $test_full_key = dmemcache_key($this->default_cid, $this->default_bin);
@@ -778,7 +822,13 @@ class MemCacheStatisticsTestCase extends MemcacheTestCase {
     $expected_statistic_get[] = array('get', $this->default_bin, $test_full_key, 1);
 
     // List of bootstrap cids to check for.
-    $cache_bootstrap_cids = array('variables', 'bootstrap_modules', 'lookup_cache', 'system_list', 'module_implements');
+    $cache_bootstrap_cids = array(
+      'variables',
+      'bootstrap_modules',
+      'lookup_cache',
+      'system_list',
+      'module_implements'
+    );
 
     // Turn on memcache statistics.
     variable_set('show_memcache_statistics', TRUE);

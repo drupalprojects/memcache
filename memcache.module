@@ -1,34 +1,9 @@
 <?php
+
 /**
+ * @file
  * Provides very limited functionality such as hook_requirements().
+ *
  * memcache.inc must be configured in settings.php, and memcache.module is not
  * necessary to use memcache as a cache backend.
  */
-function memcache_enable() {
-  $error = FALSE;
-  $memcache = extension_loaded('memcache');
-  $memcached = extension_loaded('memcached');
-  if (!$memcache && !$memcached) {
-    $error = TRUE;
-  }
-  if (!function_exists('dmemcache_object')) {
-    // dmemcache.inc isn't loaded.
-    $error = TRUE;
-  }
-  else {
-    // Make a test connection to all configured memcache servers.
-    $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
-    $memcache = dmemcache_instance();
-    foreach ($memcache_servers as $server => $bin) {
-      if (dmemcache_connect($memcache, $server, FALSE) === FALSE) {
-        $error = TRUE;
-      }
-      else {
-        dmemcache_close($memcache);
-      }
-    }
-  }
-  if ($error) {
-    drupal_set_message(t('There are problems with your Memcache configuration. Please review %readme and visit the Drupal admin !status page for more information.', array('%readme' => 'README.txt', '!status' => l('status report', 'admin/reports/status'))), 'error');
-  }
-}

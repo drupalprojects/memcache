@@ -1,7 +1,8 @@
 <?php
 
 /**
- * @file update functions for memcache_admin.
+ * @file
+ * Update functions for memcache_admin.
  */
 
 /**

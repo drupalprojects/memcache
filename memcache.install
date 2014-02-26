@@ -1,6 +1,43 @@
 <?php
 
 /**
+ * @file
+ * Install, update and uninstall functions for the memcache module.
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function memcache_enable() {
+  $error = FALSE;
+  $memcache = extension_loaded('memcache');
+  $memcached = extension_loaded('memcached');
+  if (!$memcache && !$memcached) {
+    $error = TRUE;
+  }
+  if (!function_exists('dmemcache_object')) {
+    // dmemcache.inc isn't loaded.
+    $error = TRUE;
+  }
+  else {
+    // Make a test connection to all configured memcache servers.
+    $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
+    $memcache = dmemcache_instance();
+    foreach ($memcache_servers as $server => $bin) {
+      if (dmemcache_connect($memcache, $server, FALSE) === FALSE) {
+        $error = TRUE;
+      }
+      else {
+        dmemcache_close($memcache);
+      }
+    }
+  }
+  if ($error) {
+    drupal_set_message(t('There are problems with your Memcache configuration. Please review %readme and visit the Drupal admin !status page for more information.', array('%readme' => 'README.txt', '!status' => l(t('status report'), 'admin/reports/status'))), 'error');
+  }
+}
+
+/**
  * Implements hook_requirements().
  */
 function memcache_requirements($phase) {
@@ -30,7 +67,7 @@ function memcache_requirements($phase) {
       if ($extension == 'Memcache') {
         $requirements['memcache_extension']['value'] = phpversion('memcache') . _memcache_statistics_link();
       }
-      else if ($extension == 'Memcached') {
+      elseif ($extension == 'Memcached') {
         $requirements['memcache_extension']['value'] = phpversion('memcached') . _memcache_statistics_link();
       }
 

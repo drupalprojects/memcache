@@ -1,36 +1,41 @@
 <?php
 
-/*
- * Core dmemcache functions required by:
+/**
+ * @file
+ * A memcache API for Drupal.
+ *
+ * This file contains core dmemcache functions required by:
  *   memcache.inc
- *   memcache.db.inc
- *   session-memcache.inc
- *   session-memcache.db.inc
+ *   memcache-lock.inc
+ *   memcache-lock-code.inc
+ *   memcache-session.inc
  */
 
 global $_dmemcache_stats;
 $_dmemcache_stats = array('all' => array(), 'ops' => array());
 
-/*
- * A memcache API for Drupal.
- */
-
 /**
- *  Place an item into memcache
+ * Place an item into memcache.
  *
- * @param $key The string with which you will retrieve this item later.
- * @param $value The item to be stored.
- * @param $exp Parameter expire is expiration time in seconds. If it's 0, the
- *   item never expires (but memcached server doesn't guarantee this item to be
- *   stored all the time, it could be deleted from the cache to make place for
- *   other items).
- * @param $bin The name of the Drupal subsystem that is making this call.
- *   Examples could be 'cache', 'alias', 'taxonomy term' etc. It is possible to
- *   map different $bin values to different memcache servers.
- * @param $mc Optionally pass in the memcache object.  Normally this value is
- *   determined automatically based on the bin the object is being stored to.
+ * @param string $key
+ *   The string with which you will retrieve this item later.
+ * @param mixed $value
+ *   The item to be stored.
+ * @param int $exp
+ *   Parameter expire is expiration time in seconds. If it's 0, the item never
+ *   expires (but memcached server doesn't guarantee this item to be stored all
+ *   the time, it could be deleted from the cache to make place for other
+ *   items).
+ * @param string $bin
+ *   The name of the Drupal subsystem that is making this call. Examples could
+ *   be 'cache', 'alias', 'taxonomy term' etc. It is possible to map different
+ *   $bin values to different memcache servers.
+ * @param object $mc
+ *   Optionally pass in the memcache object.  Normally this value is determined
+ *   automatically based on the bin the object is being stored to.
  *
  * @return bool
+ *   TRUE on succes, FALSE otherwise.
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
@@ -55,25 +60,32 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
 }
 
 /**
- *  Add an item into memcache
+ * Add an item into memcache.
  *
- * @param $key The string with which you will retrieve this item later.
- * @param $value The item to be stored.
- * @param $exp Parameter expire is expiration time in seconds. If it's 0, the
+ * @param string $key
+ *   The string with which you will retrieve this item later.
+ * @param mixed $value
+ *   The item to be stored.
+ * @param int $exp
+ *   Parameter expire is expiration time in seconds. If it's 0, the
  *   item never expires (but memcached server doesn't guarantee this item to be
  *   stored all the time, it could be deleted from the cache to make place for
  *   other items).
- * @param $bin The name of the Drupal subsystem that is making this call.
+ * @param string $bin
+ *   The name of the Drupal subsystem that is making this call.
  *   Examples could be 'cache', 'alias', 'taxonomy term' etc. It is possible
  *   to map different $bin values to different memcache servers.
- * @param $mc Optionally pass in the memcache object.  Normally this value is
+ * @param object $mc
+ *   Optionally pass in the memcache object.  Normally this value is
  *   determined automatically based on the bin the object is being stored to.
- * @param $flag If using the older memcache PECL extension as opposed to the
+ * @param int $flag
+ *   If using the older memcache PECL extension as opposed to the
  *   newer memcached PECL extension, the MEMCACHE_COMPRESSED flag can be set
  *   to use zlib to store a compressed copy of the item.  This flag option is
  *   completely ignored when using the newer memcached PECL extension.
  *
  * @return bool
+ *   FALSE if placing the item into memcache failed.
  */
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
   $collect_stats = dmemcache_stats_init();
@@ -100,10 +112,13 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
 /**
  * Retrieve a value from the cache.
  *
- * @param $key The key with which the item was stored.
- * @param $bin The bin in which the item was stored.
+ * @param string $key
+ *   The key with which the item was stored.
+ * @param string $bin
+ *   The bin in which the item was stored.
  *
- * @return The item which was originally saved or FALSE
+ * @return mixed
+ *   The item which was originally saved or FALSE
  */
 function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
@@ -135,10 +150,13 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
 /**
  * Retrieve multiple values from the cache.
  *
- * @param $keys The keys with which the items were stored.
- * @param $bin The bin in which the item was stored.
+ * @param array $keys
+ *   The keys with which the items were stored.
+ * @param string $bin
+ *   The bin in which the item was stored.
  *
- * @return The item which was originally saved or FALSE
+ * @return mixed
+ *   The item which was originally saved or FALSE
  */
 function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
@@ -201,10 +219,13 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
 /**
  * Deletes an item from the cache.
  *
- * @param $key The key with which the item was stored.
- * @param $bin The bin in which the item was stored.
+ * @param string $key
+ *   The key with which the item was stored.
+ * @param string $bin
+ *   The bin in which the item was stored.
  *
- * @return Returns TRUE on success or FALSE on failure.
+ * @return bool
+ *   Returns TRUE on success or FALSE on failure.
  */
 function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
@@ -224,14 +245,18 @@ function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
 }
 
 /**
- * Immediately invalidates all existing items. dmemcache_flush doesn't actually free any
- * resources, it only marks all the items as expired, so occupied memory will be overwritten by
- * new items.
+ * Flush all stored items.
  *
- * @param $bin The bin to flush. Note that this will flush all bins mapped to the same server
- *   as $bin. There is no way at this time to empty just one bin.
+ * Immediately invalidates all existing items. dmemcache_flush doesn't actually
+ * free any resources, it only marks all the items as expired, so occupied
+ * memory will be overwritten by new items.
  *
- * @return Returns TRUE on success or FALSE on failure.
+ * @param string $bin
+ *   The bin to flush. Note that this will flush all bins mapped to the same
+ *   server as $bin. There is no way at this time to empty just one bin.
+ *
+ * @return bool
+ *   Returns TRUE on success or FALSE on failure.
  */
 function dmemcache_flush($bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
@@ -251,11 +276,21 @@ function dmemcache_flush($bin = 'cache', $mc = NULL) {
   return $rc;
 }
 
+/**
+ * Retrieves statistics recorded during memcache operations.
+ *
+ * @param string $stats_bin
+ *   The bin to retrieve statistics for.
+ * @param string $stats_type
+ *   The type of statistics to retrieve when using the Memcache extension.
+ * @param bool $aggregate
+ *   Whether to aggregate statistics.
+ */
 function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggregate = FALSE) {
   $memcache_bins = variable_get('memcache_bins', array('cache' => 'default'));
   // The stats_type can be over-loaded with an integer slab id, if doing a
   // cachedump.  We know we're doing a cachedump if $slab is non-zero.
-  $slab = (int)$stats_type;
+  $slab = (int) $stats_type;
 
   foreach ($memcache_bins as $bin => $target) {
     if ($stats_bin == $bin) {
@@ -267,13 +302,13 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
         // type is NULL or not in {reset, malloc, slabs, cachedump, items,
         // sizes}. If $stats_type is 'default', then no parameter should be
         // passed to the Memcache memcache_get_extended_stats() function.
-        else if ($mc instanceof Memcache) {
+        elseif ($mc instanceof Memcache) {
           if ($stats_type == 'default' || $stats_type == '') {
             $stats[$bin] = $mc->getExtendedStats();
           }
           // If $slab isn't zero, then we are dumping the contents of a
           // specific cache slab.
-          else if (!empty($slab))  {
+          elseif (!empty($slab)) {
             $stats[$bin] = $mc->getStats('cachedump', $slab);
           }
           else {
@@ -286,8 +321,15 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
   // Optionally calculate a sum-total for all servers in the current bin.
   if ($aggregate) {
     // Some variables don't logically aggregate.
-    $no_aggregate = array('pid', 'time', 'version', 'pointer_size', 'accepting_conns', 'listen_disabled_num');
-    foreach($stats as $bin => $servers) {
+    $no_aggregate = array(
+      'pid',
+      'time',
+      'version',
+      'pointer_size',
+      'accepting_conns',
+      'listen_disabled_num',
+    );
+    foreach ($stats as $bin => $servers) {
       if (is_array($servers)) {
         foreach ($servers as $server) {
           if (is_array($server)) {
@@ -344,10 +386,10 @@ function dmemcache_instance() {
   static $error = FALSE;
   $extension = dmemcache_extension();
   if ($extension == 'Memcache') {
-    return new Memcache;
+    return new Memcache();
   }
   elseif ($extension == 'Memcached') {
-    $memcache = new Memcached;
+    $memcache = new Memcached();
     $default_opts = array(
       Memcached::OPT_COMPRESSION => FALSE,
       Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
@@ -375,15 +417,17 @@ function dmemcache_instance() {
 /**
  * Initiate a connection to memcache.
  *
- * @param $memcache A memcache instance obtained through dmemcache_instance.
- *
- * @param $server A server string of the format "localhost:11211" or
+ * @param object $memcache
+ *   A memcache instance obtained through dmemcache_instance.
+ * @param string $server
+ *   A server string of the format "localhost:11211" or
  *   "unix:///path/to/socket".
+ * @param bool $connection
+ *   TRUE or FALSE, whether the $memcache instance already has at least one
+ *   open connection.
  *
- * @connection TRUE or FALSE, whether the $memcache instance already has at
- *   least one open connection.
- *
- * @return TRUE or FALSE if connection was successful.
+ * @return bool
+ *   TRUE or FALSE if connection was successful.
  */
 function dmemcache_connect($memcache, $server, $connection) {
   static $memcache_persistent = NULL;
@@ -432,7 +476,7 @@ function dmemcache_connect($memcache, $server, $connection) {
       $rc = $memcache->addServer($host, $port, $memcache_persistent);
     }
   }
-  else if ($extension == 'Memcached') {
+  elseif ($extension == 'Memcached') {
     // Support unix sockets of the format 'unix:///path/to/socket'.
     if ($host == 'unix') {
       // Strip 'unix://' as expected by Memcached extension.
@@ -455,7 +499,7 @@ function dmemcache_close($memcache) {
   if ($extension == 'Memcache' && $memcache instanceof Memcache) {
     $rc = @$memcache->close;
   }
-  else if ($extension == 'Memcached' && $memcache instanceof Memcached) {
+  elseif ($extension == 'Memcached' && $memcache instanceof Memcached) {
     $rc = @$memcache->quit;
   }
   else {
@@ -472,28 +516,30 @@ function dmemcache_close($memcache) {
  * provided by this API or if you need to use legacy code. Otherwise, use the
  * dmemcache (get, set, delete, flush) API functions provided here.
  *
- * @param $bin The bin which is to be used.
+ * @param string $bin
+ *   The bin which is to be used.
+ * @param bool $flush
+ *   Defaults to FALSE. Rebuild the bin/server/cache mapping.
  *
- * @param $flush Rebuild the bin/server/cache mapping.
- *
- * @return a Memcache object or FALSE.
+ * @return mixed
+ *   A Memcache object, or FALSE on failure.
  */
 function dmemcache_object($bin = NULL, $flush = FALSE) {
-  static $memcacheCache = array();
+  static $memcache_cache = array();
   static $memcache_servers = array();
   static $memcache_bins = array();
   static $failed_connections = array();
 
   if ($flush) {
-    foreach ($memcacheCache as $cluster) {
+    foreach ($memcache_cache as $cluster) {
       memcache_close($cluster);
     }
-    $memcacheCache = array();
+    $memcache_cache = array();
   }
 
   $extension = dmemcache_extension();
 
-  if (empty($memcacheCache) || empty($memcacheCache[$bin])) {
+  if (empty($memcache_cache) || empty($memcache_cache[$bin])) {
     if (empty($memcache_servers)) {
       // Load the variables from settings.php if set.
       $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
@@ -505,8 +551,8 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 
     // If not manually set, map this bin to 'cache' which maps to the 'default'
     // cluster.
-    if (empty($memcache_bins[$bin]) && !empty($memcacheCache['cache'])) {
-      $memcacheCache[$bin] = &$memcacheCache['cache'];
+    if (empty($memcache_bins[$bin]) && !empty($memcache_cache['cache'])) {
+      $memcache_cache[$bin] = &$memcache_cache['cache'];
     }
     else {
       // Create a new memcache object for each cluster.
@@ -535,23 +581,34 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
       }
       if ($connection) {
         // Map the current bin with the new Memcache object.
-        $memcacheCache[$bin] = $memcache;
+        $memcache_cache[$bin] = $memcache;
 
         // Now that all the servers have been mapped to this cluster, look for
         // other bins that belong to the cluster and map them too.
         foreach ($memcache_bins as $b => $c) {
           if ($c == $cluster && $b != $bin) {
             // Map this bin and cluster by reference.
-            $memcacheCache[$b] = &$memcacheCache[$bin];
+            $memcache_cache[$b] = &$memcache_cache[$bin];
           }
         }
       }
     }
   }
 
-  return empty($memcacheCache[$bin]) ? FALSE : $memcacheCache[$bin];
+  return empty($memcache_cache[$bin]) ? FALSE : $memcache_cache[$bin];
 }
 
+/**
+ * Prefixes a key and ensures it is url safe.
+ *
+ * @param string $key
+ *   The key to prefix and encode.
+ * @param string $bin
+ *   The cache bin which the key applies to.
+ *
+ * @return string
+ *   The prefixed and encoded key.
+ */
 function dmemcache_key($key, $bin = 'cache') {
   $prefix = '';
   if ($prefix = variable_get('memcache_key_prefix', '')) {
@@ -578,10 +635,12 @@ function dmemcache_key($key, $bin = 'cache') {
 /**
  * Collect statistics if enabled.
  *
- * Optimized function to determine whether or not we should be collecting statistics. Also starts a
- * timer to track how long individual memcache operations take.
+ * Optimized function to determine whether or not we should be collecting
+ * statistics. Also starts a timer to track how long individual memcache
+ * operations take.
  *
- * @return TRUE or FALSE if statistics should be collected.
+ * @return bool
+ *   TRUE or FALSE if statistics should be collected.
  */
 function dmemcache_stats_init() {
   static $drupal_static_fast;
@@ -593,9 +652,9 @@ function dmemcache_stats_init() {
   $user_access_checked  = &$drupal_static_fast['user_access_checked'];
 
   // Confirm DRUPAL_BOOTSTRAP_VARIABLES has been reached. We don't use
-  // drupal_get_bootstrap_phase() as it's buggy. We can use variable_get() here because
-  // _drupal_bootstrap_variables() includes module.inc immediately after it calls
-  // variable_initialize().
+  // drupal_get_bootstrap_phase() as it's buggy. We can use variable_get() here
+  // because _drupal_bootstrap_variables() includes module.inc immediately
+  // after it calls variable_initialize().
   if (!isset($variable_checked) && function_exists('module_list')) {
     $variable_checked = variable_get('show_memcache_statistics', FALSE);
   }
@@ -618,9 +677,13 @@ function dmemcache_stats_init() {
 /**
  * Save memcache statistics to be displayed at end of page generation.
  *
- * @param $action The action being performed (get, set, etc...).
- * @param $bin The memcache bin the action is being performed in.
- * @param $keys The key the action is being performed on, and whether or not it was a success.
+ * @param string $action
+ *   The action being performed (get, set, etc...).
+ * @param string $bin
+ *   The memcache bin the action is being performed in.
+ * @param array $keys
+ *   Keyed array in the form (string)$cid => (bool)$success. The keys the
+ *   action is being performed on, and whether or not it was a success.
  */
 function dmemcache_stats_write($action, $bin, $keys) {
   global $_dmemcache_stats, $timers;
@@ -628,12 +691,23 @@ function dmemcache_stats_write($action, $bin, $keys) {
   $time = timer_read('dmemcache');
   // Build the 'all' and 'ops' arrays displayed by memcache_admin.module.
   foreach ($keys as $key => $success) {
-    $_dmemcache_stats['all'][] = array(number_format($time, 2), $action, $bin, $key, $success ? 'hit' : 'miss');
+    $_dmemcache_stats['all'][] = array(
+      number_format($time, 2),
+      $action,
+      $bin,
+      $key,
+      $success ? 'hit' : 'miss',
+    );
     if (!isset($_dmemcache_stats['ops'][$action])) {
       $_dmemcache_stats['ops'][$action] = array($action, 0, 0, 0);
     }
     $_dmemcache_stats['ops'][$action][1] += $time;
-    $success ? $_dmemcache_stats['ops'][$action][2]++ : $_dmemcache_stats['ops'][$action][3]++;
+    if ($success) {
+      $_dmemcache_stats['ops'][$action][2]++;
+    }
+    else {
+      $_dmemcache_stats['ops'][$action][3]++;
+    }
   }
   // Reset the dmemcache timer for timing the next memcache operation.
   unset($timers['dmemcache']);
