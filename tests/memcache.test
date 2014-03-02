@@ -815,11 +815,9 @@ class MemCacheStatisticsTestCase extends MemcacheTestCase {
    * have access or displaying statistics is disabled.
    */
   public function testBootstrapStatistics() {
-    global $_memcache_statistics;
+    global $_dmemcache_stats;
     // Expected statistics for cache_set() and cache_get().
     $test_full_key = dmemcache_key($this->default_cid, $this->default_bin);
-    $expected_statistic_set[] = array('set', $this->default_bin, $test_full_key, '');
-    $expected_statistic_get[] = array('get', $this->default_bin, $test_full_key, 1);
 
     // List of bootstrap cids to check for.
     $cache_bootstrap_cids = array(
@@ -832,7 +830,7 @@ class MemCacheStatisticsTestCase extends MemcacheTestCase {
 
     // Turn on memcache statistics.
     variable_set('show_memcache_statistics', TRUE);
-    drupal_static_reset('dmemcache_collect_stats');
+    drupal_static_reset('dmemcache_stats_init');
 
     $this->drupalGet('<front>');
     // Check that statistics are not displayed for anonymous users.
@@ -872,36 +870,40 @@ class MemCacheStatisticsTestCase extends MemcacheTestCase {
     }
 
     // Clear the internal statistics store.
-    $_memcache_statistics = array();
+    $_dmemcache_stats = array('all' => array(), 'ops' => array());
     // Check that cache_set() statistics are being recorded.
     cache_set($this->default_cid, $this->default_value, $this->default_bin);
-    $this->assertEqual($_memcache_statistics, $expected_statistic_set);
+    $this->assertEqual($_dmemcache_stats['all'][0][1], 'set', 'Set action recorded.');
+    $this->assertEqual($_dmemcache_stats['all'][0][4], 'hit', 'Set action successful.');
+    $this->assertNotNull($_dmemcache_stats['ops']['set']);
 
     // Clear the internal statistics store.
-    $_memcache_statistics = array();
+    $_dmemcache_stats = array('all' => array(), 'ops' => array());
     // Check that cache_get() statistics are being recorded.
     cache_get($this->default_cid, $this->default_bin);
-    $this->assertEqual($_memcache_statistics, $expected_statistic_get);
+    $this->assertEqual($_dmemcache_stats['all'][0][1], 'get', 'Get action recorded.');
+    $this->assertEqual($_dmemcache_stats['all'][0][4], 'hit', 'Get action successful.');
+    $this->assertNotNull($_dmemcache_stats['ops']['get']);
 
     // Turn off memcache statistics.
     variable_set('show_memcache_statistics', FALSE);
-    drupal_static_reset('dmemcache_collect_stats');
+    drupal_static_reset('dmemcache_stats_init');
 
     $this->drupalGet('<front>');
-    // Check that statistics are not when the user has access, but statistics
-    // are disabled.
+    // Check that statistics are not recorded when the user has access, but
+    // statistics are disabled.
     $this->assertNoRaw('<div id="memcache-devel">', 'Statistics not present.');
 
     // Clear the internal statistics store.
-    $_memcache_statistics = array();
+    $_dmemcache_stats = array('all' => array(), 'ops' => array());
     // Confirm that statistics are not recorded for get()'s when disabled.
     cache_set($this->default_cid, $this->default_value, $this->default_bin);
-    $this->assertEqual($_memcache_statistics, array());
+    $this->assertEqual($_dmemcache_stats, array('all' => array(), 'ops' => array()));
 
     // Clear the internal statistics store.
-    $_memcache_statistics = array();
+    $_dmemcache_stats = array('all' => array(), 'ops' => array());
     // Confirm that statistics are not recorded for set()'s when disabled.
     cache_get($this->default_cid, $this->default_bin);
-    $this->assertEqual($_memcache_statistics, array());
+    $this->assertEqual($_dmemcache_stats, array('all' => array(), 'ops' => array()));
   }
 }
