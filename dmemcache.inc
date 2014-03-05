@@ -686,7 +686,7 @@ function dmemcache_stats_init() {
  *   action is being performed on, and whether or not it was a success.
  */
 function dmemcache_stats_write($action, $bin, $keys) {
-  global $_dmemcache_stats, $timers;
+  global $_dmemcache_stats;
   // Determine how much time elapsed to execute this action.
   $time = timer_read('dmemcache');
   // Build the 'all' and 'ops' arrays displayed by memcache_admin.module.
@@ -710,5 +710,4 @@ function dmemcache_stats_write($action, $bin, $keys) {
     }
   }
   // Reset the dmemcache timer for timing the next memcache operation.
-  unset($timers['dmemcache']);
 }
