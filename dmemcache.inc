@@ -262,9 +262,6 @@ function dmemcache_flush($bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
 
   $rc = FALSE;
-  if (dmemcache_collect_stats()) {
-    $_memcache_statistics[] = array('flush', $bin, '', '');
-  }
   if ($mc || ($mc = dmemcache_object($bin))) {
     $rc = memcache_flush($mc);
   }
