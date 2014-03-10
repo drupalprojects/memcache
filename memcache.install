@@ -23,6 +23,9 @@ function memcache_enable() {
     $error = TRUE;
   }
   else {
+    if (!_memcache_version_valid()) {
+      $error = TRUE;
+    }
     // Make a test connection to all configured memcache servers.
     $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
     $memcache = dmemcache_instance();
@@ -70,15 +73,19 @@ function memcache_requirements($phase) {
       if ($extension == 'Memcache') {
         $version = phpversion('memcache');
         $recommended = MEMCACHE_PECL_RECOMMENDED;
-        $requirements['memcache_extension']['value'] = $version . _memcache_statistics_link();
       }
       elseif ($extension == 'Memcached') {
         $version = phpversion('memcached');
         $recommended = MEMCACHED_PECL_RECOMMENDED;
+      }
+      if ($version) {
         $requirements['memcache_extension']['value'] = $version . _memcache_statistics_link();
       }
+      else {
+        $version = $t('unknown');
+      }
 
-      if (version_compare($version, $recommended, '<')) {
+      if (!_memcache_version_valid()) {
         $errors[] = $t('PECL !extension version %version is unsupported. Please update to %recommended or newer.', array(
           '!extension' => $extension,
           '%version' => $version,
@@ -143,6 +150,19 @@ function _memcache_statistics_link() {
   }
   else {
     return '';
+  }
+}
+
+/**
+ * Validate whether the current PECL version is supported.
+ */
+function _memcache_version_valid() {
+  $extension = dmemcache_extension();
+  if ($extension == 'Memcache') {
+    return version_compare(phpversion('memcache'), MEMCACHE_PECL_RECOMMENDED, '>=');
+  }
+  elseif ($extension == 'Memcached') {
+    return version_compare(phpversion('memcached'), MEMCACHED_PECL_RECOMMENDED, '>=');
   }
 }
 
