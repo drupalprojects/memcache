@@ -20,7 +20,7 @@ require_once dirname(__FILE__) . '/../dmemcache.inc';
  */
 function filter_user_update(&$edit, &$account, $category = NULL) {
   // Invalidate cached user object.
-  cache_clear_all($account->uid, 'users');
+  dmemcache_delete($account->uid, 'users');
 }
 
 /**
