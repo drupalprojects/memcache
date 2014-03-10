@@ -328,6 +328,17 @@ class MemCacheSavingCase extends MemcacheTestCase {
   }
 
   /**
+   * Test saving and restoring an integer value directly with dmemcache_set().
+   */
+  function testIntegerValue() {
+    $key = $this->randomName(100);
+    $val = rand(1, 1000);
+    dmemcache_set($key, $val, 0, 'cache');
+    $cache = dmemcache_get($key, 'cache');
+    $this->assertTrue($val === $cache, t('Integer is saved and restored properly with key @key', array('@key' => $key)));
+  }
+
+  /**
    * Check or a variable is stored and restored properly.
    */
   public function checkVariable($var, $key = 'test_var') {

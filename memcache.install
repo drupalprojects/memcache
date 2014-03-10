@@ -5,6 +5,9 @@
  * Install, update and uninstall functions for the memcache module.
  */
 
+define('MEMCACHE_PECL_RECOMMENDED', '3.0.6');
+define('MEMCACHED_PECL_RECOMMENDED', '2.0.1');
+
 /**
  * Implements hook_enable().
  */
@@ -65,10 +68,22 @@ function memcache_requirements($phase) {
     else {
       $extension = dmemcache_extension();
       if ($extension == 'Memcache') {
-        $requirements['memcache_extension']['value'] = phpversion('memcache') . _memcache_statistics_link();
+        $version = phpversion('memcache');
+        $recommended = MEMCACHE_PECL_RECOMMENDED;
+        $requirements['memcache_extension']['value'] = $version . _memcache_statistics_link();
       }
       elseif ($extension == 'Memcached') {
-        $requirements['memcache_extension']['value'] = phpversion('memcached') . _memcache_statistics_link();
+        $version = phpversion('memcached');
+        $recommended = MEMCACHED_PECL_RECOMMENDED;
+        $requirements['memcache_extension']['value'] = $version . _memcache_statistics_link();
+      }
+
+      if (version_compare($version, $recommended, '<')) {
+        $errors[] = $t('PECL !extension version %version is unsupported. Please update to %recommended or newer.', array(
+          '!extension' => $extension,
+          '%version' => $version,
+          '%recommended' => $recommended,
+        ));
       }
 
       // Make a test connection to all configured memcache servers.
