@@ -126,7 +126,6 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
   $result = FALSE;
 
   $full_key = dmemcache_key($key, $bin);
-  $success = '0';
   if ($mc || $mc = dmemcache_object($bin)) {
     $track_errors = ini_set('track_errors', '1');
     $php_errormsg = '';
