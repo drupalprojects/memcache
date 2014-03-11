@@ -257,122 +257,147 @@ function memcache_admin_bin_mapping($bin = 'cache') {
  */
 function memcache_admin_stats($bin = 'default') {
   $bin = memcache_admin_bin_mapping($bin);
-
+  $output = '';
+  $server = array();
   $stats = dmemcache_stats($bin, 'default', TRUE);
+  if (empty($stats)) {
+    // Failed to load statistics. Provide a useful error about where to get
+    // more information and help.
+    drupal_set_message(t('There may be a problem with your Memcache configuration. Please review %readme and !more for more information.', array('%readme' => 'README.txt', 'admin/reports/status', '!more' => module_exists('memcache') ? t('visit the Drupal admin !status page', array('!status' => l(t('status report'), 'admin/reports/status'))) : t('!enable the memcache module', array('!enable' => l(t('enable'), 'admin/modules', array('fragment' => 'edit-modules-performance-and-scalability')))))), 'error');
+  }
+  else {
+    if (count($stats[$bin])) {
+      $stats = $stats[$bin];
+      $aggregate = array_pop($stats);
+      $mc = dmemcache_object($bin);
+      if ($mc instanceof Memcached) {
+        $version = t('Memcached v!version', array('!version' => phpversion('Memcached')));
+      }
+      elseif ($mc instanceof Memcache) {
+        $version = t('Memcache v!version', array('!version' => phpversion('Memcache')));
+      }
+      else {
+        $version = t('Unknown');
+        drupal_set_message(t('Failed to detect the memcache PECL extension.'), 'error');
+      }
+      $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
 
-  $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
-
-  if (is_array($stats[$bin]) && count($stats[$bin])) {
-    $stats = $stats[$bin];
-
-    $mc = dmemcache_object($bin);
-    if ($mc instanceof Memcached) {
-      $version = t('Memcached v!version', array('!version' => phpversion('Memcached')));
-    }
-    elseif ($mc instanceof Memcache) {
-      $version = t('Memcache v!version', array('!version' => phpversion('Memcache')));
-    }
-    else {
-      $version = t('Unknown');
-      drupal_set_message(t('Failed to detect the memcache PECL extension.'), 'error');
-    }
-    // Building per-server stats for the current memcache bin.
-    $servers = array();
-    foreach ($memcache_servers as $server => $b) {
-      $b = memcache_admin_bin_mapping($b);
-      if ($b == $bin) {
-        if (strncmp($server, 'unix://', 7) == 0) {
-          if ($mc instanceof Memcached) {
-            // Memcached expects path to the socket without the protocol.
-            $server = substr($server, 7) . ':11211';
-          }
-          else {
-            $server .= ':0';
-          }
+      foreach ($stats as $server => $statistics) {
+        if (empty($statistics['uptime'])) {
+          drupal_set_message(t('Failed to connect to server at %address.', array('%address' => $server)), 'error');
         }
-        $servers[] = $server;
-
-        if (empty($stats[$server]['uptime'])) {
-          drupal_set_message(t('Failed to connect to server at %server.', array('%server' => $server)), 'error');
+        else {
+          $servers[] = $server;
+          $data['server_overview'][$server] = t('v!version running !uptime', array('!version' => check_plain($statistics['version']), '!uptime' => format_interval($statistics['uptime'])));
+          $data['server_pecl'][$server] = t('n/a');
+          $data['server_time'][$server] = format_date($statistics['time']);
+          $data['server_connections'][$server] = _memcache_admin_stats_connections($statistics);
+          $data['cache_sets'][$server] = _memcache_admin_stats_sets($statistics);
+          $data['cache_gets'][$server] = _memcache_admin_stats_gets($statistics);
+          $data['cache_counters'][$server] = _memcache_admin_stats_counters($statistics);
+          $data['cache_transfer'][$server] = _memcache_admin_stats_transfer($statistics);
+          $data['cache_average'][$server] = _memcache_admin_stats_average($statistics);
+          $data['memory_available'][$server] = _memcache_admin_stats_memory($statistics);
+          $data['memory_evictions'][$server] = number_format($statistics['evictions']);
         }
-        $data['server_overview'][$server] = t('v!version running !uptime', array('!version' => check_plain($stats[$server]['version']), '!uptime' => format_interval($stats[$server]['uptime'])));
-        $data['server_pecl'][$server] = t('n/a');
-        $data['server_time'][$server] = format_date($stats[$server]['time']);
-        $data['server_connections'][$server] = _memcache_admin_stats_connections($stats[$server]);
-        $data['cache_sets'][$server] = _memcache_admin_stats_sets($stats[$server]);
-        $data['cache_gets'][$server] = _memcache_admin_stats_gets($stats[$server]);
-        $data['cache_counters'][$server] = _memcache_admin_stats_counters($stats[$server]);
-        $data['cache_transfer'][$server] = _memcache_admin_stats_transfer($stats[$server]);
-        $data['cache_average'][$server] = _memcache_admin_stats_average($stats[$server]);
-        $data['memory_available'][$server] = _memcache_admin_stats_memory($stats[$server]);
-        $data['memory_evictions'][$server] = number_format($stats[$server]['evictions']);
       }
     }
-    // Building a report as a custom formatted array of arrays that gets
-    // properly displayed by theme_memcache_admin_stats_table.
-    $report = array(
-      'Server overview' => array(
-        array_merge(
-          array('header' => t('Uptime')),
-          array('total' => t('n/a')),
-          $data['server_overview']),
-        array_merge(
-          array('header' => t('PECL extension')),
-          array('total' => $version),
-          $data['server_pecl']),
-        array_merge(
-          array('header' => t('Server time')),
-          array('total' => t('n/a')),
-          $data['server_time']),
-        array_merge(
-          array('header' => t('Connections')),
-          array('total' => _memcache_admin_stats_connections($stats['total'])),
-          $data['server_connections']),
-      ),
-      'Cache statistics' => array(
-        array_merge(
-          array('header' => t('Sets')),
-          array('total' => _memcache_admin_stats_sets($stats['total'])),
-          $data['cache_sets']),
-        array_merge(
-          array('header' => t('Gets')),
-          array('total' => _memcache_admin_stats_gets($stats['total'])),
-          $data['cache_gets']),
-        array_merge(
-          array('header' => t('Counters')),
-          array('total' => _memcache_admin_stats_counters($stats['total'])),
-          $data['cache_counters']),
-        array_merge(
-          array('header' => t('Transferred')),
-          array('total' => _memcache_admin_stats_transfer($stats['total'])),
-          $data['cache_transfer']),
-        array_merge(
-          array('header' => t('Per-connection average')),
-          array('total' => _memcache_admin_stats_average($stats['total'])),
-          $data['cache_average']),
-      ),
-      'Memory overview' => array(
-        array_merge(
-          array('header' => t('Available memory')),
-          array('total' => _memcache_admin_stats_memory($stats['total'])),
-          $data['memory_available']),
-        array_merge(
-          array('header' => t('Evictions')),
-          array('total' => number_format($stats['total']['evictions'])),
-          $data['memory_evictions']),
-      ),
+
+    // Don't display aggregate totals if there's only one server.
+    if (count($servers) == 1) {
+      $aggregate = array();
+    }
+
+    // Build a custom report array.
+    $report = array();
+
+    // Report server uptime.
+    $item = array(
+      'label' => t('Uptime'),
+      'servers' => $data['server_overview'],
     );
+    if (count($aggregate)) {
+      $item['total'] = t('n/a');
+    }
+    $report['uptime'][] = $item;
+
+    // Report server PECL extension.
+    $item = array(
+      'label' => t('PECL extension'),
+    );
+    if (count($aggregate)) {
+      $item['servers'] = $data['server_pecl'];
+      $item['total'] = $version;
+    }
+    else {
+      $item['servers'] = array($servers[0] => $version);
+    }
+    $report['uptime'][] = $item;
+
+    // Report server time.
+    $item = array(
+      'label' => t('Time'),
+      'servers' => $data['server_time'],
+    );
+    if (count($aggregate)) {
+      $item['total'] = t('n/a');
+    }
+    $report['uptime'][] = $item;
+
+    // Report number of connections.
+    $item = array(
+      'label' => t('Connections'),
+      'servers' => $data['server_connections'],
+    );
+    if (count($aggregate)) {
+      $item['total'] = _memcache_admin_stats_connections($aggregate);
+    }
+    $report['uptime'][] = $item;
+
+    $stats = array(
+      'sets' => t('Sets'),
+      'gets' => t('Gets'),
+      'counters' => t('Counters'),
+      'transfer' => t('Transferred'),
+      'average' => t('Per-connection average'),
+    );
+    foreach ($stats as $type => $label) {
+      $item = array(
+        'label' => $label,
+        'servers' => $data["cache_{$type}"],
+      );
+      if (count($aggregate)) {
+        $func = "_memcache_admin_stats_{$type}";
+        $item['total'] = $func($aggregate);
+      }
+      $report['stats'][] = $item;
+    }
+
+    // Report on available memory.
+    $item = array(
+      'label' => t('Available memory'),
+      'servers' => $data['memory_available'],
+    );
+    if (count($aggregate)) {
+      $item['total'] = _memcache_admin_stats_memory($aggregate);
+    }
+    $report['memory'][] = $item;
+
+    // Report on memory evictions.
+    $item = array(
+      'label' => t('Evictions'),
+      'servers' => $data['memory_evictions'],
+    );
+    if (count($aggregate)) {
+      $item['total'] = number_format($aggregate['evictions']);
+    }
+    $report['memory'][] = $item;
     $output = theme('memcache_admin_stats_table', array(
       'bin' => $bin,
       'servers' => $servers,
       'report' => $report,
     ));
   }
-  else {
-    $output = '';
-    drupal_set_message(t('There are no statistics being reported for this bin.'), 'error');
-  }
-
   return $output;
 }
 
@@ -460,17 +485,33 @@ function theme_memcache_admin_stats_table($variables) {
   $stats = $variables['report'];
 
   $output = '';
+
   $links = array();
   $memcache_bins = variable_get('memcache_bins', array('cache' => 'default'));
   foreach ($servers as $server) {
     $link_bin = $memcache_bins[$bin];
     $links[] = l($server, check_plain("admin/reports/memcache/$link_bin/$server"));
   }
-  $headers = array_merge(array('', t('Totals')), $links);
+
+  if (count($servers) > 1) {
+    $headers = array_merge(array('', t('Totals')), $links);
+  }
+  else {
+    $headers = array_merge(array(''), $links);
+  }
+
   foreach ($stats as $table => $data) {
     $rows = array();
     foreach ($data as $row) {
-      $rows[] = $row;
+      $r = array();
+      $r[] = $row['label'];
+      if (isset($row['total'])) {
+        $r[] = $row['total'];
+      }
+      foreach ($row['servers'] as $server) {
+        $r[] = $server;
+      }
+      $rows[] = $r;
     }
     $output .= theme('table', array('header' => $headers, 'rows' => $rows));
   }

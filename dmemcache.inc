@@ -287,6 +287,7 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
   // The stats_type can be over-loaded with an integer slab id, if doing a
   // cachedump.  We know we're doing a cachedump if $slab is non-zero.
   $slab = (int) $stats_type;
+  $stats = array();
 
   foreach ($memcache_bins as $bin => $target) {
     if ($stats_bin == $bin) {
