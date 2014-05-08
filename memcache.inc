@@ -173,7 +173,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * Implements DrupalCacheInterface::set().
    */
   public function set($cid, $data, $expire = CACHE_PERMANENT) {
-    $created = time();
+    $created = round(microtime(TRUE), 3);
 
     // Create new cache object.
     $cache = new stdClass();
