@@ -13,6 +13,8 @@ define('MEMCACHED_PECL_RECOMMENDED', '2.0.1');
  */
 function memcache_enable() {
   $error = FALSE;
+  $warning = FALSE;
+  $severity = 'status';
   $memcache = extension_loaded('memcache');
   $memcached = extension_loaded('memcached');
   if (!$memcache && !$memcached) {
@@ -24,7 +26,7 @@ function memcache_enable() {
   }
   else {
     if (!_memcache_version_valid()) {
-      $error = TRUE;
+      $warning = TRUE;
     }
     // Make a test connection to all configured memcache servers.
     $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
@@ -38,9 +40,18 @@ function memcache_enable() {
       }
     }
   }
+
   if ($error) {
-    drupal_set_message(t('There are problems with your Memcache configuration. Please review %readme and visit the Drupal admin !status page for more information.', array('%readme' => 'README.txt', '!status' => l(t('status report'), 'admin/reports/status'))), 'error');
+    $severity = 'error';
   }
+  elseif ($warning) {
+    $severity = 'warning';
+  }
+
+  if ($error || $warning) {
+    drupal_set_message($t('There are problems with your Memcache configuration. Please review %readme and visit the Drupal admin !status page for more information.', array('%readme' => 'README.txt', '!status' => l($t('status report'), 'admin/reports/status'))), $severity);
+  }
+
 }
 
 /**
@@ -51,6 +62,7 @@ function memcache_requirements($phase) {
   $t = get_t();
   $memcache = extension_loaded('memcache');
   $memcached = extension_loaded('memcached');
+
   if ($phase == 'install' || $phase == 'runtime') {
     $requirements['memcache_extension']['title'] = $t('Memcache');
     if (!$memcache && !$memcached) {
@@ -60,6 +72,8 @@ function memcache_requirements($phase) {
   }
   if ($phase == 'runtime') {
     $errors = array();
+    $warnings = array();
+
     if (!$memcache && !$memcached) {
       $errors[] = $t('Required PHP extension not found. Install the <a href="http://php.net/manual/en/book.memcache.php">memcache</a> (recommended) or <a href="http://php.net/manual/en/book.memcached.php">memcached</a> extension.');
     }
@@ -86,7 +100,7 @@ function memcache_requirements($phase) {
       }
 
       if (!_memcache_version_valid()) {
-        $errors[] = $t('PECL !extension version %version is unsupported. Please update to %recommended or newer.', array(
+        $warnings[] = $t('PECL !extension version %version is unsupported. Please update to %recommended or newer.', array(
           '!extension' => $extension,
           '%version' => $version,
           '%recommended' => $recommended,
@@ -128,12 +142,20 @@ function memcache_requirements($phase) {
       }
     }
 
-    if (empty($errors)) {
-      $requirements['memcache_extension']['severity'] = REQUIREMENT_OK;
-    }
-    else {
+    if (!empty($errors)) {
+      // Error takes precedence over warning, stack together errors and
+      // warnings and display as error messages.
+      $errors = array_merge($errors, $warnings);
+      unset($warnings);
       $requirements['memcache_extension']['severity'] = REQUIREMENT_ERROR;
       $requirements['memcache_extension']['description'] = $t('There is a problem with your memcache configuration, check the Drupal logs for additional errors. Please review %readme for help resolving the following !issue: !errors', array('%readme' => 'README.txt', '!issue' => format_plural(count($errors), 'issue', 'issues'), '!errors' => '<ul><li>' . implode('<li>', $errors)));
+    }
+    elseif (!empty($warnings)) {
+      $requirements['memcache_extension']['severity'] = REQUIREMENT_WARNING;
+      $requirements['memcache_extension']['description'] = $t('There is a problem with your memcache configuration. Please review %readme for help resolving the following !issue: !warnings', array('%readme' => 'README.txt', '!issue' => format_plural(count($warnings), 'issue', 'issues'), '!warnings' => '<ul><li>' . implode('<li>', $warnings)));
+    }
+    else {
+      $requirements['memcache_extension']['severity'] = REQUIREMENT_OK;
     }
   }
   return $requirements;
