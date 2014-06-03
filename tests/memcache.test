@@ -663,10 +663,10 @@ class MemCacheClearCase extends MemcacheTestCase {
     $this->assertEqual($random_key, $data['cid'], 'Cache keys match.');
     $this->assertEqual($random_value, $data['data'], 'Cache values match.');
 
-    $this->drupalGet('memcache-test/wildcard-clear/' . $random_wildcard);
+    $this->drupalGet('memcache-test/clear/' . $random_key);
 
     $data = $this->drupalGetAJAX('memcache-test/get/' . $random_key);
-    $this->assertFalse($data, 'Cache was properly flushed.');
+    $this->assertFalse($data, 'Cache value at specific key was properly flushed.');
 
     $data = $this->drupalGetAJAX('memcache-test/set/' . $random_key . '/' . $random_value);
 
