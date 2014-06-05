@@ -49,7 +49,7 @@ function memcache_enable() {
   }
 
   if ($error || $warning) {
-    drupal_set_message($t('There are problems with your Memcache configuration. Please review %readme and visit the Drupal admin !status page for more information.', array('%readme' => 'README.txt', '!status' => l($t('status report'), 'admin/reports/status'))), $severity);
+    drupal_set_message(t('There are problems with your Memcache configuration. Please review %readme and visit the Drupal admin !status page for more information.', array('%readme' => 'README.txt', '!status' => l(t('status report'), 'admin/reports/status'))), $severity);
   }
 
 }
@@ -81,6 +81,7 @@ function memcache_requirements($phase) {
     if (!function_exists('dmemcache_set')) {
       // dmemcache.inc isn't loaded.
       $errors[] = $t('Failed to load required file %dmemcache.', array('%dmemcache' => drupal_get_path('module', 'memcache') . '/' . 'dmemcache.inc'));
+      $requirements['memcache_extension']['value'] = $t('Unknown');
     }
     else {
       $extension = dmemcache_extension();
@@ -92,12 +93,10 @@ function memcache_requirements($phase) {
         $version = phpversion('memcached');
         $recommended = MEMCACHED_PECL_RECOMMENDED;
       }
-      if ($version) {
-        $requirements['memcache_extension']['value'] = $version . _memcache_statistics_link();
+      if (!$version) {
+        $version = $t('Unknown');
       }
-      else {
-        $version = $t('unknown');
-      }
+      $requirements['memcache_extension']['value'] = $version . _memcache_statistics_link();
 
       if (!_memcache_version_valid()) {
         $warnings[] = $t('PECL !extension version %version is unsupported. Please update to %recommended or newer.', array(
