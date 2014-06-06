@@ -313,8 +313,71 @@ $conf['memcache_bins'] = array(
 ## TROUBLESHOOTING ##
 
 PROBLEM:
-Error:
-Failed to set key: Failed to set key: cache_page-......
+ Error:
+  Failed to load required file memcache/dmemcache.inc
+
+SOLUTION:
+You need to enable memcache in settings.php. Search for "Example 1" above
+for a basic configuration example.
+
+PROBLEM:
+ Error:
+  PECL !extension version %version is unsupported. Please update to
+  %recommended or newer.
+
+SOLUTION:
+Upgrade to the latest available PECL extension release. Older PECL extensions
+have known bugs and cause a variety of problems when using the memcache module.
+
+PROBLEM:
+ Error:
+  Failed to connect to memcached server instance at <IP ADDRESS>.
+
+SOLUTION:
+Verify that the memcached daemon is running at the specified IP and PORT. To
+debug you can try to telnet directly to the memcache server from your web
+servers, example:
+   telnet localhost 11211
+
+PROBLEM:
+ Error:
+  Failed to store to then retrieve data from memcache.
+
+SOLUTION:
+Carefully review your settings.php configuration against the above
+documentation. This error simply does a cache_set followed by a cache_get
+and confirms that what is written to the cache can then be read back again.
+This test was added in the 7.x-1.1 release.
+
+The following code is what performs this test -- you can wrap this in a <?php
+tag and execute as a script with 'drush scr' to perform further debugging.
+
+        $cid = 'memcache_requirements_test';
+        $value = 'OK';
+        // Temporarily store a test value in memcache.
+        cache_set($cid, $value, 'cache', 60);
+        // Retreive the test value from memcache.
+        $data = cache_get($cid);
+        if (!isset($data->data) || $data->data !== $value) {
+          echo t('Failed to store to then retrieve data from memcache.');
+        }
+        else {
+          // Test a delete as well.
+          cache_clear_all($cid, 'cache');
+        }
+
+PROBLEM:
+ Error:
+  Unexpected failure when testing memcache configuration.
+
+SOLUTION:
+Be sure the memcache module is properly installed, and that your settings.php
+configuration is correct. This error means an exception was thrown when
+attempting to write to and then read from memcache.
+
+PROBLEM:
+ Error:
+  Failed to set key: Failed to set key: cache_page-......
 
 SOLUTION:
 Upgrade your PECL library to PECL package (2.2.1) (or higher).
