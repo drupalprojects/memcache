@@ -495,10 +495,20 @@ class MemCacheDrupal implements DrupalCacheInterface {
   public function variable_set($name, $value) {
     global $conf;
 
-    db_merge('variable')
-      ->key(array('name' => $name))
-      ->fields(array('value' => serialize($value)))
-      ->execute();
+    // When lots of writes happen in a short period of time db_merge can throw
+    // errors. This should only happen if another request has written the variable
+    // first, so we catch the error to prevent a fatal error.
+    try {
+      db_merge('variable')
+        ->key(array('name' => $name))
+        ->fields(array('value' => serialize($value)))
+        ->execute();
+    }
+    catch (Exception $e) {
+      // We can safely ignore the error, since it's likely a cache flush timestamp
+      // which should still be accurate.
+    }
+
     // If the variables are cached, get a fresh copy, update with the new value
     // and set it again.
     if ($cached = cache_get('variables', 'cache_bootstrap')) {
