@@ -83,10 +83,10 @@ class DrupalMemcacheFactory {
       $cluster = empty($this->memcacheBins[$bin]) ? 'default' : $this->memcacheBins[$bin];
 
       // If this bin isn't in our $memcacheBins configuration array, and the
-      // 'default' cluster is already initialized, map the bin to 'cache'
-      // because we always map the 'cache' bin to the 'default' cluster.
-      if (empty($this->memcacheBins[$bin]) && !empty($this->memcacheCache['cache'])) {
-        $this->memcacheCache[$bin] = &$this->memcacheCache['cache'];
+      // 'default' cluster is already initialized, map the bin to 'default'
+      // because we always map the 'default' bin to the 'default' cluster.
+      if (empty($this->memcacheBins[$bin]) && !empty($this->memcacheCache['default'])) {
+        $this->memcacheCache[$bin] = &$this->memcacheCache['default'];
       }
       else {
         // Create a new Memcache object. Each cluster gets its own Memcache
@@ -160,7 +160,7 @@ class DrupalMemcacheFactory {
 
     // Values from settings.php
     $this->memcacheServers = $this->settings->get('memcache_servers', array('127.0.0.1:11211' => 'default'));
-    $this->memcacheBins = $this->settings->get('memcache_bins', array('cache' => 'default'));
+    $this->memcacheBins = $this->settings->get('memcache_bins', array('default' => 'default'));
 
     // Indicate whether to connect to memcache using a persistent connection.
     // Note: this only affects the Memcache PECL extension, and does not affect
