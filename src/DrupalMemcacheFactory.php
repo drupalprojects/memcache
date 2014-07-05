@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Component\Utility\Settings;
+use Drupal\Core\Site\Settings;
 
 /**
  * Factory class for creation of Memcache objects.
@@ -17,7 +17,7 @@ class DrupalMemcacheFactory {
   /**
    * The settings object.
    *
-   * @var \Drupal\Component\Utility\Settings
+   * @var \Drupal\Core\Site\Settings
    */
   protected $settings;
 

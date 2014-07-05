@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Component\Utility\Settings;
+use Drupal\Core\Site\Settings;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 

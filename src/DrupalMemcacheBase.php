@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Component\Utility\Settings;
+use Drupal\Core\Site\Settings;
 
 /**
  * Class DrupalMemcacheBase.
@@ -24,7 +24,7 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
   /**
    * The settings object.
    *
-   * @var \Drupal\Component\Utility\Settings
+   * @var \Drupal\Core\Site\Settings
    */
   protected $settings;
 
@@ -48,7 +48,7 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
    *
    * @param string $bin
    *   The cache bin.
-   * @param \Drupal\component\Utility\Settings
+   * @param \Drupal\Core\Site\Settings
    *   The settings object.
    */
   public function __construct($bin, Settings $settings) {

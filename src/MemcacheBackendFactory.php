@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Component\Utility\Settings;
+use Drupal\Core\Site\Settings;
 use Drupal\Core\Lock\LockBackendInterface;
 
 /**
@@ -25,7 +25,7 @@ class MemcacheBackendFactory {
   /**
    * The settings object.
    *
-   * @var \Drupal\Component\Utility\Settings
+   * @var \Drupal\Core\Site\Settings
    */
   protected $settings;
 
@@ -41,7 +41,7 @@ class MemcacheBackendFactory {
    *
    * @param \Drupal\Core\Lock\LockBackendInterface $lock
    * @param \Drupal\Core\Config\ConfigFactory $config_factory
-   * @param \Drupal\Component\Utility\Settings $settings
+   * @param \Drupal\Core\Site\Settings $settings
    * @param \Drupal\memcache\DrupalMemcacheFactory $memcache_factory
    */
   function __construct(LockBackendInterface $lock, Settings $settings, DrupalMemcacheFactory $memcache_factory) {
