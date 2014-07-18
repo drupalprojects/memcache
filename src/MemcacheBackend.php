@@ -91,22 +91,20 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   protected function valid($cid, $cache) {
     $lock_key = "memcache_$cid:$this->bin";
+    $cache->valid = FALSE;
 
     if ($cache) {
       // Items that have expired are invalid.
-      if (isset($cache->expire) && ($cache->expire !== CacheBackendInterface::CACHE_PERMANENT) && ($cache->expire <= REQUEST_TIME)) {
+      if (isset($cache->expire) && ($cache->expire != CacheBackendInterface::CACHE_PERMANENT) && ($cache->expire <= REQUEST_TIME)) {
         // If the memcache_stampede_protection variable is set, allow one
         // process to rebuild the cache entry while serving expired content to
         // the rest.
         if ($this->settings->get('memcache_stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if ($this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
-            $cache->valid = FALSE;
+          if (!$this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
+            $cache->valid = TRUE;
           }
-        }
-        else {
-          $cache->valid = FALSE;
         }
       }
       else {
@@ -148,35 +146,14 @@ class MemcacheBackend implements CacheBackendInterface {
     $cache = new \stdClass();
     $cache->cid = $cid;
     $cache->data = is_object($data) ? clone $data : $data;
-    $cache->created = REQUEST_TIME;
+    $cache->created = round(microtime(TRUE), 3);
+    // @todo Do we really want to bother flattening tags? If not, we need to
+    //   modify the core GenericCacheBackendUnitTestBase class.
+    $cache->tags = $this->flattenTags($tags);
+    $cache->expire = $expire;
 
-    // Expire time is in seconds if less than 30 days, otherwise is a timestamp.
-    if ($expire != CacheBackendInterface::CACHE_PERMANENT && ($expire < 2592000)) {
-      // Expire is expressed in seconds, convert to the proper future timestamp
-      // as expected in DrupalMemcache::set().
-      $cache->expire = REQUEST_TIME + $expire;
-    }
-    else {
-      $cache->expire = $expire;
-    }
-
-    // Manually track the expire time in $cache->expire.  When the object
-    // expires, if stampede protection is enabled, it may be served while one
-    // process rebuilds it. The ttl sent to memcache is set to the expire twice
-    // as long into the future, this allows old items to be expired by memcache
-    // rather than evicted along with a sufficient period for stampede
-    // protection to continue to work.
-    if (($cache->expire == CacheBackendInterface::CACHE_PERMANENT)) {
-      $memcache_expire = $cache->expire;
-    }
-    elseif (($cache->expire < REQUEST_TIME)) {
-      $memcache_expire = CacheBackendInterface::CACHE_PERMANENT;
-    }
-    else {
-      $memcache_expire = $cache->expire + ($cache->expire - REQUEST_TIME * 2);
-    }
-
-    return $this->memcache->set($cid, $cache, $memcache_expire);
+    // Cache all items permanently. We handle expiration in our own logic.
+    return $this->memcache->set($cid, $cache);
   }
 
   /**
@@ -285,6 +262,36 @@ class MemcacheBackend implements CacheBackendInterface {
   public function isEmpty() {
     // We do not know so err on the safe side? Not sure if we can know this?
     return TRUE;
+  }
+
+  /**
+   * 'Flattens' a tags array into an array of strings.
+   *
+   * @param array $tags
+   *   Associative array of tags to flatten.
+   *
+   * @return array
+   *   An indexed array of flattened tag identifiers.
+   *
+   * @todo Use CacheTagTrait when https://www.drupal.org/node/2266045 is in.
+   */
+  protected function flattenTags(array $tags) {
+    if (isset($tags[0])) {
+      return $tags;
+    }
+
+    $flat_tags = array();
+    foreach ($tags as $namespace => $values) {
+      if (is_array($values)) {
+        foreach ($values as $value) {
+          $flat_tags[] = "$namespace:$value";
+        }
+      }
+      else {
+        $flat_tags[] = "$namespace:$values";
+      }
+    }
+    return $flat_tags;
   }
 
 }
