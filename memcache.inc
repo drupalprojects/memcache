@@ -463,6 +463,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
 
   /**
    * Helper function to load locking framework if not already loaded.
+   *
+   * @return bool
+   *   Whether the locking system was initialized successfully. This must always
+   *   return TRUE or throw an exception.
    */
   public function lockInit() {
     // On a cache miss when page_cache_without_database is enabled, we can end
@@ -471,6 +475,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
     if (!function_exists('lock_acquire')) {
       drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES, FALSE);
     }
+
+    return TRUE;
   }
 
   /**
