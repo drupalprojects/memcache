@@ -99,5 +99,4 @@ interface DrupalMemcacheInterface {
    *   Whether this server connection is persistent or not.
    */
   public function addServer($server_path, $persistent = FALSE);
-
 }

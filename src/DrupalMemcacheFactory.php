@@ -8,6 +8,7 @@
 namespace Drupal\memcache;
 
 use Drupal\Core\Site\Settings;
+use Psr\Log\LogLevel;
 
 /**
  * Factory class for creation of Memcache objects.
@@ -113,7 +114,7 @@ class DrupalMemcacheFactory {
               // We can't use watchdog because this happens in a bootstrap phase
               // where watchdog is non-functional. Register a shutdown handler
               // instead so it gets recorded at the end of page load.
-              register_shutdown_function('watchdog', 'memcache', 'Failed to connect to memcache server: !server', array('!server' => $s), WATCHDOG_ERROR);
+              register_shutdown_function('memcache_log_warning', LogLevel::ERROR, 'Failed to connect to memcache server: !server', array('!server' => $s));
               $this->failedConnectionCache[$s] = FALSE;
             }
           }

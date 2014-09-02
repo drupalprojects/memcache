@@ -40,7 +40,6 @@ class MemcacheBackendFactory {
    * Constructs the DatabaseBackendFactory object.
    *
    * @param \Drupal\Core\Lock\LockBackendInterface $lock
-   * @param \Drupal\Core\Config\ConfigFactory $config_factory
    * @param \Drupal\Core\Site\Settings $settings
    * @param \Drupal\memcache\DrupalMemcacheFactory $memcache_factory
    */

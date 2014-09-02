@@ -8,6 +8,7 @@
 namespace Drupal\memcache;
 
 use Drupal\Core\Site\Settings;
+use Psr\Log\LogLevel;
 
 /**
  * Class DrupalMemcache.
@@ -79,13 +80,16 @@ class DrupalMemcache extends DrupalMemcacheBase {
       $full_keys[$cid] = $full_key;
     }
 
-    ini_set('track_errors', 1);
-    $error = '';
+    $track_errors = ini_set('track_errors', 1);
+    $php_errormsg = '';
     $results = @$this->memcache->get($full_keys);
 
-    if (!empty($error)) {
-      register_shutdown_function('watchdog', 'memcache', 'Exception caught in DrupalMemcache::getMulti: !msg', array('!msg' => $error), WATCHDOG_WARNING);
+    if (!empty($php_errormsg)) {
+      register_shutdown_function('memcache_log_warning', LogLevel::WARNING, 'Exception caught in DrupalMemcache::getMulti: !msg', array('!msg' => $php_errormsg));
+      $php_errormsg = '';
     }
+
+    ini_set('track_errors', $track_errors);
 
     // If $results is FALSE, convert it to an empty array.
     if (!$results) {

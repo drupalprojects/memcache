@@ -1,6 +1,22 @@
 <?php
+
 /**
  * Provides very limited functionality such as hook_requirements().
- * memcache.inc must be configured in settings.php, and memcache.module is not
- * necessary to use memcache as a cache backend.
+ * Memcache cache backend must be configured in settings.php, and memcache.module
+ * is not strictly necessary to use memcache as a cache backend.
  */
+
+
+/**
+ * Log error.
+ *
+ * @param string $context
+ *   Context (class and function name).
+ * @param string $message
+ *   Message to log.
+ * @param int $level
+ *   Error level.
+ */
+function memcache_log_warning($level, $message, $context) {
+  \Drupal::logger('memcache')->log($level, $message, $context);
+}
