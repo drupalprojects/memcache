@@ -122,8 +122,36 @@ To avoid lock stampedes, it is important that you enable the memacache lock
 implementation when enabling stampede protection -- enabling stampede protection
 without enabling the Memache lock implementation can cause worse performance.
 
-Only change the following values if you're sure you know what you're doing,
-which requires reading the memcachie.inc code.
+Memcache stampede protection is primarily designed to benefit the following
+caching pattern: a miss on a cache_get() for a specific cid is immediately
+followed by a cache_set() for that cid. Of course, this is not the only caching
+pattern used in Drupal, so stampede protection can be selectively disabled for
+optimal performance.  For example, a cache miss in Drupal core's
+module_implements() won't execute a cache_set until drupal_page_footer()
+calls module_implements_write_cache() which can occur much later in page
+generation.  To avoid long hanging locks, stampede protection should be
+disabled for these delayed caching patterns.
+
+Memcache stampede protection can be disabled for entire bins, specific cid's in
+specific bins, or cid's starting with a specific prefix in specific bins. For
+example:
+
+  $conf['memcache_stampede_protection_ignore'] = array(
+    // Ignore stampede protection for the entire 'cache_example' bin.
+    'cache_example',
+    // Ignore some cids in 'cache_bootstrap'.
+    'cache_bootstrap' => array(
+      'module_implements',
+      'variables'
+    ),
+    // Ignore all cids in the 'cache' bin starting with 'i18n:string:'
+    'cache' => array(
+      'i18n:string:*',
+    ),
+  );
+
+Only change the following stampede protection tunables if you're sure you know
+what you're doing, which requires first reading the memcache.inc code.
 
 The value passed to lock_acquire, defaults to '15':
   $conf['memcache_stampede_semaphore'] = 15;
