@@ -142,7 +142,9 @@ example:
     // Ignore some cids in 'cache_bootstrap'.
     'cache_bootstrap' => array(
       'module_implements',
-      'variables'
+      'variables',
+      'schema:runtime:*',
+      'theme_registry:runtime:*',
     ),
     // Ignore all cids in the 'cache' bin starting with 'i18n:string:'
     'cache' => array(

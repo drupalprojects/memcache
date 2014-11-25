@@ -505,13 +505,20 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // The module_implements cache is written after finishing the request.
         'module_implements',
         // Variables have their own lock protection.
-        'variables'
+        'variables',
+        // Both schema and the theme_registry uses DrupalCacheArray, which sets
+        // the cache entry with a class destructor.
+        'schema:runtime:*',
+        'theme_registry:runtime:*',
       ),
       // Disable stampede protection for cid prefix in 'cache'.
       'cache' => array(
         // I18n uses a class destructor to write the cache.
         'i18n:string:*',
       ),
+      // Disable stampede protection for the contrib cache_rules bin as recent
+      // versions of the rules module provides its own stampede protection.
+      'cache_rules',
     ));
 
     // Support ignoring an entire bin.
