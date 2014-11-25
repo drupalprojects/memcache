@@ -284,6 +284,14 @@ minimal collisions.
 
 $conf['memcache_key_hash_algorithm'] = 'sha1';
 
+You can also tune the maximum key length BUT BE AWARE this doesn't affect
+memcached's server-side limitations -- this value is primarily exposed to allow
+you to further shrink the length of keys to optimize network performance.
+Specifying a length larger than 250 will almost certainly lead to problems
+unless you know what you're doing.
+
+$conf['memcache_key_max_length'] = 250;
+
 Visit http://www.php.net/manual/en/function.hash-algos.php to learn more about
 which hash algorithms are available.
 
