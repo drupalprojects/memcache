@@ -32,7 +32,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // If page_cache_without_database is enabled, we have to manually load the
     // $conf array out of cache_bootstrap.
     static $variables_loaded = FALSE;
-    if (!empty($GLOBALS['conf']['page_cache_without_database']) && !$variables_loaded) {
+    // NOTE: We don't call drupal_get_bootstrap_phase() because this would
+    // break all 7.x Drupal installations prior to 7.33. For more information
+    // see https://www.drupal.org/node/667098.
+    if (drupal_bootstrap(NULL, FALSE) < DRUPAL_BOOTSTRAP_VARIABLES && !$variables_loaded) {
       global $conf;
       $variables_loaded = TRUE;
       // Try loading variables from cache. If that fails, we have to bootstrap
