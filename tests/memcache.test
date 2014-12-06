@@ -339,6 +339,20 @@ class MemCacheSavingCase extends MemcacheTestCase {
   }
 
   /**
+   * Test saving and restoring a very large value (>1MiB).
+   */
+  function testLargeValue() {
+    $this->checkVariable(array_fill(0, 500000, rand()));
+  }
+
+  /**
+   * Test save and restoring a string with a long key and a very large value.
+   */
+  function testLongKeyLargeValue() {
+    $this->checkVariable(array_fill(0, 500000, rand()), $this->randomName(300));
+  }
+
+  /**
    * Check or a variable is stored and restored properly.
    */
   public function checkVariable($var, $key = 'test_var') {
