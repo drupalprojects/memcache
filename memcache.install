@@ -14,6 +14,9 @@ function memcache_requirements($phase) {
       $requirements['memcache_extension']['title'] = $t('Extensions not available');
       $requirements['memcache_extension']['value'] = $t('Either the <a href="http://php.net/manual/en/book.memcache.php">memcache</a> or <a href="http://php.net/manual/en/book.memcached.php">memcached</a> extensions must be installed in order to use memcache integration.');
     }
+    else {
+      $requirements['memcache_extension']['value'] = $t('PHP %extension Extension', array('%extension' => $memcache ? $t('Memcache') : $t('Memcached')));
+    }
   }
   if ($phase == 'runtime') {
     if ($memcache) {
