@@ -106,7 +106,7 @@ The memcache-lock.inc file included with this module can be used as a drop-in
 replacement for the database-mediated locking mechanism provided by Drupal
 core. To enable, define the following in your settings.php:
 
-$conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
+  $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
 
 Locks are written in the 'semaphore' table, which will map to the 'default'
 memcache cluster unless you explicitly configure a 'semaphore' cluster.
@@ -116,11 +116,12 @@ memcache cluster unless you explicitly configure a 'semaphore' cluster.
 Memcache includes stampede protection for rebuilding expired and invalid cache
 items.  To enable stampede protection, define the following in settings.php:
 
-$conf['memcache_stampede_protection'] = TRUE;
+  $conf['memcache_stampede_protection'] = TRUE;
 
 To avoid lock stampedes, it is important that you enable the memacache lock
 implementation when enabling stampede protection -- enabling stampede protection
-without enabling the Memache lock implementation can cause worse performance.
+without enabling the Memache lock implementation can cause worse performance and
+can result in dropped locks due to key-length truncation.
 
 Memcache stampede protection is primarily designed to benefit the following
 caching pattern: a miss on a cache_get() for a specific cid is immediately
