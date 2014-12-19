@@ -479,6 +479,12 @@ class MemCacheDrupal implements DrupalCacheInterface {
       drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES, FALSE);
     }
 
+    if (!function_exists('lock_acquire')) {
+      // Bootstrap failed, log error.
+      register_shutdown_function('watchdog', 'memcache', 'Bootstrap failed in lockInit(), lock_acquire() is not available. (phase:!phase)', array('!phase' => drupal_get_bootstrap_phase()), WATCHDOG_ERROR);
+      return FALSE;
+    }
+
     return TRUE;
   }
 
