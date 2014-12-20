@@ -176,13 +176,14 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * Implements DrupalCacheInterface::set().
    */
   public function set($cid, $data, $expire = CACHE_PERMANENT) {
-    $created = round(microtime(TRUE), 3);
+    $created_microtime = round(microtime(TRUE), 3);
 
     // Create new cache object.
     $cache = new stdClass();
     $cache->cid = $cid;
     $cache->data = is_object($data) ? clone $data : $data;
-    $cache->created = $created;
+    $cache->created = REQUEST_TIME;
+    $cache->created_microtime = $created_microtime;
     // Record the previous number of wildcard flushes affecting our cid.
     $cache->flushes = $this->wildcardFlushes($cid);
     if ($expire == CACHE_TEMPORARY) {
