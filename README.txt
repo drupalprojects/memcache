@@ -477,10 +477,10 @@ An example configuration block is below, this block also illustrates our
 default options (selected through performance testing). These options will be
 set unless overridden in settings.php.
 
-$conf['memcache_options'] = array(
-  Memcached::OPT_COMPRESSION => FALSE,
-  Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
-);
+  $conf['memcache_options'] = array(
+    Memcached::OPT_COMPRESSION => FALSE,
+    Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
+  );
 
 These are as follows:
 
@@ -503,3 +503,20 @@ Other options you could experiment with:
       reported that this can speed up the Binary protocol (see above). This
       tells the TCP stack to send packets immediately and without waiting for
       a full payload, reducing per-packet network latency (disabling "Nagling").
+
+It's possible to enable SASL authentication as documented here:
+  http://php.net/manual/en/memcached.setsaslauthdata.php
+  https://code.google.com/p/memcached/wiki/SASLHowto
+
+SASL authentication requires a memcached server with SASL support (version 1.4.3
+or greater built with --enable-sasl and started with the -S flag) and the PECL
+memcached client version 2.0.0 or greater also built with SASL support. Once
+these requirements are satisfied you can then enable SASL support in the Drupal
+memcache module by enabling the binary protocol and setting
+memcache_sasl_username and memcache_sasl_password in settings.php. For example:
+
+  $conf['memcache_options'] = array(
+    Memcached::OPT_BINARY_PROTOCOL => TRUE,
+  );
+  $conf['memcache_sasl_username'] = 'yourSASLUsername';
+  $conf['memcache_sasl_password'] = 'yourSASLPassword';
