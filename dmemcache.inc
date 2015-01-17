@@ -184,7 +184,13 @@ function _dmemcache_set_pieces($key, $value, $exp = 0, $bin = 'cache', $mc = NUL
   }
 
   if (variable_get('memcache_log_data_pieces', 2) && $piece_count >= variable_get('memcache_log_data_pieces', 2)) {
-    register_shutdown_function('watchdog', 'memcache', 'Spent !time ms splitting !bytes object into !pieces pieces, cid = !key', array('!time' => timer_read('memcache_split_data'), '!bytes' => format_size(strlen($data)), '!pieces' => $piece_count, '!key' => dmemcache_key($key, $bin)), WATCHDOG_WARNING);
+    if (function_exists('format_size')) {
+      $data_size = format_size(strlen($data));
+    }
+    else {
+      $data_size = number_format(strlen($data)) . ' byte';
+    }
+    register_shutdown_function('watchdog', 'memcache', 'Spent !time ms splitting !bytes object into !pieces pieces, cid = !key', array('!time' => timer_read('memcache_split_data'), '!bytes' => $data_size, '!pieces' => $piece_count, '!key' => dmemcache_key($key, $bin)), WATCHDOG_WARNING);
   }
 
   $recursion--;
