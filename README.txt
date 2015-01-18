@@ -121,9 +121,9 @@ items.  To enable stampede protection, define the following in settings.php:
 
   $conf['memcache_stampede_protection'] = TRUE;
 
-To avoid lock stampedes, it is important that you enable the memacache lock
+To avoid lock stampedes, it is important that you enable the memcache lock
 implementation when enabling stampede protection -- enabling stampede protection
-without enabling the Memache lock implementation can cause worse performance and
+without enabling the Memcache lock implementation can cause worse performance and
 can result in dropped locks due to key-length truncation.
 
 Memcache stampede protection is primarily designed to benefit the following
