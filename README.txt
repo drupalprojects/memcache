@@ -427,7 +427,7 @@ tag and execute as a script with 'drush scr' to perform further debugging.
         $cid = 'memcache_requirements_test';
         $value = 'OK';
         // Temporarily store a test value in memcache.
-        cache_set($cid, $value, 'cache', 60);
+        cache_set($cid, $value);
         // Retreive the test value from memcache.
         $data = cache_get($cid);
         if (!isset($data->data) || $data->data !== $value) {
