@@ -516,6 +516,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
         'module_implements',
         // Variables have their own lock protection.
         'variables',
+        // Delayed set.
+        'lookup_cache',
         // Both schema and the theme_registry uses DrupalCacheArray, which sets
         // the cache entry with a class destructor.
         'schema:runtime:*',
@@ -523,9 +525,11 @@ class MemCacheDrupal implements DrupalCacheInterface {
       ),
       // Disable stampede protection for cid prefix in 'cache'.
       'cache' => array(
-        // I18n uses a class destructor to write the cache.
+        // I18n uses a class destructor to set the cache.
         'i18n:string:*',
       ),
+      // Delayed set.
+      'cache_path',
       // Disable stampede protection for the contrib cache_rules bin as recent
       // versions of the rules module provides its own stampede protection.
       'cache_rules',

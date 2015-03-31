@@ -141,12 +141,11 @@ specific bins, or cid's starting with a specific prefix in specific bins. For
 example:
 
   $conf['memcache_stampede_protection_ignore'] = array(
-    // Ignore stampede protection for the entire 'cache_example' bin.
-    'cache_example',
     // Ignore some cids in 'cache_bootstrap'.
     'cache_bootstrap' => array(
       'module_implements',
       'variables',
+      'lookup_cache',
       'schema:runtime:*',
       'theme_registry:runtime:*',
     ),
@@ -154,6 +153,10 @@ example:
     'cache' => array(
       'i18n:string:*',
     ),
+    // Disable stampede protection for the entire 'cache_path' and 'cache_rules'
+    // bins.
+    'cache_path',
+    'cache_rules',
   );
 
 Only change the following stampede protection tunables if you're sure you know
