@@ -133,7 +133,7 @@ function lock_wait($name, $delay = 30) {
 function lock_release($name) {
   global $locks;
 
-  if (dmemcache_get($name, 'semaphore') == $locks[$name]) {
+  if (isset($locks[$name]) && (dmemcache_get($name, 'semaphore') == $locks[$name])) {
     dmemcache_delete($name, 'semaphore');
     // We unset unconditionally since caller assumes lock is released anyway.
     unset($locks[$name]);
