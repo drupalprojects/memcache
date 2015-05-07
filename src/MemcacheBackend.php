@@ -8,7 +8,9 @@
 namespace Drupal\memcache;
 
 use Drupal\Core\Site\Settings;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 
 /**
@@ -47,15 +49,37 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * The Settings instance.
    *
-   * @var \Drupal\Component\Utility\Settings
+   * @var \Drupal\Core\Site\Settings
    */
   protected $settings;
 
-  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, Settings $settings) {
+  /**
+   * The cache tags checksum provider.
+   *
+   * @var \Drupal\Core\Cache\CacheTagsChecksumInterface
+   */
+  protected $checksumProvider;
+
+  /**
+   * Constructs a MemcacheBackend object.
+   *\Drupal\Core\Site\Settings
+   * @param string $bin
+   *   The bin name.
+   * @param \Drupal\memcache\DrupalMemcacheInterface $memcache
+   *   The memcache object.
+   * @param \Drupal\Core\Lock\LockBackendInterface $lock
+   *   The lock backend.
+   * @param \Drupal\Core\Site\Settings $settings
+   *   The settings instance.
+   * @param \Drupal\Core\Cache\CacheTagsChecksumInterface $checksum_provider
+   *   The cache tags checksum service.
+   */
+  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, Settings $settings, CacheTagsChecksumInterface $checksum_provider) {
     $this->bin = $bin;
     $this->memcache = $memcache;
     $this->lock = $lock;
     $this->settings = $settings;
+    $this->checksumProvider = $checksum_provider;
   }
 
   /**
@@ -135,6 +159,11 @@ class MemcacheBackend implements CacheBackendInterface {
       }
     }
 
+    // Check if invalidateTags() has been called with any of the items's tags.
+    if (!$this->checksumProvider->isValid($cache->checksum, $cache->tags)) {
+      $cache->valid = FALSE;
+    }
+
     return (bool) $cache->valid;
   }
 
@@ -142,15 +171,19 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function set($cid, $data, $expire = CacheBackendInterface::CACHE_PERMANENT, array $tags = array()) {
+    Cache::validateTags($tags);
+    $tags = array_unique($tags);
+    // Sort the cache tags so that they are stored consistently.
+    sort($tags);
+
     // Create new cache object.
     $cache = new \stdClass();
     $cache->cid = $cid;
     $cache->data = is_object($data) ? clone $data : $data;
     $cache->created = round(microtime(TRUE), 3);
-    // @todo Do we really want to bother flattening tags? If not, we need to
-    //   modify the core GenericCacheBackendUnitTestBase class.
-    $cache->tags = $this->flattenTags($tags);
     $cache->expire = $expire;
+    $cache->tags = $tags;
+    $cache->checksum = $this->checksumProvider->getCurrentChecksum($tags);
 
     // Cache all items permanently. We handle expiration in our own logic.
     return $this->memcache->set($cid, $cache);
@@ -165,6 +198,7 @@ class MemcacheBackend implements CacheBackendInterface {
         'expire' => CacheBackendInterface::CACHE_PERMANENT,
         'tags' => array(),
       );
+
       $this->set($cid, $item['data'], $item['expire'], $item['tags']);
     }
   }
@@ -203,8 +237,8 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * Marks cache items as invalid.
    *
-   * Invalid items may be returned in later calls to get(), if the $allow_invalid
-   * argument is TRUE.
+   * Invalid items may be returned in later calls to get(), if the
+   * $allow_invalid argument is TRUE.
    *
    * @param string $cids
    *   An array of cache IDs to invalidate.
@@ -215,9 +249,11 @@ class MemcacheBackend implements CacheBackendInterface {
    * @see Drupal\Core\Cache\CacheBackendInterface::invalidateAll()
    */
   public function invalidateMultiple(array $cids) {
-    // @todo implement deleteMulti instead?
     foreach ($cids as $cid) {
-      $this->memcache->delete($cid);
+      if ($item = $this->get($cid)) {
+        $item->expire = REQUEST_TIME - 1;
+        $this->memcache->set($cid, $item);
+      }
     }
   }
 
@@ -231,14 +267,8 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * {@inheritdoc}
    */
-  public function deleteTags(array $tags) {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function invalidateTags(array $tags) {
-    // TODO: Implement invalidateTags() method.
+    $this->checksumProvider->invalidateTags($tags);
   }
 
   /**
@@ -262,36 +292,6 @@ class MemcacheBackend implements CacheBackendInterface {
   public function isEmpty() {
     // We do not know so err on the safe side? Not sure if we can know this?
     return TRUE;
-  }
-
-  /**
-   * 'Flattens' a tags array into an array of strings.
-   *
-   * @param array $tags
-   *   Associative array of tags to flatten.
-   *
-   * @return array
-   *   An indexed array of flattened tag identifiers.
-   *
-   * @todo Use CacheTagTrait when https://www.drupal.org/node/2266045 is in.
-   */
-  protected function flattenTags(array $tags) {
-    if (isset($tags[0])) {
-      return $tags;
-    }
-
-    $flat_tags = array();
-    foreach ($tags as $namespace => $values) {
-      if (is_array($values)) {
-        foreach ($values as $value) {
-          $flat_tags[] = "$namespace:$value";
-        }
-      }
-      else {
-        $flat_tags[] = "$namespace:$values";
-      }
-    }
-    return $flat_tags;
   }
 
 }

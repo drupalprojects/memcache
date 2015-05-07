@@ -4,4 +4,4 @@ services:
     arguments: ['@settings']
   cache.backend.memcache:
     class: Drupal\memcache\MemcacheBackendFactory
-    arguments: ['@lock', '@settings', '@memcache.factory']
+    arguments: ['@lock', '@settings', '@memcache.factory', '@cache_tags.invalidator.checksum']
