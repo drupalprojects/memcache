@@ -769,6 +769,29 @@ function dmemcache_piece_cache_get($name) {
   return FALSE;
 }
 
+/**
+ * Provides central static variable storage.
+ *
+ * Backported from Drupal 7 bootstrap.inc (renamed from drupal_static) to
+ * minimize changes when backporting patches from the memcache-7.x-1.x.
+ *
+ * @param $name
+ *   Globally unique name for the variable. For a function with only one static,
+ *   variable, the function name (e.g. via the PHP magic __FUNCTION__ constant)
+ *   is recommended. For a function with multiple static variables add a
+ *   distinguishing suffix to the function name for each one.
+ * @param $default_value
+ *   Optional default value.
+ * @param $reset
+ *   TRUE to reset one or all variables(s). This parameter is only used
+ *   internally and should not be passed in; use drupal_static_reset() instead.
+ *   (This function's return value should not be used when TRUE is passed in.)
+ *
+ * @return
+ *   Returns a variable by reference.
+ *
+ * @see drupal_static_reset()
+ */
 function &dmemcache_static($name, $default_value = NULL, $reset = FALSE) {
   static $data = array(), $default = array();
   // First check if dealing with a previously defined static variable.
@@ -802,6 +825,17 @@ function &dmemcache_static($name, $default_value = NULL, $reset = FALSE) {
   return $data;
 }
 
+/**
+ * Resets one or all centrally stored static variable(s).
+ *
+ * Backported from Drupal 7 bootstrap.inc (renamed from drupal_static) to
+ * minimize changes when backporting patches from the memcache-7.x-1.x.
+ *
+ * @param $name
+ *   Name of the static variable to reset. Omit to reset all variables.
+ *   Resetting all variables should only be used, for example, for running unit
+ *   tests with a clean environment.
+ */
 function dmemcache_static_reset($name = NULL) {
   dmemcache_static($name, NULL, TRUE);
 }
