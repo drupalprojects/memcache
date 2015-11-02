@@ -10,8 +10,8 @@
 
 define('MEMCACHED_E2BIG', 37);
 
-global $_memcache_statistics;
-$_memcache_statistics = array();
+global $_dmemcache_stats;
+$_dmemcache_stats = array('all' => array(), 'ops' => array());
 
 /*
  * A memcache API for Drupal.
@@ -32,17 +32,19 @@ $_memcache_statistics = array();
  * @return bool
  */
 function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
-  global $_memcache_statistics;
+  $collect_stats = dmemcache_stats_init();
+
   $full_key = dmemcache_key($key, $bin);
-  $success = FALSE;
+
+  $rc = FALSE;
   if ($mc = dmemcache_object($bin)) {
     if ($mc instanceof Memcached) {
-      $success = $mc->set($full_key, $value, $exp);
-      if (empty($success)) {
+      $rc = $mc->set($full_key, $value, $exp);
+      if (empty($rc)) {
         // If there was a MEMCACHED_E2BIG error, split the value into pieces
         // and cache them individually.
         if ($mc->getResultCode() == MEMCACHED_E2BIG) {
-          $success = _dmemcache_set_pieces($key, $value, $exp, $bin, $mc);
+          $rc = _dmemcache_set_pieces($key, $value, $exp, $bin, $mc);
         }
       }
     }
@@ -52,21 +54,25 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache') {
       // Catch it with our own error handler.
       dmemcache_static_reset('_dmemcache_error_handler');
       set_error_handler('_dmemcache_error_handler');
-      $success = $mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp);
+      $rc = $mc->set($full_key, $value, MEMCACHE_COMPRESSED, $exp);
       // Restore the Drupal error handler.
       restore_error_handler();
-      if (empty($success)) {
+      if (empty($rc)) {
         // If the object was too big, split the value into pieces and cache
         // them individually.
         $dmemcache_errormsg = &dmemcache_static('_dmemcache_error_handler');
         if (!empty($dmemcache_errormsg) && (strpos($dmemcache_errormsg, 'SERVER_ERROR object too large for cache') !== FALSE || strpos($dmemcache_errormsg, 'SERVER_ERROR out of memory storing object') !== FALSE)) {
-          $success = _dmemcache_set_pieces($key, $value, $exp, $bin, $mc);
+          $rc = _dmemcache_set_pieces($key, $value, $exp, $bin, $mc);
         }
       }
     }
   }
-  $_memcache_statistics[] = array('set', $bin, $full_key, (int)$success);
-  return $success;
+
+  if ($collect_stats) {
+    dmemcache_stats_write('set', $bin, array($full_key => $rc));
+  }
+
+  return $rc;
 }
 
  /**
@@ -208,19 +214,25 @@ function _dmemcache_set_pieces($key, $value, $exp = 0, $bin = 'cache', $mc = NUL
  * @return bool
  */
 function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag = FALSE) {
-  global $_memcache_statistics;
+  $collect_stats = dmemcache_stats_init();
+
   $full_key = dmemcache_key($key, $bin);
-  $success = FALSE;
+
+  $rc = FALSE;
   if ($mc || ($mc = dmemcache_object($bin))) {
     if ($mc instanceof Memcached) {
-      $success = $mc->add($full_key, $value, $exp);
+      $rc = $mc->add($full_key, $value, $exp);
     }
     elseif ($mc instanceof Memcache) {
-      $success = $mc->add($full_key, $value, $flag, $exp);
+      $rc = $mc->add($full_key, $value, $flag, $exp);
     }
   }
-  $_memcache_statistics[] = array('add', $bin, $full_key, (int)$success);
-  return $success;
+
+  if ($collect_stats) {
+    dmemcache_stats_write('add', $bin, array($full_key => $rc));
+  }
+
+  return $rc;
 }
 
 /**
@@ -232,10 +244,11 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
  * @return The item which was originally saved or FALSE
  */
 function dmemcache_get($key, $bin = 'cache') {
-  global $_memcache_statistics;
+  $collect_stats = dmemcache_stats_init();
+
+  $result = FALSE;
+
   $full_key = dmemcache_key($key, $bin);
-  $statistics = array('get', $bin, $full_key);
-  $success = '0';
   if ($mc = dmemcache_object($bin)) {
     $track_errors = ini_set('track_errors', '1');
     $php_errormsg = '';
@@ -246,17 +259,18 @@ function dmemcache_get($key, $bin = 'cache') {
       $result = _dmemcache_get_pieces($result->data, $result->cid, $bin, $mc);
     }
 
-    $statistics[] = (bool) $result;
-    $_memcache_statistics[] = $statistics;
-
     if (!empty($php_errormsg)) {
       register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
       $php_errormsg = '';
     }
     ini_set('track_errors', $track_errors);
-
-    return $result;
   }
+
+  if ($collect_stats) {
+    dmemcache_stats_write('get', $bin, array($full_key => (bool) $result));
+  }
+
+  return $result;
 }
 
  /**
@@ -322,14 +336,18 @@ function _dmemcache_key_piece($key, $id) {
  * @return The item which was originally saved or FALSE
  */
 function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
-  global $_memcache_statistics;
+  $collect_stats = dmemcache_stats_init();
+  $multi_stats = array();
 
   $full_keys = array();
 
   foreach ($keys as $key => $cid) {
     $full_key = dmemcache_key($cid, $bin);
-    $statistics[$full_key] = array('getMulti', $bin, $full_key);
     $full_keys[$cid] = $full_key;
+
+    if ($collect_stats) {
+      $multi_stats[$full_key] = FALSE;
+    }
   }
 
   $results = array();
@@ -355,9 +373,10 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
     $results = array();
   }
 
-  foreach ($statistics as $key => $value) {
-    $values[] = isset($results[$key]) ? '1': '0';
-    $_memcache_statistics[] = $values;
+  if ($collect_stats) {
+    foreach ($multi_stats as $key => $value) {
+      $multi_stats[$key] = isset($results[$key]) ? TRUE : FALSE;
+    }
   }
 
   // Convert the full keys back to the cid.
@@ -371,7 +390,11 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
     $cid_results[$cid_lookup[$key]] = $value;
   }
 
-  return $results;
+  if ($collect_stats) {
+    dmemcache_stats_write('getMulti', $bin, $multi_stats);
+  }
+
+  return $cid_results;
 }
 
 /**
@@ -383,12 +406,14 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
  * @return Returns TRUE on success or FALSE on failure.
  */
 function dmemcache_delete($key, $bin = 'cache') {
-  global $_memcache_statistics;
+  $collect_stats = dmemcache_stats_init();
+
   $full_key = dmemcache_key($key, $bin);
-  $success = FALSE;
+
+  $rc = FALSE;
   if ($mc = dmemcache_object($bin)) {
-    $success = $mc->delete($full_key, 0);
-    if ($success) {
+    $rc = $mc->delete($full_key, 0);
+    if ($rc) {
       // If the delete succeeded, we now check to see if this item has multiple
       // pieces also needing to be cleaned up. If the delete failed, we assume
       // these keys have already expired or been deleted (memcache will
@@ -429,8 +454,12 @@ function dmemcache_delete($key, $bin = 'cache') {
       }
     }
   }
-  $_memcache_statistics[] = array('delete', $bin, $full_key, (int)$success);
-  return $success;
+
+  if ($collect_stats) {
+    dmemcache_stats_write('delete', $bin, array($full_key => $rc));
+  }
+
+  return $rc;
 }
 
 /**
@@ -444,11 +473,18 @@ function dmemcache_delete($key, $bin = 'cache') {
  * @return Returns TRUE on success or FALSE on failure.
  */
 function dmemcache_flush($bin = 'cache') {
-  global $_memcache_statistics;
-  $_memcache_statistics[] = array('flush', $bin, '', '');
+  $collect_stats = dmemcache_stats_init();
+
+  $rc = FALSE;
   if ($mc = dmemcache_object($bin)) {
-    return $mc->flush();
+    $rc = $mc->flush();
   }
+
+  if ($collect_stats) {
+    dmemcache_stats_write('flush', $bin, array('' => $rc));
+  }
+
+  return $rc;
 }
 
 function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggregate = FALSE) {
@@ -456,6 +492,7 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
   // The stats_type can be over-loaded with an integer slab id, if doing a
   // cachedump.  We know we're doing a cachedump if $slab is non-zero.
   $slab = (int)$stats_type;
+  $stats = array();
 
   foreach ($memcache_bins as $bin => $target) {
     if ($stats_bin == $bin) {
@@ -725,7 +762,6 @@ function dmemcache_key($key = '', $bin = 'cache', $reset = FALSE) {
     $full_key .= '-' . substr(urlencode($key), 0, ($maxlen - 1) - strlen($full_key) - 1);
   }
 
-
   return $full_key;
 }
 
@@ -797,6 +833,86 @@ function dmemcache_piece_cache_get($name) {
   }
   // Item doesn't have multiple pieces.
   return FALSE;
+}
+
+/**
+ * Collect statistics if enabled.
+ *
+ * Optimized function to determine whether or not we should be collecting
+ * statistics. Also starts a timer to track how long individual memcache
+ * operations take.
+ *
+ * @return bool
+ *   TRUE or FALSE if statistics should be collected.
+ */
+function dmemcache_stats_init() {
+  static $drupal_static_fast;
+
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast = &dmemcache_static(__FUNCTION__, array('variable_checked' => NULL, 'user_access_checked' => NULL));
+  }
+  $variable_checked = &$drupal_static_fast['variable_checked'];
+  $user_access_checked  = &$drupal_static_fast['user_access_checked'];
+
+  // Confirm DRUPAL_BOOTSTRAP_VARIABLES has been reached. We don't use
+  // drupal_get_bootstrap_phase() as it's buggy. We can use variable_get() here
+  // because _drupal_bootstrap_variables() includes module.inc immediately
+  // after it calls variable_initialize().
+  if (!isset($variable_checked) && function_exists('module_list')) {
+    $variable_checked = variable_get('show_memcache_statistics', FALSE);
+  }
+  // If statistics are enabled we need to check user access.
+  if (!empty($variable_checked) && !isset($user_access_checked) && !empty($GLOBALS['user']) && function_exists('user_access')) {
+    // Statistics are enabled and the $user object has been populated, so check
+    // that the user has access to view them.
+    $user_access_checked = user_access('access memcache statistics');
+  }
+  // Return whether or not statistics are enabled and the user can access them.
+  if ((!isset($variable_checked) || $variable_checked) && (!isset($user_access_checked) || $user_access_checked)) {
+    timer_start('dmemcache');
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Save memcache statistics to be displayed at end of page generation.
+ *
+ * @param string $action
+ *   The action being performed (get, set, etc...).
+ * @param string $bin
+ *   The memcache bin the action is being performed in.
+ * @param array $keys
+ *   Keyed array in the form (string)$cid => (bool)$success. The keys the
+ *   action is being performed on, and whether or not it was a success.
+ */
+function dmemcache_stats_write($action, $bin, $keys) {
+  global $_dmemcache_stats;
+  // Determine how much time elapsed to execute this action.
+  $time = timer_read('dmemcache');
+  // Build the 'all' and 'ops' arrays displayed by memcache_admin.module.
+  foreach ($keys as $key => $success) {
+    $_dmemcache_stats['all'][] = array(
+      number_format($time, 2),
+      $action,
+      $bin,
+      $key,
+      $success ? 'hit' : 'miss',
+    );
+    if (!isset($_dmemcache_stats['ops'][$action])) {
+      $_dmemcache_stats['ops'][$action] = array($action, 0, 0, 0);
+    }
+    $_dmemcache_stats['ops'][$action][1] += $time;
+    if ($success) {
+      $_dmemcache_stats['ops'][$action][2]++;
+    }
+    else {
+      $_dmemcache_stats['ops'][$action][3]++;
+    }
+  }
+  // Reset the dmemcache timer for timing the next memcache operation.
 }
 
 /**
