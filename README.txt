@@ -154,6 +154,36 @@ $conf = array(
   'memcache_key_prefix' => 'something_unique',
 );
 
+## MAXIMUM LENGTHS ##
+By default, the memcached server can store objects up to 1 MiB in size. It's
+possible to increase the memcached page size to support larger objects, but this
+can also lead to wasted memory. Alternatively, the Drupal memcache module splits
+these large objects into smaller pieces. By default, the Drupal memcache module
+splits objects into 1 MiB sized pieces. You can modify this with the following
+tunable to match any special server configuration you may have. NOTE: Increasing
+this value without making changes to your memcached server can result in
+failures to cache large items.
+
+(Note: 1 MiB = 1024 x 1024 = 1048576.)
+
+$conf['memcache_data_max_length'] = 1048576;
+
+It is generally undesirable to store excessively large objects in memcache as
+this can result in a performance penalty. Because of this, by default the Drupal
+memcache module logs any time an object is cached that has to be split into
+multiple pieces. If this is generating too many watchdog logs, you should first
+understand why these objects are so large and if anything can be done to make
+them smaller. If you determine that the large size is valid and is not causing
+you any unnecessary performance penalty, you can tune the following variable to
+minimize or disable this logging. Set the value to a positive integer to only
+log when an object is split into this many or more pieces. For example, if
+memcache_data_max_length is set to 1048576 and memcache_log_data_pieces is set
+to 5, watchdog logs will only be written when an object is split into 5 or more
+pieces (objects >4 MiB in size). Or, to to completely disable logging set
+memcache_log_data_pieces to 0 or FALSE.
+
+$conf['memcache_log_data_pieces'] = 2;
+
 ## SESSIONS ##
 
 Here is a sample config that uses memcache for sessions. Note you MUST have
