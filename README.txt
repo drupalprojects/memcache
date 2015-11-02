@@ -155,6 +155,25 @@ $conf = array(
 );
 
 ## MAXIMUM LENGTHS ##
+
+If the length of your prefix + key + bin combine to be more than 250 characters,
+they will be automatically hashed. Memcache only supports key lengths up to 250
+bytes. You can optionally configure the hashing algorithm used, however sha1 was
+selected as the default because it performs quickly with minimal collisions.
+
+Visit http://www.php.net/manual/en/function.hash-algos.php to learn more about
+which hash algorithms are available.
+
+$conf['memcache_key_hash_algorithm'] = 'sha1';
+
+You can also tune the maximum key length BUT BE AWARE this doesn't affect
+memcached's server-side limitations -- this value is primarily exposed to allow
+you to further shrink the length of keys to optimize network performance.
+Specifying a length larger than 250 will almost certainly lead to problems
+unless you know what you're doing.
+
+$conf['memcache_key_max_length'] = 250;
+
 By default, the memcached server can store objects up to 1 MiB in size. It's
 possible to increase the memcached page size to support larger objects, but this
 can also lead to wasted memory. Alternatively, the Drupal memcache module splits
