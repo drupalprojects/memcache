@@ -29,6 +29,17 @@ function memcache_admin_perm() {
  * Implementation of hook_menu().
  */
 function memcache_admin_menu() {
+  if (module_exists('memcache') && module_exists('admin_menu')) {
+    // This is a workaround for issue #1807914. When both admin_menu and
+    // memcache modules are enabled, there is a crossover with
+    // hook_admin_menu().
+    $backtrace = debug_backtrace(FALSE, 1);
+    if (isset($backtrace[0]['file']) && stripos($backtrace[0]['file'], '/admin_menu/') !== FALSE) {
+      // The function has been called by the admin_menu module.
+      return array();
+    }
+  }
+
   $items['admin/settings/memcache'] = array(
     'title' => 'Memcache',
     'description' => 'Show or hide memcache statistics at the bottom of each page.',
