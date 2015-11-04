@@ -13,7 +13,7 @@ require_once dirname(__FILE__) . '/dmemcache.inc';
 // http://drupal.org/node/1225404
 $lock_file = dirname(__FILE__) . '/memcache-lock-code.inc';
 if (!dmemcache_object('semaphore')) {
-  $lock_file = DRUPAL_ROOT . '/includes/lock.inc';
+  $lock_file = getcwd() . '/includes/lock.inc';
 }
 require_once $lock_file;
 

@@ -245,7 +245,7 @@ function memcache_admin_stats($bin = 'cache') {
 
   $memcache_servers = variable_get('memcache_servers', array('127.0.0.1:11211' => 'default'));
 
-  if (is_array($stats[$bin]) && count($stats[$bin])) {
+  if (isset($stats[$bin]) && is_array($stats[$bin]) && count($stats[$bin])) {
     $stats = $stats[$bin];
 
     $mc = dmemcache_object($bin);

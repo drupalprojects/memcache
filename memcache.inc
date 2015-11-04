@@ -248,6 +248,11 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
     return _cache_clear_all($cid, $table, $wildcard);
   }
 
+  if (dmemcache_object($table) === FALSE) {
+    // No memcache connection.
+    return;
+  }
+
   if (!isset($cid) && isset($table)) {
     // cache_clear_all(NULL, $table) is for garbage collection only, memcache
     // does not need this due to design, so make these calls a no-op.
