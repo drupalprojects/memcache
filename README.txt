@@ -361,26 +361,53 @@ $conf['memcache_options'] = array(
 
 Memcache now includes stampede protection for expired and invalid cache items.
 To enable stampede protection, enable it in settings.php
-$conf['memcache_stampede_protection'] = TRUE;
+  $conf['memcache_stampede_protection'] = TRUE;
 
-Stampede protection relies on the locking framework. It is strongly recommended
-to use the memcache lock implementation instead of core's SQL implementation.
-This is especially true if using the stampede protection since a lock stampede
-may be as bad or worse than a cache stampede if using SQL.
-$conf['lock_inc'] = './sites/all/modules/memcache/memcache-lock.inc';
+To avoid lock stampedes, it is important that you enable the memcache lock
+implementation when enabling stampede protection -- enabling stampede protection
+without enabling the Memcache lock implementation can cause worse performance and
+can result in dropped locks due to key-length truncation.
+  $conf['lock_inc'] = './sites/all/modules/memcache/memcache-lock.inc';
 
-Behaviour of the stampede protection can be tweaked via the following, see
-comments in memcache.inc for more.
+Memcache stampede protection is primarily designed to benefit the following
+caching pattern: a miss on a cache_get() for a specific cid is immediately
+followed by a cache_set() for that cid. Of course, this is not the only caching
+pattern used in Drupal, so stampede protection can be selectively disabled for
+optimal performance.  For example, a cache miss in Drupal core's
+module_implements() won't execute a cache_set until drupal_page_footer()
+calls module_implements_write_cache() which can occur much later in page
+generation.  To avoid long hanging locks, stampede protection should be
+disabled for these delayed caching patterns.
+
+Memcache stampede protection can be disabled for entire bins, specific cid's in
+specific bins, or cid's starting with a specific prefix in specific bins. For
+example:
+
+  $conf['memcache_stampede_protection_ignore'] = array(
+    // Ignore the variables cache and all cids starting with 'i18n:string:'
+    // in the cache bin.
+    'cache' => array(
+      'variables',
+      'i18n:string:*',
+    ),
+    // Disable stampede protection for the entire 'cache_path' and 'cache_rules'
+    // bins.
+    'cache_path',
+    'cache_rules',
+  );
+
+Only change the following stampede protection tunables if you're sure you know
+what you're doing, which requires first reading the memcache.inc code.
 
 The value passed to lock_acquire. Defaults to '15'.
-$conf['memcache_stampede_semaphore'] = 15;
+  $conf['memcache_stampede_semaphore'] = 15;
 
 The value to pass to lock_wait, defaults to 5.
-$conf['memcache_stampede_wait_time'] = 5;
+  $conf['memcache_stampede_wait_time'] = 5;
 
 The limit of calls to lock_wait() due to stampede protection during one request.
 Defaults to 3.
-$conf['memcache_stampede_wait_limit'] = 3;
+  $conf['memcache_stampede_wait_limit'] = 3;
 
 When setting these variables, note that:
  - there is unlikely to be a good use case for setting wait_time higher

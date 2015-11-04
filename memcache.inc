@@ -57,7 +57,7 @@ function cache_get($cid, $table = 'cache') {
       // relies on cron to expire them, but this is mostly reliant on its
       // use of CACHE_TEMPORARY which does not map well to memcache.
       // @see http://drupal.org/node/534092
-      if (variable_get('memcache_stampede_protection', FALSE)) {
+      if (variable_get('memcache_stampede_protection', FALSE) && memcache_stampede_protected($cid, $table)) {
         // The process that acquires the lock will get a cache miss, all
         // others will get a cache hit.
         if (lock_acquire("memcache_$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
@@ -109,7 +109,7 @@ function cache_get($cid, $table = 'cache') {
   // On cache misses, attempt to avoid stampedes when the
   // memcache_stampede_protection variable is enabled.
   if (!$cache) {
-    if (variable_get('memcache_stampede_protection', FALSE) && !lock_acquire("memcache_$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
+    if (variable_get('memcache_stampede_protection', FALSE) && memcache_stampede_protected($cid, $table) && !lock_acquire("memcache_$cid:$table", variable_get('memcache_stampede_semaphore', 15))) {
       // Prevent any single request from waiting more than three times due to
       // stampede protection. By default this is a maximum total wait of 15
       // seconds. This accounts for two possibilities - a cache and lock miss
@@ -458,4 +458,59 @@ function memcache_variable_set($name, $value) {
   }
   // If the variables aren't cached, there's no need to do anything.
   $conf[$name] = $value;
+}
+
+/**
+ * Determines whether stampede protection is enabled for a given bin/cid.
+ *
+ * Memcache stampede protection is primarily designed to benefit the following
+ * caching pattern: a miss on a cache_get for a specific cid is immediately
+ * followed by a cache_set for that cid. In cases where this pattern is not
+ * followed, stampede protection can be disabled to avoid long hanging locks.
+ * For example, a cache miss in Drupal core's module_implements() won't
+ * execute a cache_set until drupal_page_footer() calls
+ * module_implements_write_cache() which can occur much later in page
+ * generation.
+ *
+ * @param string $cid
+ *   The cache id of the data to retrieve.
+ * @param string $bin
+ *   The bin the data is stored in.
+ *
+ * @return bool
+ *   Returns TRUE if stampede protection is enabled for that particular cache
+ *   bin/cid, otherwise FALSE.
+ */
+function memcache_stampede_protected($cid, $bin) {
+  $ignore_settings = variable_get('memcache_stampede_protection_ignore', array(
+    // Disable stampede protection for specific cids in 'cache_bootstrap'.
+    'cache' => array(
+      // Variables have their own lock protection.
+      'variables',
+      // I18n uses a class destructor to write the cache.
+      'i18n:string:*',
+    ),
+  ));
+
+  // Support ignoring an entire bin.
+  if (in_array($bin, $ignore_settings)) {
+    return FALSE;
+  }
+
+  // Support ignoring by cids.
+  if (isset($ignore_settings[$bin])) {
+    // Support ignoring specific cids.
+    if (in_array($cid, $ignore_settings[$bin])) {
+      return FALSE;
+    }
+    // Support ignoring cids starting with a suffix.
+    foreach ($ignore_settings[$bin] as $ignore) {
+      $split = explode('*', $ignore);
+      if (count($split) > 1 && strpos($cid, $split[0]) === 0) {
+        return FALSE;
+      }
+    }
+  }
+
+  return TRUE;
 }
