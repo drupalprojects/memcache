@@ -1,149 +1,270 @@
+## IMPORTANT NOTE ##
 
-## Requirements ##
+This file contains installation instructions for the 6.x-1.x version of the
+Drupal Memcache module. Configuration differs between 6.x and 7.x versions
+of the module, so be sure to follow the 7.x instructions if you are configuring
+the 7.x-1.x version of this module!
+
+## REQUIREMENTS ##
 
 - PHP 5.1 or greater
 - Availability of a memcached daemon: http://memcached.org/
 - One of the two PECL memcache packages:
-  - http://pecl.php.net/package/memcache (older, most stable)
-  - http://pecl.php.net/package/memcached (newer, possible performance issues)
+  - http://pecl.php.net/package/memcache (recommended)
+  - http://pecl.php.net/package/memcached (latest versions require PHP 5.2 or
+    greater)
 
 ## INSTALLATION ##
 
-These are the broad steps you need to take in order to use this software. Order
+These are the steps you need to take in order to use this software. Order
 is important.
 
-1. Install the memcached binaries on your server. See 
+ 1. Install the memcached binaries on your server and start the memcached
+    service. Follow best practices for securing the service; for example,
+    lock it down so only your web servers can make connections.
+ 2. Install your chosen PECL memcache extension -- this is the memcache client
+    library which will be used by the Drupal memcache module to interact with
+    the memcached server(s). Generally PECL memcache (3.0.6+) is recommended,
+    but PECL memcached (2.0.1+) also works well for some people. There are
+    known issues with older version.
+ 3. Put your site into offline mode.
+ 4. Download and install the memcache module.
+ 5. If you have previously been running the memcache module, run update.php.
+ 6. Optionally edit settings.php to configure the servers, clusters and bins
+    for memcache to use. If you skip this step the Drupal module will attempt to
+    talk to the memcache server on port 11211 on the local host, storing all
+    data in a single bin. This is sufficient for most smaller, single-server
+    installations.
+ 7. Edit settings.php to make memcache the default cache system, for example:
+      $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
+    The cache_inc path needs to be adjusted based on where you installed
+    the module.
+ 8. Bring your site back online.
 
-http://www.lullabot.com/articles/how_install_memcache_debian_etch
-
-2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or 
-   higher or you will experience errors.
-3. Put your site into offline mode.
-4. Download and install the memcache module.
-5. If you have previously been running the memcache module, run update.php.
-6. Start at least one instance of memcached on your server.
-7. Optionally edit settings.php to configure the servers, clusters and bins
-   for memcache to use. If you skip this step the Drupal module will attempt to
-   talk to the memcache server on port 11211 on the local host, storing all
-   data in a single bin. This is sufficient for most smaller, single-server
-   installations.
-8. Edit settings.php to include either memcache.inc. For
-   example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
-9. Bring your site back online.
-
-For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
-comes with the memcache module download.
-
-The memcache.inc file is intended to be used instead of cache.inc, utilizing
-Drupal's pluggable cache system.
+For more detailed instructions on (1) and (2) above, please see the
+documentation online on drupal.org which includes links to external
+walk-throughs for various operating systems.
 
 memcache.db.inc IS DEPRECATED AND IS NOT RECOMMENDED. It is still distributed
 with the 6.x-1.x branch, but will not be included in any further versions and
 may be removed in future 6.x releases.
 
-Update $conf in settings.php to tell Drupal where the cache_inc file is:
+## Advanced Configuration ##
 
- $conf = array(
-   // The path to wherever memcache.inc is. The easiest is to simply point it
-   // to the copy in your module's directory.
-   'cache_inc' => './sites/all/modules/memcache/memcache.inc',
- );
-
-## SERVERS ##
-
-If you want the simple version, you can start one default memcache instance on
-your web server like this: memcached -m 24 -p 11211 -d
-If that is enough to meet your needs, there is no more configuration needed. If
-you want to utilize this module's sophisticated clustering feature and spread
-your cache over several machines, or if your cache is found on a machine other
-than your web server, read on.
-
-The available memcached servers are specified in $conf in settings.php. If
-you do not specify any servers, memcache.inc assumes that you have a
-memcached instance running on 10.0.0.1:11211. If this is true, and it is
-the only memcached instance you wish to use, no further configuration is
+This module is capable of working with one memcached instance or with multiple
+memcached instances run across one or more servers. The default is to use one
+server accessible on localhost port 11211. If that meets your needs, then the
+configuration settings outlined above are sufficient for the module to work.
+If you want to use multiple memcached instances, or if you are connecting to a
+memcached instance located on a remote machine, further configuration is
 required.
 
-If you have more than one memcached instance running, you need to add two
-arrays to $conf; memcache_servers and memcache_bins. The arrays follow this
-pattern:
+The available memcached servers are specified in $conf in settings.php. If you
+do not specify any servers, memcache.inc assumes that you have a memcached
+instance running on localhost:11211. If this is true, and it is the only
+memcached instance you wish to use, no further configuration is required.
+
+If you have more than one memcached instance running, you need to add two arrays
+to $conf; memcache_servers and memcache_bins. The arrays follow this pattern:
 
 'memcache_servers' => array(
-  host1:port => cluster, 
-  host2:port => cluster, 
-  hostN:port => cluster
+  server1:port => cluster1,
+  server2:port => cluster2,
+  serverN:port => clusterN,
+  'unix:///path/to/socket' => clusterS
 )
 
-'memcache_bins' => array(bin1 => cluster, bin2 => cluster, binN => cluster)
+'memcache_bins' => array(
+   bin1 => cluster1,
+   bin2 => cluster2,
+   binN => clusterN,
+   binS => clusterS
+)
 
 The bin/cluster/server model can be described as follows:
 
 - Servers are memcached instances identified by host:port.
 
+- Clusters are groups of servers that act as a memory pool. Each cluster can
+  contain one or more servers.
+
 - Bins are groups of data that get cached together and map 1:1 to the $table
-  param in cache_set(). Examples from Drupal core are cache_filter,
+  parameter of cache_set(). Examples from Drupal core are cache_filter and
   cache_menu. The default is 'cache'.
 
-- Clusters are groups of servers that act as a memory pool.
-
-- many bins can be assigned to a cluster.
+- Multiple bins can be assigned to a cluster.
 
 - The default cluster is 'default'.
 
-Here is a simple setup that has two memcached instances, both running on
-localhost. The 11212 instance belongs to the 'pages' cluster and the table
-cache_page is mapped to the 'pages' cluster. Thus everything that gets cached,
-with the exception of the page cache (cache_page), will be put into 'default',
-or the 11211 instance. The page cache will be in 11212.
+## LOCKING ##
 
-$conf = array(
-  ...
-  // Important to define a default cluster in both the servers
-  // and in the bins. This links them together.
-  'memcache_servers' => array('10.0.0.1:11211' => 'default',
-                              '10.0.0.1:11212' => 'pages'),
-  'memcache_bins' => array('cache' => 'default',
-                           'cache_page' => 'pages'),
-);
+The memcache-lock.inc file included with this module can be used as a drop-in
+replacement for the database-mediated locking mechanism provided by Drupal
+core. To enable, define the following in your settings.php:
 
-Here is an example configuration that has two clusters, 'default' and
-'cluster2'. Five memcached instances are divided up between the two
-clusters. 'cache_filter' and 'cache_menu' bins go to 'cluster2'. All other
-bins go to 'default'.
+  $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
+
+Locks are written in the 'semaphore' table, which will map to the 'default'
+memcache cluster unless you explicitly configure a 'semaphore' cluster.
+
+## SESSIONS ##
+
+Here is a sample config that uses memcache for sessions. Note you MUST have
+a session and a users server set up for memcached sessions to work.
 
 $conf = array(
   'cache_inc' => './sites/all/modules/memcache/memcache.inc',
-  'memcache_servers' => array('10.0.0.1:11211' => 'default',
-                              '10.0.0.1:11212' => 'default',
-                              '123.45.67.890:11211' => 'default',
-                              '123.45.67.891:11211' => 'cluster2',
-                              '123.45.67.892:11211' => 'cluster2'),
-
-  'memcache_bins' => array('cache' => 'default',
-                           'cache_filter' => 'cluster2',
-                           'cache_menu' => 'cluster2'),
+  'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
+  'memcache_servers' => array(
+    'localhost:11211' => 'default',
+    'localhost:11212' => 'filter',
+    'localhost:11213' => 'menu',
+    'localhost:11214' => 'page',
+    'localhost:11215' => 'session',
+    'localhost:11216' => 'users',
+  ),
+  'memcache_bins' => array(
+    'cache' => 'default',
+    'cache_filter' => 'filter',
+    'cache_menu' => 'menu',
+    'cache_page' => 'page',
+    'session' => 'session',
+    'users' => 'users',
+  ),
 );
 
-Here is an example configuration where the 'cache_form' bin is set to bypass
-memcache and use the standard table-based Drupal cache by assigning it to a
-cluster called 'database'.
+## STAMPEDE PROTECTION ##
 
-$conf = array(
-  ...
-  'memcache_servers' => array('10.0.0.1:11211' => 'default'),
-  'memcache_bins' => array('cache' => 'default',
-                           'cache_form' => 'database'),
-);
+Memcache includes stampede protection for rebuilding expired and invalid cache
+items.  To enable stampede protection, define the following in settings.php:
 
-## memcache_extra_include and database.inc ##
+  $conf['memcache_stampede_protection'] = TRUE;
 
-In the above example, mapping a bin to 'database' makes a cache be stored
-in the database instead of memcache. This is actually done by the file
-database.inc, which is copy and pasted from DRUPAL/includes/cache.inc. 
-If you want to provide an alternate file instead of database.inc to handle
-the cache calls to 'database', override the variable memcache_extra_include
-in settings.php to provide the location of the file to include. This only
-applies if you are using memcache.inc (not memcache.db.inc, which is deprecated).
+To avoid lock stampedes, it is important that you enable the memcache lock
+implementation when enabling stampede protection -- enabling stampede protection
+without enabling the Memcache lock implementation can cause worse performance and
+can result in dropped locks due to key-length truncation.
+
+  $conf['lock_inc'] = './sites/all/modules/memcache/memcache-lock.inc';
+
+Memcache stampede protection is primarily designed to benefit the following
+caching pattern: a miss on a cache_get() for a specific cid is immediately
+followed by a cache_set() for that cid. Of course, this is not the only caching
+pattern used in Drupal, so stampede protection can be selectively disabled for
+optimal performance.  For example, a cache miss in Drupal core's
+module_implements() won't execute a cache_set until drupal_page_footer()
+calls module_implements_write_cache() which can occur much later in page
+generation.  To avoid long hanging locks, stampede protection should be
+disabled for these delayed caching patterns.
+
+Memcache stampede protection can be disabled for entire bins, specific cid's in
+specific bins, or cid's starting with a specific prefix in specific bins. For
+example:
+
+  $conf['memcache_stampede_protection_ignore'] = array(
+    // Ignore the variables cache and all cids starting with 'i18n:string:'
+    // in the cache bin.
+    'cache' => array(
+      'variables',
+      'i18n:string:*',
+    ),
+    // Disable stampede protection for the entire 'cache_path' and 'cache_rules'
+    // bins.
+    'cache_path',
+    'cache_rules',
+  );
+
+Only change the following stampede protection tunables if you're sure you know
+what you're doing, which requires first reading the memcache.inc code.
+
+The value passed to lock_acquire. Defaults to '15'.
+  $conf['memcache_stampede_semaphore'] = 15;
+
+The value to pass to lock_wait, defaults to 5.
+  $conf['memcache_stampede_wait_time'] = 5;
+
+The limit of calls to lock_wait() due to stampede protection during one request.
+Defaults to 3.
+  $conf['memcache_stampede_wait_limit'] = 3;
+
+When setting these variables, note that:
+ - there is unlikely to be a good use case for setting wait_time higher
+   than stampede_semaphore.
+ - wait_time * wait_limit is designed to default to a number less than
+   standard web server timeouts (i.e. 15 seconds vs. apache's default of
+   30 seconds).
+
+## EXAMPLES ##
+
+Example 1:
+
+First, the most basic configuration which consists of one memcached instance
+running on localhost port 11211 and all caches except for cache_form being
+stored in memcache. We also enable stampede protection, and the memcache
+locking mechanism.
+
+  $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
+  $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
+  $conf['memcache_stampede_protection'] = TRUE;
+
+Note that no servers or bins are defined.  The default server and bin
+configuration which is used in this case is equivalant to setting:
+
+  $conf['memcache_servers'] = array('localhost:11211' => 'default');
+
+
+Example 2:
+
+In this example we define three memcached instances, two accessed over the
+network, and one on a Unix socket -- please note this is only an illustration of
+what is possible, and is not a recommended configuration as it's highly unlikely
+you'd want to configure memcache to use both sockets and network addresses like
+this, instead you'd consistently use one or the other.
+
+The instance on port 11211 belongs to the 'default' cluster where everything
+gets cached that isn't otherwise defined. (We refer to it as a "cluster", but in
+this example our "clusters" involve only one instance.) The instance on port
+11212 belongs to the 'pages' cluster, with the 'cache_page' table mapped to
+it -- so the Drupal page cache is stored in this cluster.  Finally, the instance
+listening on a socket is part of the 'blocks' cluster, with the 'cache_block'
+table mapped to it -- so the Drupal block cache is stored here. Note that
+sockets do not have ports.
+
+  $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
+  $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
+  $conf['memcache_stampede_protection'] = TRUE;
+
+  // Important to define a default cluster in both the servers
+  // and in the bins. This links them together.
+  $conf['memcache_servers'] = array('10.1.1.1:11211' => 'default',
+                                    '10.1.1.1:11212' => 'pages',
+                                    'unix:///path/to/socket' => 'blocks');
+  $conf['memcache_bins'] = array('cache' => 'default',
+                                 'cache_page' => 'pages',
+                                 'cache_block' => 'blocks');
+
+
+Example 3:
+
+Here is an example configuration that has two clusters, 'default' and
+'cluster2'. Five memcached instances running on four different servers are
+divided up between the two clusters. The 'cache_filter' and 'cache_menu' bins
+go to 'cluster2'. All other bins go to 'default'.
+
+  $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
+  $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
+  $conf['memcache_stampede_protection'] = TRUE;
+
+  $conf['memcache_servers'] = array('10.1.1.6:11211' => 'default',
+                                    '10.1.1.6:11212' => 'default',
+                                    '10.1.1.7:11211' => 'default',
+                                    '10.1.1.8:11211' => 'cluster2',
+                                    '10.1.1.9:11211' => 'cluster2');
+
+  $conf['memcache_bins'] = array('cache' => 'default',
+                                 'cache_filter' => 'cluster2',
+                                 'cache_menu' => 'cluster2');
+  );
 
 
 ## PREFIXING ##
@@ -152,10 +273,7 @@ If you want to have multiple Drupal installations share memcached instances,
 you need to include a unique prefix for each Drupal installation in the $conf
 array of settings.php:
 
-$conf = array(
-  ...
-  'memcache_key_prefix' => 'something_unique',
-);
+$conf['memcache_key_prefix'] = 'something_unique';
 
 ## MAXIMUM LENGTHS ##
 
@@ -206,32 +324,25 @@ memcache_log_data_pieces to 0 or FALSE.
 
 $conf['memcache_log_data_pieces'] = 2;
 
-## SESSIONS ##
+## MULTIPLE SERVERS ##
 
-Here is a sample config that uses memcache for sessions. Note you MUST have
-a session and a users server set up for memcached sessions to work.
+To use this module with multiple memcached servers, it is important that you set
+the hash strategy to consistent. This is controlled in the PHP extension, not
+the Drupal module.
 
-$conf = array(
-  'cache_inc' => './sites/all/modules/memcache/memcache.inc',
-  'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
-  'memcache_servers' => array(
-    'localhost:11211' => 'default',
-    'localhost:11212' => 'filter',
-    'localhost:11213' => 'menu',
-    'localhost:11214' => 'page',
-    'localhost:11215' => 'session',
-    'localhost:11216' => 'users',
-  ),
-  'memcache_bins' => array(
-    'cache' => 'default',
-    'cache_filter' => 'filter',
-    'cache_menu' => 'menu',
-    'cache_page' => 'page',
-    'session' => 'session',
-    'users' => 'users',
-  ),
+If using PECL memcache:
+Edit /etc/php.d/memcache.ini (path may changed based on package/distribution)
+and set the following:
+memcache.hash_strategy=consistent
+
+You need to reload apache httpd after making that change.
+
+If using PECL memcached:
+Memcached options can be controlled in settings.php.  The following setting is
+needed:
+$conf['memcache_options'] = array(
+  Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
 );
-
 
 ## TROUBLESHOOTING ##
 
@@ -314,7 +425,6 @@ See http://drupal.org/node/273824
 A module offering a UI for memcache is included. It provides aggregated and
 per-page statistics for memcache.
 
-
 ## Memcached PECL Extension Support
 
 The Drupal memcache module supports both the memcache and the memcached PECL
@@ -322,6 +432,7 @@ extensions.  If both extensions are installed the older memcache extension will
 be used by default.  If you'd like to use the newer memcached extension remove
 the memcache extension from your system or configure settings.php to force
 your website to use the newer extension:
+
   $conf['memcache_extension'] = 'memcached';
 
 The newer memcached PECL extension uses libmemcached on the backend and allows
@@ -384,66 +495,7 @@ memcache_sasl_username and memcache_sasl_password in settings.php. For example:
   $conf['memcache_sasl_username'] = 'yourSASLUsername';
   $conf['memcache_sasl_password'] = 'yourSASLPassword';
 
-## Stampede protection ##
-
-Memcache now includes stampede protection for expired and invalid cache items.
-To enable stampede protection, enable it in settings.php
-  $conf['memcache_stampede_protection'] = TRUE;
-
-To avoid lock stampedes, it is important that you enable the memcache lock
-implementation when enabling stampede protection -- enabling stampede protection
-without enabling the Memcache lock implementation can cause worse performance and
-can result in dropped locks due to key-length truncation.
-  $conf['lock_inc'] = './sites/all/modules/memcache/memcache-lock.inc';
-
-Memcache stampede protection is primarily designed to benefit the following
-caching pattern: a miss on a cache_get() for a specific cid is immediately
-followed by a cache_set() for that cid. Of course, this is not the only caching
-pattern used in Drupal, so stampede protection can be selectively disabled for
-optimal performance.  For example, a cache miss in Drupal core's
-module_implements() won't execute a cache_set until drupal_page_footer()
-calls module_implements_write_cache() which can occur much later in page
-generation.  To avoid long hanging locks, stampede protection should be
-disabled for these delayed caching patterns.
-
-Memcache stampede protection can be disabled for entire bins, specific cid's in
-specific bins, or cid's starting with a specific prefix in specific bins. For
-example:
-
-  $conf['memcache_stampede_protection_ignore'] = array(
-    // Ignore the variables cache and all cids starting with 'i18n:string:'
-    // in the cache bin.
-    'cache' => array(
-      'variables',
-      'i18n:string:*',
-    ),
-    // Disable stampede protection for the entire 'cache_path' and 'cache_rules'
-    // bins.
-    'cache_path',
-    'cache_rules',
-  );
-
-Only change the following stampede protection tunables if you're sure you know
-what you're doing, which requires first reading the memcache.inc code.
-
-The value passed to lock_acquire. Defaults to '15'.
-  $conf['memcache_stampede_semaphore'] = 15;
-
-The value to pass to lock_wait, defaults to 5.
-  $conf['memcache_stampede_wait_time'] = 5;
-
-The limit of calls to lock_wait() due to stampede protection during one request.
-Defaults to 3.
-  $conf['memcache_stampede_wait_limit'] = 3;
-
-When setting these variables, note that:
- - there is unlikely to be a good use case for setting wait_time higher
-   than stampede_semaphore.
- - wait_time * wait_limit is designed to default to a number less than
-   standard web server timeouts (i.e. 15 seconds vs. apache's default of
-   30 seconds).
-
-## Persistent connections ##
+## PERSISTENT CONNECTIONS ##
 
 If you are using the Memcache PECL extension you can specify whether or not to
 connect using persistent connections in settings.php. If you do not specify a
