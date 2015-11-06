@@ -22,8 +22,11 @@ http://www.lullabot.com/articles/how_install_memcache_debian_etch
 4. Download and install the memcache module.
 5. If you have previously been running the memcache module, run update.php.
 6. Start at least one instance of memcached on your server.
-7. Edit settings.php to configure the servers, clusters and bins that memcache
-   is supposed to use.
+7. Optionally edit settings.php to configure the servers, clusters and bins
+   for memcache to use. If you skip this step the Drupal module will attempt to
+   talk to the memcache server on port 11211 on the local host, storing all
+   data in a single bin. This is sufficient for most smaller, single-server
+   installations.
 8. Edit settings.php to include either memcache.inc. For
    example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
 9. Bring your site back online.
