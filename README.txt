@@ -30,16 +30,19 @@ is important.
  3. Put your site into offline mode.
  4. Download and install the memcache module.
  5. If you have previously been running the memcache module, run update.php.
- 6. Optionally edit settings.php to configure the servers, clusters and bins
+ 6. Edit settings.php to make memcache the default cache system, for example:
+      $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
+    The cache_inc path needs to be adjusted based on where you installed
+    the module.
+ 7. Optionally edit settings.php to configure the servers, clusters and bins
     for memcache to use. If you skip this step the Drupal module will attempt to
     talk to the memcache server on port 11211 on the local host, storing all
     data in a single bin. This is sufficient for most smaller, single-server
     installations.
- 7. Edit settings.php to make memcache the default cache system, for example:
-      $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
-    The cache_inc path needs to be adjusted based on where you installed
-    the module.
- 8. Bring your site back online.
+ 8 Tell memcache to write cache_form to the database (or another non-volatile
+   storage backend). For example:
+      $conf['memcache_bins']['cache_form'] = 'database';
+ 9. Bring your site back online.
 
 For more detailed instructions on (1) and (2) above, please see the
 documentation online on drupal.org which includes links to external
@@ -48,6 +51,16 @@ walk-throughs for various operating systems.
 memcache.db.inc IS DEPRECATED AND IS NOT RECOMMENDED. It is still distributed
 with the 6.x-1.x branch, but will not be included in any further versions and
 may be removed in future 6.x releases.
+
+## memcache_extra_include and database.inc ##
+
+In the above instructions, mapping a bin to 'database' stores the cache to the
+database instead of memcache. This is actually done by the file database.inc,
+which is copy and pasted from DRUPAL/includes/cache.inc. If you want to provide
+an alternate file instead of database.inc to handle the cache calls to 'database',
+override the variable memcache_extra_include in settings.php to provide the
+location of the file to include. This only applies if you are using memcache.inc
+(not memcache.db.inc, which we've already mentioned is deprecated).
 
 ## Advanced Configuration ##
 
@@ -206,6 +219,8 @@ locking mechanism.
   $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
   $conf['lock_inc'] = 'sites/all/modules/memcache/memcache-lock.inc';
   $conf['memcache_stampede_protection'] = TRUE;
+  // The 'cache_form' bin must be assigned to non-volatile storage.
+  $conf['memcache_bins']['cache_form'] = 'database';
 
 Note that no servers or bins are defined.  The default server and bin
 configuration which is used in this case is equivalant to setting:
@@ -241,7 +256,10 @@ sockets do not have ports.
                                     'unix:///path/to/socket' => 'blocks');
   $conf['memcache_bins'] = array('cache' => 'default',
                                  'cache_page' => 'pages',
-                                 'cache_block' => 'blocks');
+                                 'cache_block' => 'blocks',
+                                 // The 'cache_form' bin must be assigned
+                                 // to non-volatile storage.
+                                 'cache_form' => 'database');
 
 
 Example 3:
@@ -263,8 +281,10 @@ go to 'cluster2'. All other bins go to 'default'.
 
   $conf['memcache_bins'] = array('cache' => 'default',
                                  'cache_filter' => 'cluster2',
-                                 'cache_menu' => 'cluster2');
-  );
+                                 'cache_menu' => 'cluster2',
+                                 // The 'cache_form' bin must be assigned
+                                 // to non-volatile storage.
+                                 'cache_form' => 'database');
 
 
 ## PREFIXING ##
