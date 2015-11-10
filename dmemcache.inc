@@ -489,6 +489,9 @@ function dmemcache_flush($bin = 'cache') {
 
 function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggregate = FALSE) {
   $memcache_bins = variable_get('memcache_bins', array('cache' => 'default'));
+  if (!isset($memcache_bins['cache'])) {
+    $memcache_bins['cache'] = 'default';
+  }
   // The stats_type can be over-loaded with an integer slab id, if doing a
   // cachedump.  We know we're doing a cachedump if $slab is non-zero.
   $slab = (int)$stats_type;

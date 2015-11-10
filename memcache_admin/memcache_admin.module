@@ -362,6 +362,7 @@ function memcache_admin_stats_raw($bin, $server, $type = 'default') {
     $breadcrumbs[] = l('slabs', "admin/reports/memcache/$bin/$server/$type");
   }
   drupal_set_breadcrumb($breadcrumbs);
+  $output = '';
   if (is_array($stats[$cluster][$server]) && count($stats[$cluster][$server])) {
     $output .= theme('memcache_admin_stats_raw_table', $cluster, $server, $stats[$cluster][$server], $type);
   }
@@ -369,7 +370,6 @@ function memcache_admin_stats_raw($bin, $server, $type = 'default') {
     $output .= theme('memcache_admin_stats_raw_table', $cluster, $server, $stats[$cluster], $type);
   }
   else {
-    $output = '';
     drupal_set_message(t('No !type statistics for this bin.', array('!type' => $type)));
   }
   return $output;
@@ -400,6 +400,9 @@ function theme_memcache_admin_stats_table($bin, $servers, $stats) {
   $output = '';
   $links = array();
   $memcache_bins = variable_get('memcache_bins', array('cache' => 'default'));
+  if (!isset($memcache_bins['cache'])) {
+    $memcache_bins['cache'] = 'default';
+  }
   foreach ($servers as $server) {
     $link_bin = $memcache_bins[$bin];
     $links[] = l($server, check_plain("admin/reports/memcache/$link_bin/$server"));
