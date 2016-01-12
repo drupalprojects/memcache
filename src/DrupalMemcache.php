@@ -17,8 +17,8 @@ class DrupalMemcache extends DrupalMemcacheBase {
   /**
    * {@inheritdoc}
    */
-  public function __construct($bin, DrupalMemcacheConfig $settings) {
-    parent::__construct($bin, $settings);
+  public function __construct(DrupalMemcacheConfig $settings) {
+    parent::__construct($settings);
 
     $this->memcache = new \Memcache();
   }

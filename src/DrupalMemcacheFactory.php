@@ -93,10 +93,10 @@ class DrupalMemcacheFactory {
         // object.
         // @todo Can't add a custom memcache class here yet.
         if ($this->extension == 'Memcached') {
-          $memcache = new DrupalMemcached($bin, $this->settings);
+          $memcache = new DrupalMemcached($this->settings);
         }
         elseif ($this->extension == 'Memcache') {
-          $memcache = new DrupalMemcache($bin, $this->settings);
+          $memcache = new DrupalMemcache($this->settings);
         }
 
         // A variable to track whether we've connected to the first server.

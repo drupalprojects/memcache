@@ -94,19 +94,25 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
-    $cache = $this->memcache->getMulti($cids);
-    foreach ($cache as $cid => $result) {
-      if (!$this->valid($cid, $result) && !$allow_invalid) {
-        // This object has expired, so don't return it.
-        unset($cache[$cid]);
+    $keys = array_map(function($cid) {
+      return $this->key($cid);
+    }, $cids);
+
+    $cache = $this->memcache->getMulti($keys);
+    $fetched = [];
+
+    foreach ($cache as $key => $result) {
+      if ($this->valid($result->cid, $result) || $allow_invalid) {
+        // Add it to the fetched items to diff later.
+        $fetched[$result->cid] = $result;
       }
     }
 
     // Remove items from the referenced $cids array that we are returning,
     // per comment in Drupal\Core\Cache\CacheBackendInterface::getMultiple().
-    $cids = array_diff($cids, array_keys($cache));
+    $cids = array_diff($cids, array_keys($fetched));
 
-    return $cache;
+    return $fetched;
   }
 
   /**
@@ -170,7 +176,7 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function set($cid, $data, $expire = CacheBackendInterface::CACHE_PERMANENT, array $tags = array()) {
-    Cache::validateTags($tags);
+    assert('\Drupal\Component\Assertion\Inspector::assertAllStrings($tags)');
     $tags = array_unique($tags);
     // Sort the cache tags so that they are stored consistently.
     sort($tags);
@@ -185,7 +191,7 @@ class MemcacheBackend implements CacheBackendInterface {
     $cache->checksum = $this->checksumProvider->getCurrentChecksum($tags);
 
     // Cache all items permanently. We handle expiration in our own logic.
-    return $this->memcache->set($cid, $cache);
+    return $this->memcache->set($this->key($cid), $cache);
   }
 
   /**
@@ -206,7 +212,7 @@ class MemcacheBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function delete($cid) {
-    $this->memcache->delete($cid);
+    $this->memcache->delete($this->key($cid));
   }
 
   /**
@@ -214,7 +220,7 @@ class MemcacheBackend implements CacheBackendInterface {
    */
   public function deleteMultiple(array $cids) {
     foreach ($cids as $cid) {
-      $this->memcache->delete($cid);
+      $this->memcache->delete($this->key($cid));
     }
   }
 
@@ -239,7 +245,7 @@ class MemcacheBackend implements CacheBackendInterface {
    * Invalid items may be returned in later calls to get(), if the
    * $allow_invalid argument is TRUE.
    *
-   * @param string $cids
+   * @param array $cids
    *   An array of cache IDs to invalidate.
    *
    * @see Drupal\Core\Cache\CacheBackendInterface::deleteMultiple()
@@ -251,7 +257,7 @@ class MemcacheBackend implements CacheBackendInterface {
     foreach ($cids as $cid) {
       if ($item = $this->get($cid)) {
         $item->expire = REQUEST_TIME - 1;
-        $this->memcache->set($cid, $item);
+        $this->memcache->set($this->key($cid), $item);
       }
     }
   }
@@ -291,6 +297,17 @@ class MemcacheBackend implements CacheBackendInterface {
   public function isEmpty() {
     // We do not know so err on the safe side? Not sure if we can know this?
     return TRUE;
+  }
+
+  /**
+   * Returns a cache key prefixed with the current bin.
+   *
+   * @param string $cid
+   *
+   * @return string
+   */
+  protected function key($cid) {
+    return $this->bin . '-' . $cid;
   }
 
 }

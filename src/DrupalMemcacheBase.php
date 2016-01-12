@@ -15,14 +15,7 @@ use Psr\Log\LogLevel;
 abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
 
   /**
-   * The cache bin name.
-   *
-   * @var string
-   */
-  protected $bin;
-
-  /**
-   * The settings object.
+   * The memcache config object.
    *
    * @var \Drupal\memcache\DrupalMemcacheConfig
    */
@@ -46,13 +39,10 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
   /**
    * Constructs a DrupalMemcacheBase object.
    *
-   * @param string $bin
-   *   The cache bin.
    * @param \Drupal\memcache\DrupalMemcacheConfig
-   *   The settings object.
+   *   The memcache config object.
    */
-  public function __construct($bin, DrupalMemcacheConfig $settings) {
-    $this->bin = $bin;
+  public function __construct(DrupalMemcacheConfig $settings) {
     $this->settings = $settings;
 
     $this->hashAlgorithm = $this->settings->get('key_hash_algorithm', 'sha1');
@@ -81,14 +71,14 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
    * {@inheritdoc}
    */
   public function key($key) {
-    $full_key = urlencode($this->bin . '-' . $key);
+    $full_key = urlencode($key);
 
     // Memcache only supports key lengths up to 250 bytes.  If we have generated
     // a longer key, we shrink it to an acceptable length with a configurable
     // hashing algorithm. Sha1 was selected as the default as it performs
     // quickly with minimal collisions.
     if (strlen($full_key) > 250) {
-      $full_key = urlencode(hash($this->hashAlgorithm, $this->bin . '-' . $key));
+      $full_key = urlencode(hash($this->hashAlgorithm, $key));
     }
 
     return $full_key;
