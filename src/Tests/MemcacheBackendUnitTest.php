@@ -31,7 +31,7 @@ class MemcacheBackendUnitTest extends GenericCacheBackendUnitTestBase {
    *   A new MemcacheBackend object.
    */
   protected function createCacheBackend($bin) {
-    $factory = new MemcacheBackendFactory($this->container->get('lock'), $this->container->get('settings'), $this->container->get('memcache.factory'), $this->container->get('cache_tags.invalidator.checksum'));
+    $factory = new MemcacheBackendFactory($this->container->get('lock'), $this->container->get('memcache.config'), $this->container->get('memcache.factory'), $this->container->get('cache_tags.invalidator.checksum'));
     return $factory->get($bin);
   }
 
