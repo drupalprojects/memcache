@@ -5,7 +5,7 @@
  * Contains \Drupal\memcache\Tests\DrupalMemcacheConfigTest.
  */
 
-namespace Drupal\memcache\Tests;
+namespace Drupal\Tests\memcache\Unit;
 
 use Drupal\memcache\DrupalMemcacheConfig;
 use Drupal\Core\Site\Settings;
