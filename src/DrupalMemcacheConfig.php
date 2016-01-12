@@ -25,10 +25,10 @@ class DrupalMemcacheConfig {
    * Constructor.
    *
    * @param \Drupal\Core\Site\Settings $settings
-   *   Array with the settings.
+   *   The site settings instance.
    */
   public function __construct(Settings $settings) {
-    $this->settings = $settings->get('memcache', array());
+    $this->settings = $settings->get('memcache', []);
   }
 
   /**
