@@ -7,7 +7,6 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Core\Site\Settings;
 use Psr\Log\LogLevel;
 
 /**
@@ -18,7 +17,7 @@ class DrupalMemcacheFactory {
   /**
    * The settings object.
    *
-   * @var \Drupal\Core\Site\Settings
+   * @var \Drupal\memcache\DrupalMemcacheConfig
    */
   protected $settings;
 
@@ -55,7 +54,7 @@ class DrupalMemcacheFactory {
   /**
    *
    */
-  public function __construct(Settings $settings) {
+  public function __construct(DrupalMemcacheConfig $settings) {
     $this->settings = $settings;
 
     $this->initialize();
@@ -144,7 +143,7 @@ class DrupalMemcacheFactory {
    */
   protected function initialize() {
     // If an extension is specified in settings.php, use that when available.
-    $preferred = $this->settings->get('memcache_extension', NULL);
+    $preferred = $this->settings->get('extension', NULL);
     if (isset($preferred) && class_exists($preferred)) {
       $this->extension = $preferred;
     }
@@ -160,14 +159,14 @@ class DrupalMemcacheFactory {
     }
 
     // Values from settings.php
-    $this->memcacheServers = $this->settings->get('memcache_servers', array('127.0.0.1:11211' => 'default'));
-    $this->memcacheBins = $this->settings->get('memcache_bins', array('default' => 'default'));
+    $this->memcacheServers = $this->settings->get('servers', array('127.0.0.1:11211' => 'default'));
+    $this->memcacheBins = $this->settings->get('bins', array('default' => 'default'));
 
     // Indicate whether to connect to memcache using a persistent connection.
     // Note: this only affects the Memcache PECL extension, and does not affect
     // the Memcached PECL extension.  For a detailed explanation see:
     // http://drupal.org/node/822316#comment-4427676
-    $this->memcachePersistent = $this->settings->get('memcache_persistent', FALSE);
+    $this->memcachePersistent = $this->settings->get('persistent', FALSE);
   }
 
   /**

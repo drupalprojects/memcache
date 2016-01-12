@@ -7,8 +7,6 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Core\Site\Settings;
-
 /**
  * Class DrupalMemcached.
  */
@@ -17,7 +15,7 @@ class DrupalMemcached extends DrupalMemcacheBase {
   /**
    * {@inheritdoc}
    */
-  public function __construct($bin, Settings $settings) {
+  public function __construct($bin, DrupalMemcacheConfig $settings) {
     parent::__construct($bin, $settings);
 
     $this->memcache = new \Memcached();
@@ -31,7 +29,7 @@ class DrupalMemcached extends DrupalMemcacheBase {
     }
     // See README.txt for setting custom Memcache options when using the
     // memcached PECL extension.
-    foreach ($this->settings->get('memcache_options', array()) as $key => $value) {
+    foreach ($this->settings->get('options', array()) as $key => $value) {
       $this->memcache->setOption($key, $value);
     }
   }

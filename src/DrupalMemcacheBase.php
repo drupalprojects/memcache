@@ -7,7 +7,6 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Core\Site\Settings;
 use Psr\Log\LogLevel;
 
 /**
@@ -25,7 +24,7 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
   /**
    * The settings object.
    *
-   * @var \Drupal\Core\Site\Settings
+   * @var \Drupal\memcache\DrupalMemcacheConfig
    */
   protected $settings;
 
@@ -49,14 +48,14 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
    *
    * @param string $bin
    *   The cache bin.
-   * @param \Drupal\Core\Site\Settings
+   * @param \Drupal\memcache\DrupalMemcacheConfig
    *   The settings object.
    */
-  public function __construct($bin, Settings $settings) {
+  public function __construct($bin, DrupalMemcacheConfig $settings) {
     $this->bin = $bin;
     $this->settings = $settings;
 
-    $this->hashAlgorithm = $this->settings->get('memcache_key_hash_algorithm', 'sha1');
+    $this->hashAlgorithm = $this->settings->get('key_hash_algorithm', 'sha1');
   }
 
   /**

@@ -7,7 +7,6 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Core\Site\Settings;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
@@ -49,7 +48,7 @@ class MemcacheBackend implements CacheBackendInterface {
   /**
    * The Settings instance.
    *
-   * @var \Drupal\Core\Site\Settings
+   * @var \Drupal\memcache\DrupalMemcacheConfig
    */
   protected $settings;
 
@@ -69,12 +68,12 @@ class MemcacheBackend implements CacheBackendInterface {
    *   The memcache object.
    * @param \Drupal\Core\Lock\LockBackendInterface $lock
    *   The lock backend.
-   * @param \Drupal\Core\Site\Settings $settings
+   * @param \Drupal\memcache\DrupalMemcacheConfig $settings
    *   The settings instance.
    * @param \Drupal\Core\Cache\CacheTagsChecksumInterface $checksum_provider
    *   The cache tags checksum service.
    */
-  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, Settings $settings, CacheTagsChecksumInterface $checksum_provider) {
+  public function __construct($bin, DrupalMemcacheInterface $memcache, LockBackendInterface $lock, DrupalMemcacheConfig $settings, CacheTagsChecksumInterface $checksum_provider) {
     $this->bin = $bin;
     $this->memcache = $memcache;
     $this->lock = $lock;
@@ -123,7 +122,7 @@ class MemcacheBackend implements CacheBackendInterface {
         // If the memcache_stampede_protection variable is set, allow one
         // process to rebuild the cache entry while serving expired content to
         // the rest.
-        if ($this->settings->get('memcache_stampede_protection', FALSE)) {
+        if ($this->settings->get('stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
           if (!$this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
@@ -138,7 +137,7 @@ class MemcacheBackend implements CacheBackendInterface {
     // On cache misses, attempt to avoid stampedes when the
     // memcache_stampede_protection variable is enabled.
     else {
-      if ($this->settings->get('memcache_stampede_protection', FALSE) && !$this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
+      if ($this->settings->get('stampede_protection', FALSE) && !$this->lock->acquire($lock_key, $this->settings->get('stampede_semaphore', 15))) {
         // Prevent any single request from waiting more than three times due to
         // stampede protection. By default this is a maximum total wait of 15
         // seconds. This accounts for two possibilities - a cache and lock miss
@@ -149,11 +148,11 @@ class MemcacheBackend implements CacheBackendInterface {
         // information. Currently the limit will kick in for three waits of 25ms
         // or three waits of 5000ms.
         $this->lockCount++;
-        if ($this->lockCount <= $this->settings->get('memcache_stampede_wait_limit', 3)) {
+        if ($this->lockCount <= $this->settings->get('stampede_wait_limit', 3)) {
           // The memcache_stampede_semaphore variable was used in previous
           // releases of memcache, but the max_wait variable was not, so by
           // default divide the semaphore value by 3 (5 seconds).
-         $this->lock->wait($lock_key, $this->settings->get('memcache_stampede_wait_time', 5));
+         $this->lock->wait($lock_key, $this->settings->get('stampede_wait_time', 5));
           $cache = $this->get($cid);
         }
       }

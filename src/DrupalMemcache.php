@@ -7,7 +7,6 @@
 
 namespace Drupal\memcache;
 
-use Drupal\Core\Site\Settings;
 use Psr\Log\LogLevel;
 
 /**
@@ -18,7 +17,7 @@ class DrupalMemcache extends DrupalMemcacheBase {
   /**
    * {@inheritdoc}
    */
-  public function __construct($bin, Settings $settings) {
+  public function __construct($bin, DrupalMemcacheConfig $settings) {
     parent::__construct($bin, $settings);
 
     $this->memcache = new \Memcache();
