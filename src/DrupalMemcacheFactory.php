@@ -159,8 +159,8 @@ class DrupalMemcacheFactory {
     }
 
     // Values from settings.php
-    $this->memcacheServers = $this->settings->get('servers', array('127.0.0.1:11211' => 'default'));
-    $this->memcacheBins = $this->settings->get('bins', array('default' => 'default'));
+    $this->memcacheServers = $this->settings->get('servers', ['127.0.0.1:11211' => 'default']);
+    $this->memcacheBins = $this->settings->get('bins', ['default' => 'default']);
 
     // Indicate whether to connect to memcache using a persistent connection.
     // Note: this only affects the Memcache PECL extension, and does not affect

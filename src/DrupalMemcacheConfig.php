@@ -19,16 +19,16 @@ class DrupalMemcacheConfig {
    *
    * @var array
    */
-  private static $settings = array();
+  protected $settings = [];
 
   /**
    * Constructor.
    *
-   * @param array $settings
+   * @param \Drupal\Core\Site\Settings $settings
    *   Array with the settings.
    */
   public function __construct(Settings $settings) {
-    self::$settings = $settings->get('memcache', array());
+    $this->settings = $settings->get('memcache', array());
   }
 
   /**
@@ -47,17 +47,17 @@ class DrupalMemcacheConfig {
    * @return mixed
    *   The value of the setting, the provided default if not set.
    */
-  public static function get($name, $default = NULL) {
-    return isset(self::$settings[$name]) ? self::$settings[$name] : $default;
+  public function get($name, $default = NULL) {
+    return isset($this->settings[$name]) ? $this->settings[$name] : $default;
   }
 
   /**
-   * Returns all the settings. This is only used for testing purposes.
+   * Returns all Memcache settings.
    *
    * @return array
-   *   All the settings.
+   *   All settings.
    */
-  public static function getAll() {
-    return self::$settings;
+  public function getAll() {
+    return $this->settings;
   }
 }

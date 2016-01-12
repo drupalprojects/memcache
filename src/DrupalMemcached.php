@@ -29,7 +29,7 @@ class DrupalMemcached extends DrupalMemcacheBase {
     }
     // See README.txt for setting custom Memcache options when using the
     // memcached PECL extension.
-    foreach ($this->settings->get('options', array()) as $key => $value) {
+    foreach ($this->settings->get('options', []) as $key => $value) {
       $this->memcache->setOption($key, $value);
     }
   }
