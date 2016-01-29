@@ -69,7 +69,8 @@ class DrupalMemcached extends DrupalMemcacheBase {
       $full_keys[$cid] = $full_key;
     }
 
-    $results = $this->memcache->getMulti($full_keys);
+    $cas_tokens = NULL;
+    $results = $this->memcache->getMulti($full_keys, $cas_tokens, \Memcached::GET_PRESERVE_ORDER);
 
     // If $results is FALSE, convert it to an empty array.
     if (!$results) {

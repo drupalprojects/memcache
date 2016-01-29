@@ -97,9 +97,12 @@ class DrupalMemcache extends DrupalMemcacheBase {
 
     // Convert the full keys back to the cid.
     $cid_results = array();
-    $cid_lookup = array_flip($full_keys);
-    foreach ($results as $key => $value) {
-      $cid_results[$cid_lookup[$key]] = $value;
+
+    // Order isn't guaranteed, so ensure the return order matches that
+    // requested. So base the results on the order of the full_keys, as they
+    // reflect the order of the $cids passed in.
+    foreach (array_intersect($full_keys, array_keys($results)) as $cid => $full_key) {
+      $cid_results[$cid] = $results[$full_key];
     }
 
     return $cid_results;
