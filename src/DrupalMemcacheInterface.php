@@ -91,6 +91,11 @@ interface DrupalMemcacheInterface {
   public function flush();
 
   /**
+   * Closes the memacache instance connection.
+   */
+  public function close();
+
+  /**
    * Adds a memcache server.
    *
    * @param string $server_path

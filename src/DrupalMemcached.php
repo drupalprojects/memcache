@@ -53,6 +53,13 @@ class DrupalMemcached extends DrupalMemcacheBase {
   /**
    * {@inheritdoc}
    */
+  public function close() {
+    $this->memcache->quit();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function set($key, $value, $exp = 0, $flag = FALSE) {
     $full_key = $this->key($key);
     return $this->memcache->set($full_key, $value, $exp);

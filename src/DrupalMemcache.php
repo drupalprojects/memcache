@@ -43,6 +43,13 @@ class DrupalMemcache extends DrupalMemcacheBase {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function close() {
+    $this->memcache->close();
+  }
+
+  /**
    * Connects to a memcache server.
    *
    * @param string $host
