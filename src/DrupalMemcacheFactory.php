@@ -132,6 +132,9 @@ class DrupalMemcacheFactory {
             }
           }
         }
+        else {
+          throw new MemcacheException('Memcache instance could not be initialized. Check memcache is running and reachable');
+        }
       }
     }
 
@@ -156,6 +159,9 @@ class DrupalMemcacheFactory {
     }
     elseif (class_exists('Memcached')) {
       $this->extension = 'Memcached';
+    }
+    else {
+      throw new MemcacheException('No Memcache extension found');
     }
 
     // Values from settings.php
