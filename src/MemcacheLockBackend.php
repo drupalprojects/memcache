@@ -42,7 +42,7 @@ class MemcacheLockBackend extends LockBackendAbstract {
     $this->memcache = $memcache_factory->get($this->bin);
     // __destruct() is causing problems with garbage collections, register a
     // shutdown function instead.
-    drupal_register_shutdown_function(array($this, 'releaseAll'));
+    drupal_register_shutdown_function([$this, 'releaseAll']);
   }
 
   /**
@@ -52,19 +52,35 @@ class MemcacheLockBackend extends LockBackendAbstract {
     // Ensure that the timeout is at least 1 sec. This is a limitation imposed
     // by memcached.
     $timeout = (int) max($timeout, 1);
-    $lock_id = $this->getLockId();
 
-    if ($this->memcache->set($name, $lock_id, $timeout)) {
-      $this->locks[$name] = $lock_id;
-    }
-    elseif (($result = $this->memcache->get($name)) && isset($this->locks[$name]) && ($this->locks[$name] == $lock_id)) {
-      // Only renew the lock if we already set it and it has not expired.
-      $this->memcache->set($name, $lock_id, $timeout);
+    $lock_id = $this->getLockId();
+    $key = $this->getKey($name);
+
+    if (isset($this->locks[$name])) {
+      // Try to extend the expiration of a lock we already acquired.
+      $success = !$this->lockMayBeAvailable($name) && $this->memcache->set($key, $lock_id, $timeout);
+
+      if (!$success) {
+        // The lock was broken.
+        unset($this->locks[$name]);
+      }
+
+      return $success;
     }
     else {
-      // Failed to acquire the lock. Unset the key from the $locks array even if
-      // not set.
-      unset($this->locks[$name]);
+      if ($this->lockMayBeAvailable($name)) {
+        $success = $this->memcache->set($key, $lock_id, $timeout);
+
+        if (!$success) {
+          return FALSE;
+        }
+
+        // We track all acquired locks in the global variable, if successful.
+        $this->locks[$name] = TRUE;
+      }
+      else {
+        return FALSE;
+      }
     }
 
     return isset($this->locks[$name]);
@@ -74,14 +90,14 @@ class MemcacheLockBackend extends LockBackendAbstract {
    * {@inheritdoc}
    */
   public function lockMayBeAvailable($name) {
-    return !$this->memcache->get($name);
+    return !$this->memcache->get($this->getKey($name));
   }
 
   /**
    * {@inheritdoc}
    */
   public function release($name) {
-    $this->memcache->delete($name);
+    $this->memcache->delete($this->getKey($name));
     // We unset unconditionally since caller assumes lock is released anyway.
     unset($this->locks[$name]);
   }
@@ -90,12 +106,27 @@ class MemcacheLockBackend extends LockBackendAbstract {
    * {@inheritdoc}
    */
   public function releaseAll($lock_id = NULL) {
+    if (empty($lock_id)) {
+      $lock_id = $this->getLockId();
+    }
+
     foreach ($this->locks as $name => $id) {
-      $value = $this->memcache->get($name);
-      if ($value == $id) {
-        $this->memcache->delete($name);
+      $key = $this->getKey($name);
+      $value = $this->memcache->get($key);
+
+      if ($value == $lock_id) {
+        $this->memcache->delete($key);
       }
     }
+
+    $this->locks = [];
+  }
+
+  /**
+   * Gets a storage key based on the lock name.
+   */
+  protected function getKey($name) {
+    return 'lock:' . $this->bin . ':' . $name;
   }
 
 }
