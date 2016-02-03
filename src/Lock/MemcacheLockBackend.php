@@ -5,9 +5,10 @@
  * Contains \Drupal\memcache\MemcacheLockBackend.
  */
 
-namespace Drupal\memcache;
+namespace Drupal\memcache\Lock;
 
 use Drupal\Core\Lock\LockBackendAbstract;
+use Drupal\memcache\DrupalMemcacheInterface;
 
 /**
  * Defines a Memcache lock backend.
@@ -26,7 +27,7 @@ class MemcacheLockBackend extends LockBackendAbstract {
    *
    * @var string
    */
-  protected $bin = 'semaphore';
+  protected $bin;
 
   /**
    * The memcache wrapper object.
@@ -38,8 +39,10 @@ class MemcacheLockBackend extends LockBackendAbstract {
   /**
    * Constructs a new MemcacheLockBackend.
    */
-  public function __construct(DrupalMemcacheFactory $memcache_factory) {
-    $this->memcache = $memcache_factory->get($this->bin);
+  public function __construct($bin, DrupalMemcacheInterface $memcache) {
+    $this->bin = $bin;
+    $this->memcache = $memcache;
+
     // __destruct() is causing problems with garbage collections, register a
     // shutdown function instead.
     drupal_register_shutdown_function([$this, 'releaseAll']);

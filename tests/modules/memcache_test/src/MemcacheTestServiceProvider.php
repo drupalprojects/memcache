@@ -4,6 +4,7 @@ namespace Drupal\memcache_test;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\DependencyInjection\ServiceModifierInterface;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
@@ -15,13 +16,15 @@ class MemcacheTestServiceProvider implements ServiceModifierInterface {
    * {@inheritdoc}
    */
   public function alter(ContainerBuilder $container) {
-    // Alter the lock definition to use the memcache lock class.
-    $definition = $container->getDefinition('lock');
+    $definition = new Definition('Drupal\Core\Lock\LockBackendInterface');
+    $definition->setFactory([new Reference('memcache.lock.factory'), 'get']);
 
-    $definition->setClass('Drupal\memcache\MemcacheLockBackend');
-    $definition->setArguments([new Reference('memcache.factory')]);
-    // @todo Could make this lazy again but need to create a proxy.
-    $definition->setLazy(FALSE);
+    $container->setDefinition('lock', $definition);
+
+    $definition = new Definition('Drupal\Core\Lock\LockBackendInterface');
+    $definition->setFactory([new Reference('memcache.lock.factory'), 'getPersistent']);
+
+    $container->setDefinition('lock.persistent', $definition);
   }
 
 }
