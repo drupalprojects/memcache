@@ -116,9 +116,18 @@ class MemcacheBackend implements CacheBackendInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Determines if the cache item is valid.
+   *
+   * This also alters the valid property of the cache item itself.
+   *
+   * @param string $cid
+   *   The cache ID.
+   * @param \stdClass $cache
+   *   The cache item.
+   *
+   * @return bool
    */
-  protected function valid($cid, $cache) {
+  protected function valid($cid, \stdClass $cache) {
     $lock_key = "memcache_$cid:$this->bin";
     $cache->valid = FALSE;
 
