@@ -131,7 +131,7 @@ class MemcacheBackend implements CacheBackendInterface {
         if ($this->settings->get('stampede_protection', FALSE)) {
           // The process that acquires the lock will get a cache miss, all
           // others will get a cache hit.
-          if (!$this->lock->acquire($lock_key, $this->settings->get('memcache_stampede_semaphore', 15))) {
+          if (!$this->lock->acquire($lock_key, $this->settings->get('stampede_semaphore', 15))) {
             $cache->valid = TRUE;
           }
         }
