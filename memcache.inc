@@ -358,8 +358,16 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
 
     // Do a multi-get to retrieve all possibly matching wildcard flushes.
     if (!empty($lookup)) {
-      $values = dmemcache_get_multi($lookup, $table);
-      if (is_array($values)) {
+
+      $memcache_values = dmemcache_get_multi($lookup, $table);
+      if (is_array($memcache_values)) {
+        // Map .wildcard-* to the dmemcache_key().
+        $values = array();
+        $rmap = array_flip($lookup);
+        foreach ($memcache_values as $key => $value) {
+          $values[$rmap[$key]] = $value;
+        }
+
         // Build an array of matching wildcards.
         $matching = array_merge($matching, $values);
         if (isset($wildcards[$table])) {
