@@ -87,7 +87,8 @@ class DrupalMemcached extends DrupalMemcacheBase {
     // Convert the full keys back to the cid.
     $cid_results = array();
     $cid_lookup = array_flip($full_keys);
-    foreach ($results as $key => $value) {
+
+    foreach (array_filter($results) as $key => $value) {
       $cid_results[$cid_lookup[$key]] = $value;
     }
 
