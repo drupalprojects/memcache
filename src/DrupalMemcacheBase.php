@@ -86,7 +86,7 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
     // hashing algorithm. Sha1 was selected as the default as it performs
     // quickly with minimal collisions.
     if (strlen($full_key) > 250) {
-      $full_key = urlencode(hash($this->hashAlgorithm, $key));
+      $full_key = urlencode(hash($this->hashAlgorithm, $this->prefix . '-' . $key));
     }
 
     return $full_key;
