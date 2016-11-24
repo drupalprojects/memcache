@@ -522,6 +522,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
         // the cache entry with a class destructor.
         'schema:runtime:*',
         'theme_registry:runtime:*',
+        // Not written until the end of drupal_page_footer()
+        '_drupal_file_scan_cache',
       ),
       // Disable stampede protection for cid prefix in 'cache'.
       'cache' => array(

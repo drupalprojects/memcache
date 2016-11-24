@@ -148,6 +148,7 @@ example:
       'lookup_cache',
       'schema:runtime:*',
       'theme_registry:runtime:*',
+      '_drupal_file_scan_cache',
     ),
     // Ignore all cids in the 'cache' bin starting with 'i18n:string:'
     'cache' => array(
