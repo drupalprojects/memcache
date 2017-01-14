@@ -281,9 +281,22 @@ go to 'cluster2'. All other bins go to 'default'.
 
 If you want to have multiple Drupal installations share memcached instances,
 you need to include a unique prefix for each Drupal installation in the $conf
-array of settings.php:
+array of settings.php. This can be a single string prefix, or a keyed array of
+bin => prefix pairs:
 
-$conf['memcache_key_prefix'] = 'something_unique';
+   $conf['memcache_key_prefix'] = 'something_unique';
+
+Using a per-bin prefix:
+
+   $conf['memcache_key_prefix'] = array(
+     'default' => 'something_unique',
+     'cache_page' => 'something_else_unique'
+   );
+
+In the above example, the 'something_unique' prefix will be used for all bins
+except for the 'cache_page' bin which will use the 'something_else_unique'
+prefix. Not that if using a keyed array for specifying prefix, you must specify
+the 'default' prefix.
 
 ## MAXIMUM LENGTHS ##
 

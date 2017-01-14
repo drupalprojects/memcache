@@ -854,8 +854,18 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
  */
 function dmemcache_key($key, $bin = 'cache') {
   $prefix = '';
-  if ($prefix = variable_get('memcache_key_prefix', '')) {
-    $prefix .= '-';
+  if ($prefixes = variable_get('memcache_key_prefix', '')) {
+    if (is_array($prefixes)) {
+      if (!empty($prefixes[$bin])) {
+        $prefix = $prefixes[$bin] . '-';
+      } // Support default prefix for site
+      elseif (!empty($prefixes['default'])) {
+        $prefix = $prefixes['default'] . '-';
+      }
+    }
+    else {
+      $prefix = $prefixes . '-';
+    }
   }
   // When simpletest is running, emulate the simpletest database prefix here
   // to avoid the child site setting cache entries in the parent site.
