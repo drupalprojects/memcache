@@ -60,6 +60,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * Implements DrupalCacheInterface::get().
    */
   public function get($cid) {
+    // Clean up.
+    $this->garbageCollection();
     $cache = dmemcache_get($cid, $this->bin, $this->memcache);
     return $this->valid($cid, $cache) ? $cache : FALSE;
   }
@@ -68,6 +70,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
    * Implements DrupalCacheInterface::getMultiple().
    */
   public function getMultiple(&$cids) {
+    // Clean up.
+    $this->garbageCollection();
     $results = dmemcache_get_multi($cids, $this->bin, $this->memcache);
     foreach ($results as $cid => $result) {
       if (!$this->valid($cid, $result)) {
@@ -79,6 +83,30 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // per the comment in cache_get_multiple() in includes/cache.inc.
     $cids = array_diff($cids, array_keys($results));
     return $results;
+  }
+
+  /**
+   * Garbage collection for get() and getMultiple().
+   *
+   * This functions check for session indicators to NOT use the cache. It
+   * checks if the last cache clearing time in there expired and if so unsets
+   * them, so anonymous users can get out of the "sessions" after some time, to
+   * get fast delivered pages (e.g. from Varnish etc. again).
+   */
+  protected function garbageCollection() {
+    // Clean-up the per-user cache expiration session data, so that the session
+    // handler can properly clean-up the session data for anonymous users.
+    if (isset($_SESSION['cache_flush'])) {
+      $expire = REQUEST_TIME - variable_get('cache_lifetime', 0);
+      foreach ($_SESSION['cache_flush'] as $bin => $timestamp) {
+        if ($timestamp < $expire) {
+          unset($_SESSION['cache_flush'][$bin]);
+        }
+      }
+      if (!$_SESSION['cache_flush']) {
+        unset($_SESSION['cache_flush']);
+      }
+    }
   }
 
   /**
