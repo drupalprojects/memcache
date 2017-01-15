@@ -149,7 +149,12 @@ function _dmemcache_set_pieces($key, $value, $exp = 0, $bin = 'cache', $mc = NUL
     $serialized = FALSE;
   }
   else {
-    $data = serialize($value);
+    if (extension_loaded('igbinary') && variable_get('memcache_enable_igbinary', TRUE)) {
+      $data = igbinary_serialize($value);
+    }
+    else {
+      $data = serialize($value);
+    }
     $serialized = TRUE;
   }
 
@@ -326,7 +331,17 @@ function _dmemcache_get_pieces($item, $key, $bin = 'cache', $mc = NULL) {
   unset($pieces);
 
   // If necessary unserialize the item.
-  return empty($item->serialized) ? $data : unserialize($data);
+  if (empty($item->serialized)) {
+    return $data;
+  }
+  else {
+    if (extension_loaded('igbinary') && variable_get('memcache_enable_igbinary', TRUE)) {
+      return igbinary_unserialize($data);
+    }
+    else {
+      return unserialize($data);
+    }
+  }
 }
 
 /**

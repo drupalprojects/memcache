@@ -334,6 +334,25 @@ function memcache_admin_stats($bin = 'default') {
     }
     $report['uptime'][] = $item;
 
+    // Report which serialize function is being used.
+    $item = array(
+      'label' => t('Serialize function')
+    );
+    if (extension_loaded('igbinary') && variable_get('memcache_enable_igbinary', TRUE)) {
+      $serialize_function = t('igbinary_serialize v!version', array('!version' => phpversion('igbinary')));
+    }
+    else {
+      $serialize_function = 'serialize';
+    }
+    if (count($aggregate)) {
+      $report['uptime'][] = $item;
+      $item['servers'] = $serialize_function;
+    }
+    else {
+      $item['servers'] = array($servers[0] => $serialize_function);
+    }
+    $report['uptime'][] = $item;
+
     // Report server time.
     $item = array(
       'label' => t('Time'),

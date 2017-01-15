@@ -298,6 +298,41 @@ except for the 'cache_page' bin which will use the 'something_else_unique'
 prefix. Not that if using a keyed array for specifying prefix, you must specify
 the 'default' prefix.
 
+## EXPERIMENTAL - ALTERNATIVE SERIALIZE: IGBINARY ##
+
+This is a new experimental feature added to the memcache module in version
+7.x-1.6 and should be tested carefully before utilizing in production.
+
+To optimize how data is serialized before it is written to memcache, you can
+enable the igbinary PHP extension which converts from using PHP's human
+readable serialized data structures to a compact binary format. The igbinary
+documentation claims on average a 50% reducation in storage requirements,
+reducing the amount of traffic sent over the network. It goes on to explain:
+
+  "Unserialization performance is at least on par with the standard PHP
+   serializer.  Serialization performance depends on the 'compact_strings'
+   option which enables duplicate string tracking. String are inserted to a
+   hash table which adds some overhead. In usual scenarios this does not have
+   much significance since usage pattern is 'serialize rarely, unserialize
+   often'. With 'compact_strings' option igbinary is usually a bit slower
+   than the standard serializer. Without it, a bit faster."
+
+If the igbinary extension is enabled, the memcache modue will use it by
+default. You can verify which serialize function is being used by enabling the
+memcache_admin module and visiting admin/reports/memcache. To disable igbinary
+when the php extension is installed add the following to your settings.php and
+then restart all memcached daemons:
+
+$conf['memcache_enable_igbinary'] = FALSE;
+
+The project is maintained on GitHub:
+ - https://github.com/phadej/igbinary
+
+The official PECL package can be found at:
+ - https://pecl.php.net/package/igbinary
+
+Version 2.0.1 or greater is recommended.
+
 ## MAXIMUM LENGTHS ##
 
 If the length of your prefix + key + bin combine to be more than 250 characters,
