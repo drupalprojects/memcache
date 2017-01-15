@@ -1042,7 +1042,7 @@ function dmemcache_instance() {
     foreach ($memconf as $key => $value) {
       $memcache->setOption($key, $value);
     }
-    if ($sasl_username = variable_get('memcache_sasl_username', '') && $sasl_password = variable_get('memcache_sasl_password', '')) {
+    if (($sasl_username = variable_get('memcache_sasl_username', '')) && ($sasl_password = variable_get('memcache_sasl_password', ''))) {
       $memcache->setSaslAuthData($sasl_username, $sasl_password);
     }
     return $memcache;
