@@ -353,8 +353,14 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   $results = array();
   if ($mc || ($mc = dmemcache_object($bin))) {
     if ($mc instanceof Memcached) {
-      $null = NULL;
-      $results = $mc->getMulti($full_keys, $null, Memcached::GET_PRESERVE_ORDER);
+      if (PHP_MAJOR_VERSION >= 7) {
+        // See https://www.drupal.org/node/2728427
+        $results = $mc->getMulti($full_keys, Memcached::GET_PRESERVE_ORDER);
+      }
+      else {
+        $cas_tokens = NULL;
+        $results = $mc->getMulti($full_keys, $cas_tokens, Memcached::GET_PRESERVE_ORDER);
+      }
     }
     elseif ($mc instanceof Memcache) {
       $track_errors = ini_set('track_errors', '1');
