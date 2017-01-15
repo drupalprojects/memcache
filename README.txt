@@ -367,38 +367,6 @@ $conf['memcache_options'] = array(
   Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
 );
 
-## SESSIONS ##
-
-NOTE: Session.inc is not yet ported to Drupal 7 and is not recommended for use
-in production.
-
-Here is a sample config that uses memcache for sessions. Note you MUST have
-a session and a users server set up for memcached sessions to work.
-
-$conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
-$conf['cache_default_class'] = 'MemCacheDrupal';
-
-// The 'cache_form' bin must be assigned no non-volatile storage.
-$conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
-$conf['session_inc'] = 'sites/all/modules/memcache/unstable/memcache-session.inc';
-
-$conf['memcache_servers'] = array(
-    '10.1.1.1:11211' => 'default',
-    '10.1.1.1:11212' => 'filter',
-    '10.1.1.1:11213' => 'menu',
-    '10.1.1.1:11214' => 'page',
-    '10.1.1.1:11215' => 'session',
-    '10.1.1.1:11216' => 'users',
-);
-$conf['memcache_bins'] = array(
-    'cache' => 'default',
-    'cache_filter' => 'filter',
-    'cache_menu' => 'menu',
-    'cache_page' => 'page',
-    'session' => 'session',
-    'users' => 'users',
-);
-
 ## TROUBLESHOOTING ##
 
 PROBLEM:
