@@ -338,11 +338,9 @@ function memcache_admin_stats($bin = 'default') {
     $item = array(
       'label' => t('Serialize function')
     );
-    if (extension_loaded('igbinary') && variable_get('memcache_enable_igbinary', TRUE)) {
-      $serialize_function = t('igbinary_serialize v!version', array('!version' => phpversion('igbinary')));
-    }
-    else {
-      $serialize_function = 'serialize';
+    $serialize_function = dmemcache_serialize();
+    if ($serialize_function != 'serialize') {
+      $serialize_function = t('!function v!version', array('!function' => $serialize_function, '!version' => phpversion(dmemcache_serialize_extension())));
     }
     if (count($aggregate)) {
       $report['uptime'][] = $item;

@@ -149,12 +149,8 @@ function _dmemcache_set_pieces($key, $value, $exp = 0, $bin = 'cache', $mc = NUL
     $serialized = FALSE;
   }
   else {
-    if (extension_loaded('igbinary') && variable_get('memcache_enable_igbinary', TRUE)) {
-      $data = igbinary_serialize($value);
-    }
-    else {
-      $data = serialize($value);
-    }
+    $serialize_function = dmemcache_serialize();
+    $data = $serialize_function($value);
     $serialized = TRUE;
   }
 
@@ -335,12 +331,8 @@ function _dmemcache_get_pieces($item, $key, $bin = 'cache', $mc = NULL) {
     return $data;
   }
   else {
-    if (extension_loaded('igbinary') && variable_get('memcache_enable_igbinary', TRUE)) {
-      return igbinary_unserialize($data);
-    }
-    else {
-      return unserialize($data);
-    }
+    $unserialize_function = dmemcache_unserialize();
+    return $unserialize_function($value);
   }
 }
 
@@ -638,6 +630,78 @@ function dmemcache_extension() {
     }
   }
   return $extension;
+}
+
+/**
+ * Determine which serialize extension to use: serialize (none), igbinary,
+ * or msgpack.
+ *
+ * By default we prefer the igbinary extension, then the msgpack extension,
+ * then the core serialize functions. This can be overridden in settings.php.
+ */
+function dmemcache_serialize_extension() {
+  static $extension = NULL;
+  if ($extension === NULL) {
+    $preferred = strtolower(variable_get('memcache_serialize', NULL));
+    // Fastpath if we're forcing php's own serialize function.
+    if ($preferred == 'serialize') {
+      $extension = $preferred;
+    }
+    // Otherwise, find an available extension favoring configuration.
+    else {
+      $igbinary_available = extension_loaded('igbinary');
+      $msgpack_available = extension_loaded('msgpack');
+      if ($preferred == 'igbinary' && $igbinary_available) {
+        $extension = $preferred;
+      }
+      elseif ($preferred == 'msgpack' && $msgpack_available) {
+        $extension = $preferred;
+      }
+      else {
+        // No (valid) serialize extension specified, try igbinary.
+        if ($igbinary_available) {
+          $extension = 'igbinary';
+        }
+        // Next try msgpack.
+        else if ($msgpack_available) {
+          $extension = 'msgpack';
+        }
+        // Finally fall back to core serialize.
+        else {
+          $extension = 'serialize';
+        }
+      }
+    }
+  }
+  return $extension;
+}
+
+/**
+ * Return proper serialize function.
+ */
+function dmemcache_serialize() {
+  switch (dmemcache_serialize_extension()) {
+    case 'igbinary':
+      return 'igbinary_serialize';
+    case 'msgpack':
+      return 'msgpack_pack';
+    default:
+      return 'serialize';
+  }
+}
+
+/**
+ * Return proper unserialize function.
+ */
+function dmemcache_unserialize() {
+  switch (dmemcache_serialize_extension()) {
+    case 'igbinary':
+      return 'igbinary_unserialize';
+    case 'msgpack':
+      return 'msgpack_unpack';
+    default:
+      return 'unserialize';
+  }
 }
 
 /**

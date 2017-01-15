@@ -298,40 +298,54 @@ except for the 'cache_page' bin which will use the 'something_else_unique'
 prefix. Not that if using a keyed array for specifying prefix, you must specify
 the 'default' prefix.
 
-## EXPERIMENTAL - ALTERNATIVE SERIALIZE: IGBINARY ##
+## EXPERIMENTAL - ALTERNATIVE SERIALIZE ##
 
 This is a new experimental feature added to the memcache module in version
 7.x-1.6 and should be tested carefully before utilizing in production.
 
 To optimize how data is serialized before it is written to memcache, you can
-enable the igbinary PHP extension which converts from using PHP's human
-readable serialized data structures to a compact binary format. The igbinary
-documentation claims on average a 50% reducation in storage requirements,
-reducing the amount of traffic sent over the network. It goes on to explain:
+enable either the igbinary or msgpack PECL extension. Both switch from using
+PHP's own human-readable serialized data strucutres to more compact binary
+formats.
 
-  "Unserialization performance is at least on par with the standard PHP
-   serializer.  Serialization performance depends on the 'compact_strings'
-   option which enables duplicate string tracking. String are inserted to a
-   hash table which adds some overhead. In usual scenarios this does not have
-   much significance since usage pattern is 'serialize rarely, unserialize
-   often'. With 'compact_strings' option igbinary is usually a bit slower
-   than the standard serializer. Without it, a bit faster."
+No specicial configuration is required.  If both extensions are enabled,
+memcache will automatically use the igbinary extension. If only one extension
+is enabled, memcache will automatically use that extension.
 
-If the igbinary extension is enabled, the memcache modue will use it by
-default. You can verify which serialize function is being used by enabling the
-memcache_admin module and visiting admin/reports/memcache. To disable igbinary
-when the php extension is installed add the following to your settings.php and
-then restart all memcached daemons:
+You can optionally specify which extension is used by adding one of the
+following to your settings.php:
 
-$conf['memcache_enable_igbinary'] = FALSE;
+  // Force memcache to use PHP's core serialize functions
+  $conf['memcache_serialize'] = 'serialize';
 
-The project is maintained on GitHub:
+  // Force memcache to use the igbinary serialize functions (if available)
+  $conf['memcache_serialize'] = 'igbinary';
+
+  // Force memcache to use the msgpack serialize functions (if available)
+  $conf['memcache_serialize'] = 'msgpack';
+
+To review which serialize function is being used, enable the memcache_admin
+module and visit admin/reports/memcache.
+
+IGBINARY:
+
+The igbinary project is maintained on GitHub:
  - https://github.com/phadej/igbinary
 
-The official PECL package can be found at:
+The official igbinary PECL extension can be found at:
  - https://pecl.php.net/package/igbinary
 
 Version 2.0.1 or greater is recommended.
+
+MSGPACK:
+
+The msgpack project is maintained at:
+  - https://msgpack.org
+
+The official msgpack PECL extension can be found at:
+  - https://pecl.php.net/package/msgpack
+
+Version 2.0.2 or greater is recommended.
 
 ## MAXIMUM LENGTHS ##
 
