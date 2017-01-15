@@ -609,7 +609,7 @@ function dmemcache_connect($memcache, $server, $connection) {
         $rc = @$memcache->connect($host, $port);
       }
       if (!empty($php_errormsg)) {
-        register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_object: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
+        register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_connect while connecting to !host:!port: !msg', array('!host' => $host, '!port' => $port, '!msg' => $php_errormsg), WATCHDOG_WARNING);
         $php_errormsg = '';
       }
       ini_set('track_errors', $track_errors);
