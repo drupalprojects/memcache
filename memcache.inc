@@ -369,6 +369,10 @@ class MemCacheDrupal implements DrupalCacheInterface {
     static $wildcards = array();
     $matching = array();
 
+    if (!is_string($cid)) {
+      register_shutdown_function('watchdog', 'memcache', 'Invalid cache id received in memcache.inc wildcards() of type !type.', array('!type' => gettype($cid)), WATCHDOG_ERROR);
+      return $matching;
+    }
     $length = strlen($cid);
 
     if (isset($this->wildcard_flushes[$this->bin]) && is_array($this->wildcard_flushes[$this->bin])) {
