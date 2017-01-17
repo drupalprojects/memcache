@@ -256,6 +256,9 @@ function memcache_admin_bin_mapping($bin = 'cache') {
  *   The page output.
  */
 function memcache_admin_stats($bin = 'default') {
+  if (!class_exists('MemCacheDrupal', FALSE)) {
+    return t('There is a problem with your memcache configuration. Please review !readme for help resolving the following issue: %error.', array('!readme' => l('README.txt', 'http://cgit.drupalcode.org/memcache/tree/README.txt?id=refs/heads;id2=7.x-1.x'), '%error' => t('cache_backends not properly configured in settings.php, failed to load required file memcache.inc')));
+  }
   $bin = memcache_admin_bin_mapping($bin);
   $output = '';
   $server = array();
@@ -290,6 +293,7 @@ function memcache_admin_stats($bin = 'default') {
           $servers[] = $server;
           $data['server_overview'][$server] = t('v!version running !uptime', array('!version' => check_plain($statistics['version']), '!uptime' => format_interval($statistics['uptime'])));
           $data['server_pecl'][$server] = t('n/a');
+          $data['server_serialize'][$server] = t('n/a');
           $data['server_time'][$server] = format_date($statistics['time']);
           $data['server_connections'][$server] = _memcache_admin_stats_connections($statistics);
           $data['cache_sets'][$server] = _memcache_admin_stats_sets($statistics);
@@ -343,8 +347,8 @@ function memcache_admin_stats($bin = 'default') {
       $serialize_function = t('!function v!version', array('!function' => $serialize_function, '!version' => phpversion(dmemcache_serialize_extension())));
     }
     if (count($aggregate)) {
-      $report['uptime'][] = $item;
-      $item['servers'] = $serialize_function;
+      $item['servers'] = $data['server_serialize'];
+      $item['total'] = $serialize_function;
     }
     else {
       $item['servers'] = array($servers[0] => $serialize_function);

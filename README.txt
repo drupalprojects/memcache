@@ -436,6 +436,9 @@ $conf['memcache_options'] = array(
 PROBLEM:
  Error:
   Failed to load required file memcache/dmemcache.inc
+ Or:
+ cache_backends not properly configured in settings.php, failed to load
+ required file memcache.inc
 
 SOLUTION:
 You need to enable memcache in settings.php. Search for "Example 1" above
