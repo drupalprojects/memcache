@@ -56,7 +56,22 @@ For more detailed instructions on (1) and (2) above, please see the
 documentation online on drupal.org which includes links to external
 walk-throughs for various operating systems.
 
-## Advanced Configuration ##
+## DRUSH ##
+
+Enable the memcache module at admin/modules or with 'drush en memcache', then
+rebuild the drush cache by running 'drush cc drush'. This will enable the
+following drush commands:
+
+  memcache-clear (mcc)  Flush all Memcached objects in a bin.
+  memcache-stats (mcs)  Retrieve statistics from Memcached.
+
+For more information about each command, use 'drush help'. For example:
+  drush help mcc
+
+Or:
+  drush help mcs
+
+## ADVANCED CONFIGURATION ##
 
 This module is capable of working with one memcached instance or with multiple
 memcached instances run across one or more servers. The default is to use one
