@@ -21,12 +21,15 @@ is important.
 
  1. Install the memcached binaries on your server and start the memcached
     service. Follow best practices for securing the service; for example,
-    lock it down so only your web servers can make connections.
+    lock it down so only your web servers can make connections. Find community
+    maintained documentation with a number of walk-throughs for various
+    operating systems at https://www.drupal.org/node/1131458.
  2. Install your chosen PECL memcache extension -- this is the memcache client
     library which will be used by the Drupal memcache module to interact with
     the memcached server(s). Generally PECL memcache (3.0.6+) is recommended,
     but PECL memcached (2.0.1+) also works well for some people. There are
-    known issues with older version.
+    known issues with older versions. Refer to the community maintained
+    documentation referenced above for more information.
  3. Put your site into offline mode.
  4. Download and install the memcache module.
  5. If you have previously been running the memcache module, run update.php.
@@ -51,10 +54,6 @@ is important.
     page_cache_invoke_hooks to FALSE or you'll see an error like "Fatal error:
     Call to undefined function module_list()".
 10. Bring your site back online.
-
-For more detailed instructions on (1) and (2) above, please see the
-documentation online on drupal.org which includes links to external
-walk-throughs for various operating systems.
 
 ## DRUSH ##
 
