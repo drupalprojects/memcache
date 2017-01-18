@@ -705,6 +705,10 @@ function memcache_admin_shutdown() {
         }
       }
     }
+    else {
+      // Workaround for CKEditor, see https://www.drupal.org/node/2556999
+      return;
+    }
   }
 
   if (variable_get('show_memcache_statistics', FALSE) && function_exists('user_access') && user_access('access memcache statistics')) {
