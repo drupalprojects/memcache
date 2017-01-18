@@ -762,7 +762,10 @@ function dmemcache_connect($memcache, $server, $connection) {
 
   $extension = dmemcache_extension();
 
-  list($host, $port) = explode(':', $server);
+  @list($host, $port) = explode(':', trim($server));
+  if (empty($host)) {
+    register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php. Please review README.txt for proper configuration.', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
+  }
 
   if ($extension == 'Memcache') {
     // Allow persistent connection via Memcache extension -- note that this
@@ -778,6 +781,9 @@ function dmemcache_connect($memcache, $server, $connection) {
       // Use full protocol and path as expected by Memcache extension.
       $host = $server;
       $port = 0;
+    }
+    else if (!isset($port)) {
+      register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php which does not include a port. Please review README.txt for proper configuration. You must specify both a server address and port such as "!ip" or "!host", or a unix socket such as "!socket".', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
     }
 
     // When using the PECL memcache extension, we must use ->(p)connect
@@ -810,6 +816,9 @@ function dmemcache_connect($memcache, $server, $connection) {
       // Strip 'unix://' as expected by Memcached extension.
       $host = substr($server, 7);
       $port = 0;
+    }
+    else if (!isset($port)) {
+      register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php which does not include a port. Please review README.txt for proper configuration. You must specify both a server address and port such as "!ip" or "!host", or a unix socket such as "!socket".', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
     }
     $rc = $memcache->addServer($host, $port);
   }
