@@ -431,6 +431,42 @@ $conf['memcache_options'] = array(
   Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
 );
 
+## DEBUG LOGGING ##
+
+You can optionally enable debug logging by adding the following to your
+settings.php:
+  $conf['memcache_debug_log'] = '/path/to/file.log';
+
+By default, only the following memcache actions are logged: 'set', 'add',
+'delete', and 'flush'. If you'd like to also log 'get' actions, enble verbose
+logging:
+  $conf['memcache_debug_verbose'] = TRUE;
+
+This file needs to be writable by the web server (and/or by drush) or you will
+see lots of watchdog errors. You are responsible for ensuring that the debug log
+doesn't get too large. By default, enabling debug logging will write logs
+looking something like:
+
+  1484719570|add|semaphore|semaphore-memcache_system_list%3Acache_bootstrap|1
+  1484719570|set|cache_bootstrap|cache_bootstrap-system_list|1
+  1484719570|delete|semaphore|semaphore-memcache_system_list%3Acache_bootstrap|1
+
+The default log format is pipe delineated, containing the following fields:
+  timestamp|action|bin|cid|return code
+
+You can specify a custom log format by setting the memcache_debug_log_format
+variable. Supported variables that will be replaced in your format are:
+'!timestamp', '!action', '!bin', '!cid', and '!rc'.
+For example, the default log format (note that it includes a new line at the
+end) is:
+  $conf['memcache_debug_log_format'] = "!timestamp|!action|!bin|!cid|!rc\n";
+
+You can change the timestamp format by specifying a PHP date() format string in
+the memcache_debug_time_format variable. PHP date() formats are documented at
+http://php.net/manual/en/function.date.php. By default timestamps are written as
+a unix timestamp. For example:
+  $conf['memcache_debug_time_format'] = 'U';
+
 ## TROUBLESHOOTING ##
 
 PROBLEM:

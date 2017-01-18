@@ -259,6 +259,15 @@ function memcache_admin_stats($bin = 'default') {
   if (!class_exists('MemCacheDrupal', FALSE)) {
     return t('There is a problem with your memcache configuration. Please review !readme for help resolving the following issue: %error.', array('!readme' => l('README.txt', 'http://cgit.drupalcode.org/memcache/tree/README.txt?id=refs/heads;id2=7.x-1.x'), '%error' => t('cache_backends not properly configured in settings.php, failed to load required file memcache.inc')));
   }
+  if ($memcache_debug_log = variable_get('memcache_debug_log', FALSE)) {
+    if (variable_get('memcache_debug_verbose', FALSE)) {
+      $verbose = t('verbose');
+    }
+    else {
+      $verbose = '';
+    }
+    drupal_set_message(t('You are writing !verbose debug logs to !debug_log.', array('!verbose' => $verbose, '!debug_log' => $memcache_debug_log)), 'warning');
+  }
   $bin = memcache_admin_bin_mapping($bin);
   $output = '';
   $server = array();
