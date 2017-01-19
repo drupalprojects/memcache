@@ -614,9 +614,14 @@ class MemCacheDrupal implements DrupalCacheInterface {
   public function variable_set($name, $value) {
     global $conf;
 
+    // If the value appears unchanged, do nothing.
+    if (isset($conf[$name]) && $conf[$name] === $value) {
+      return;
+    }
+
     // When lots of writes happen in a short period of time db_merge can throw
-    // errors. This should only happen if another request has written the variable
-    // first, so we catch the error to prevent a fatal error.
+    // errors. This should only happen if another request has written the
+    // variable first, so we catch the error to prevent a fatal error.
     try {
       db_merge('variable')
         ->key(array('name' => $name))
@@ -624,8 +629,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
         ->execute();
     }
     catch (Exception $e) {
-      // We can safely ignore the error, since it's likely a cache flush timestamp
-      // which should still be accurate.
+      // We can safely ignore the error, since it's likely a cache flush
+      // timestamp which should still be accurate.
     }
 
     // If the variables are cached, get a fresh copy, update with the new value
