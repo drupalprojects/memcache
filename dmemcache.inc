@@ -79,9 +79,7 @@ function dmemcache_set($key, $value, $exp = 0, $bin = 'cache', $mc = NULL) {
     dmemcache_stats_write('set', $bin, array($full_key => $rc));
   }
 
-  if (variable_get('memcache_debug_log', FALSE)) {
-    _dmemcache_write_debug('set', $bin, $full_key, $rc);
-  }
+  _dmemcache_write_debug('set', $bin, $full_key, $rc);
 
   return $rc;
 }
@@ -249,9 +247,7 @@ function dmemcache_add($key, $value, $exp = 0, $bin = 'cache', $mc = NULL, $flag
     dmemcache_stats_write('add', $bin, array($full_key => $rc));
   }
 
-  if (variable_get('memcache_debug_log', FALSE)) {
-    _dmemcache_write_debug('add', $bin, $full_key, $rc);
-  }
+  _dmemcache_write_debug('add', $bin, $full_key, $rc);
 
   return $rc;
 }
@@ -294,9 +290,7 @@ function dmemcache_get($key, $bin = 'cache', $mc = NULL) {
     dmemcache_stats_write('get', $bin, array($full_key => (bool) $result));
   }
 
-  if (variable_get('memcache_debug_log', FALSE) && variable_get('memcache_debug_verbose', FALSE)) {
-    _dmemcache_write_debug('get', $bin, $full_key, (bool) $result);
-  }
+  _dmemcache_write_debug('get', $bin, $full_key, (bool) $result);
 
   return $result;
 }
@@ -442,6 +436,8 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
     dmemcache_stats_write('getMulti', $bin, $multi_stats);
   }
 
+  _dmemcache_write_debug('getMulti', $bin, $full_key, !empty($results));
+
   return $cid_results;
 }
 
@@ -511,9 +507,7 @@ function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
     dmemcache_stats_write('delete', $bin, array($full_key => $rc));
   }
 
-  if (variable_get('memcache_debug_log', FALSE)) {
-    _dmemcache_write_debug('delete', $bin, $full_key, $rc);
-  }
+  _dmemcache_write_debug('delete', $bin, $full_key, $rc);
 
   return $rc;
 }
@@ -544,9 +538,7 @@ function dmemcache_flush($bin = 'cache', $mc = NULL) {
     dmemcache_stats_write('flush', $bin, array('' => $rc));
   }
 
-  if (variable_get('memcache_debug_log', FALSE)) {
-    _dmemcache_write_debug('flush', $bin, $full_key, $rc);
-  }
+  _dmemcache_write_debug('flush', $bin, $full_key, $rc);
 
   return $rc;
 }
@@ -1168,11 +1160,20 @@ function dmemcache_stats_write($action, $bin, $keys) {
  *   The return code of the action performed.
  */
 function _dmemcache_write_debug($action, $bin, $key, $rc) {
-  $memcache_debug_log = variable_get('memcache_debug_log', FALSE);
-
-  $debug_log = strtr(variable_get('memcache_debug_log_format', "!timestamp|!action|!bin|!cid|!rc\n"), array('!timestamp' => date(variable_get('memcache_debug_time_format', 'U')), '!action' => $action, '!bin' => $bin, '!cid' => $key, '!rc' => (int) $rc));
-  if (file_put_contents($memcache_debug_log, $debug_log, FILE_APPEND) === FALSE) {
-    // This can lead to a lot of watchdog entries...
-    register_shutdown_function('watchdog', 'memcache', 'Unable to write to debug log at !debug_file: !debug_log.', array('!debug_file' => $memcache_debug_file, '!debug_log' => $debug_log), WATCHDOG_ERROR);
+  static $memcache_debug_log = NULL;
+  static $memcache_debug_verbose = NULL;
+  if ($memcache_debug_log === NULL) {
+    $memcache_debug_log = variable_get('memcache_debug_log', FALSE);
+    $memcache_debug_verbose = variable_get('memcache_debug_verbose', FALSE);
+  }
+  if (($action == 'get' || $action == 'getMulti') && !$memcache_debug_verbose) {
+    return;
+  }
+  else if ($memcache_debug_log) {
+    $debug_log = strtr(variable_get('memcache_debug_log_format', "!timestamp|!action|!bin|!cid|!rc\n"), array('!timestamp' => date(variable_get('memcache_debug_time_format', 'U')), '!action' => $action, '!bin' => $bin, '!cid' => $key, '!rc' => (int) $rc));
+    if (file_put_contents($memcache_debug_log, $debug_log, FILE_APPEND) === FALSE) {
+      // This can lead to a lot of watchdog entries...
+      register_shutdown_function('watchdog', 'memcache', 'Unable to write to debug log at !debug_file: !debug_log.', array('!debug_file' => $memcache_debug_file, '!debug_log' => $debug_log), WATCHDOG_ERROR);
+    }
   }
 }
