@@ -61,11 +61,11 @@ Enable the memcache module at admin/modules or with 'drush en memcache', then
 rebuild the drush cache by running 'drush cc drush'. This will enable the
 following drush commands:
 
-  memcache-clear (mcc)  Flush all Memcached objects in a bin.
+  memcache-flush (mcf)  Flush all Memcached objects in a bin.
   memcache-stats (mcs)  Retrieve statistics from Memcached.
 
 For more information about each command, use 'drush help'. For example:
-  drush help mcc
+  drush help mcf
 
 Or:
   drush help mcs
