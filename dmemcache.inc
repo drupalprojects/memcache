@@ -405,6 +405,10 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
 
       $results = @$mc->get($full_keys);
 
+      // Order is not guaranteed, map responses to order of requests.
+      $keys = array_fill_keys($full_keys, NULL);
+      $results = array_merge($keys, $results);
+
       if (!empty($php_errormsg)) {
         register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_get_multi: !msg', array('!msg' => $php_errormsg), WATCHDOG_WARNING);
         $php_errormsg = '';
