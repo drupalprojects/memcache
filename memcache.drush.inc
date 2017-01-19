@@ -28,7 +28,7 @@ function memcache_drush_command() {
     'aliases' => array('mcs'),
   );
 
-  $items['memcache-clear'] = array(
+  $items['memcache-flush'] = array(
     'description' => dt('Flush all objects from a bin.'),
     'arguments' => array(
       'bin' => dt('Optionally specify which bin to flush; defaults to \'cache\'.'),
@@ -38,7 +38,7 @@ function memcache_drush_command() {
       'memcache-clear' => 'Flush all items in \'cache\' bin.',
       'memcache-clear cache-page' => 'Flush all items in \'cache-page\' bin.',
     ),
-    'aliases' => array('mcc'),
+    'aliases' => array('mcf'),
   );
 
   return $items;
@@ -88,7 +88,7 @@ function drush_memcache_stats($bin = 'cache', $stats_type = 'default') {
  * @return bool
  *   Returns TRUE on success or FALSE on failure.
  */
-function drush_memcache_clear($bin = 'cache') {
+function drush_memcache_flush($bin = 'cache') {
   if (_memcache_is_available()) {
     $flushed = dmemcache_flush($bin);
 
@@ -104,7 +104,7 @@ function drush_memcache_clear($bin = 'cache') {
 /**
  * Implements drush_hook_COMMAND_validate().
  */
-function drush_memcache_clear_validate() {
+function drush_memcache_flush_validate() {
   return _memcache_is_available();
 }
 

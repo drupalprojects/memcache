@@ -531,7 +531,7 @@ function dmemcache_flush($bin = 'cache', $mc = NULL) {
 
   $rc = FALSE;
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $rc = memcache_flush($mc);
+    $rc = $mc->flush();
   }
 
   if ($collect_stats) {
@@ -883,10 +883,17 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
   static $failed_connections = array();
 
   if ($flush) {
-    foreach ($memcache_cache as $cluster) {
-      memcache_close($cluster);
+    if (!empty($memcache_cache)) {
+      foreach ($memcache_cache as $cluster) {
+        if ($extension == 'Memcache' && $cluster instanceof Memcache) {
+          $rc = @$cluster->close;
+        }
+        elseif ($extension == 'Memcached' && $cluster instanceof Memcached) {
+          $rc = @$cluster->quit;
+        }
+        $memcache_cache = array();
+      }
     }
-    $memcache_cache = array();
   }
 
   $extension = dmemcache_extension();
