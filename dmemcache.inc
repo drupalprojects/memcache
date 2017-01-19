@@ -8,7 +8,6 @@
  *   memcache.inc
  *   memcache-lock.inc
  *   memcache-lock-code.inc
- *   memcache-session.inc
  */
 
 define('MEMCACHED_E2BIG', 37);
@@ -344,7 +343,7 @@ function _dmemcache_get_pieces($item, $key, $bin = 'cache', $mc = NULL) {
   }
   else {
     $unserialize_function = dmemcache_unserialize();
-    return $unserialize_function($value);
+    return $unserialize_function($data);
   }
 }
 
