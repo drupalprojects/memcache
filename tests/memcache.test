@@ -238,6 +238,7 @@ class MemcacheTestCase extends DrupalWebTestCase {
    */
   protected function resetVariables() {
     if ($this->default_bin) {
+      $_SESSION['cache_flush'][$this->default_bin] = 0;
       $cache = _cache_get_object($this->default_bin);
       if ($cache instanceof MemCacheDrupal) {
         $cache->reloadVariables();
@@ -521,7 +522,6 @@ class MemCacheClearCase extends MemcacheTestCase {
     // Reset the cache clear variables.
     variable_set('cache_content_flush_' . $this->default_bin, 0);
     variable_set('cache_lifetime', 6000);
-    $_SESSION['cache_flush'][$this->default_bin] = 0;
     $this->resetVariables();
 
     // Confirm that cache_lifetime does not take effect for full bin flushes.
