@@ -455,59 +455,63 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
 function dmemcache_delete($key, $bin = 'cache', $mc = NULL) {
   $collect_stats = dmemcache_stats_init();
 
-  $full_key = dmemcache_key($key, $bin);
+  $full_keys = dmemcache_key($key, $bin, TRUE);
 
   $rc = FALSE;
   if ($mc || ($mc = dmemcache_object($bin))) {
-    $rc = $mc->delete($full_key, 0);
+    foreach ($full_keys as $fk) {
+      $rc = $mc->delete($fk, 0);
 
-    if ($rc) {
-      // If the delete succeeded, we now check to see if this item has multiple
-      // pieces also needing to be cleaned up. If the delete failed, we assume
-      // these keys have already expired or been deleted (memcache will
-      // auto-expire eventually if we're wrong).
-      if ($piece_cache = dmemcache_piece_cache_get($full_key)) {
-        // First, remove from the piece_cache so we don't try and delete it
-        // again in another thread, then delete the actual cache data pieces.
-        dmemcache_piece_cache_set($full_key, NULL);
-        $next_id = 0;
-        do {
-          // Generate the cid of the next data piece.
-          $piece_key = _dmemcache_key_piece($key, $next_id);
-          $full_key = dmemcache_key($piece_key, $bin);
-          $next_id++;
+      if ($rc) {
+        // If the delete succeeded, we now check to see if this item has
+        //  multiple pieces also needing to be cleaned up. If the delete failed,
+        // we assume these keys have already expired or been deleted (memcache
+        // will auto-expire eventually if we're wrong).
+        if ($piece_cache = dmemcache_piece_cache_get($fk)) {
+          // First, remove from the piece_cache so we don't try and delete it
+          // again in another thread, then delete the actual cache data pieces.
+          dmemcache_piece_cache_set($fk, NULL);
+          $next_id = 0;
+          do {
+            if ($inner_rc) {
+              _dmemcache_write_debug("delete", $bin, $full_key, $inner_rc);
+            }
+            // Generate the cid of the next data piece.
+            $piece_key = _dmemcache_key_piece($key, $next_id);
+            $full_key = dmemcache_key($piece_key, $bin);
+            $next_id++;
 
-          // Keep deleting pieces until the operation fails. We accept that
-          // this could lead to orphaned pieces as memcache will auto-expire
-          // them eventually.
-        } while ($mc->delete($full_key, 0));
+            // Keep deleting pieces until the operation fails. We accept that
+            // this could lead to orphaned pieces as memcache will auto-expire
+            // them eventually.
+          } while ($inner_rc = $mc->delete($full_key, 0));
+          _dmemcache_write_debug("delete", $bin, $full_key, $inner_rc);
 
-        // Perform garbage collection for keys memcache has auto-expired. If we
-        // don't do this, this variable could grow over enough time as a slow
-        // memory leak.
-        // @todo: Consider moving this to hook_cron() and requiring people to
-        // enable the memcache module.
-        timer_start('memcache_gc_piece_cache');
-        $gc_counter = 0;
-        $piece_cache = &drupal_static('dmemcache_piece_cache', array());
-        foreach ($piece_cache as $cid => $expires) {
-          if (REQUEST_TIME > $expires) {
-            $gc_counter++;
-            dmemcache_piece_cache_set($cid, NULL);
+          // Perform garbage collection for keys memcache has auto-expired. If
+          // we don't do this, this variable could grow over enough time as a
+          // slow memory leak.
+          // @todo: Consider moving this to hook_cron() and requiring people to
+          // enable the memcache module.
+          timer_start('memcache_gc_piece_cache');
+          $gc_counter = 0;
+          $piece_cache = &drupal_static('dmemcache_piece_cache', array());
+          foreach ($piece_cache as $cid => $expires) {
+            if (REQUEST_TIME > $expires) {
+              $gc_counter++;
+              dmemcache_piece_cache_set($cid, NULL);
+            }
+          }
+          if ($gc_counter) {
+            register_shutdown_function('watchdog', 'memcache', 'Spent !time ms in garbage collection cleaning !count stale keys from the dmemcache_piece_cache.', array('!time' => timer_read('memcache_gc_piece_cache'), '!count' => $gc_counter), WATCHDOG_WARNING);
           }
         }
-        if ($gc_counter) {
-          register_shutdown_function('watchdog', 'memcache', 'Spent !time ms in garbage collection cleaning !count stale keys from the dmemcache_piece_cache.', array('!time' => timer_read('memcache_gc_piece_cache'), '!count' => $gc_counter), WATCHDOG_WARNING);
-        }
       }
+      if ($collect_stats) {
+        dmemcache_stats_write('delete', $bin, array($fk => $rc));
+      }
+      _dmemcache_write_debug('delete', $bin, $fk, $rc);
     }
   }
-
-  if ($collect_stats) {
-    dmemcache_stats_write('delete', $bin, array($full_key => $rc));
-  }
-
-  _dmemcache_write_debug('delete', $bin, $full_key, $rc);
 
   return $rc;
 }
@@ -964,31 +968,54 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
  *   The key to prefix and encode.
  * @param string $bin
  *   The cache bin which the key applies to.
+ * @param string $multiple
+ *   If TRUE will return all possible prefix variations.
  *
- * @return string
- *   The prefixed and encoded key.
+ * @return string or array
+ *   The prefixed and encoded key(s).
  */
-function dmemcache_key($key, $bin = 'cache') {
+function dmemcache_key($key, $bin = 'cache', $multiple = FALSE) {
   $prefix = '';
   if ($prefixes = variable_get('memcache_key_prefix', '')) {
     if (is_array($prefixes)) {
+      // If no custom prefix defined for bin, use 'default'.
+      if (empty($prefixes[$bin])) {
+        $bin = 'default';
+      }
       if (!empty($prefixes[$bin])) {
-        $prefix = $prefixes[$bin] . '-';
-      } // Support default prefix for site
-      elseif (!empty($prefixes['default'])) {
-        $prefix = $prefixes['default'] . '-';
+        // There can be multiple prefixes specified for each bin.
+        if (is_array($prefixes[$bin])) {
+          // Optionally return key with all prefixes.
+          if ($multiple) {
+            $prefix = array();
+            foreach ($prefixes[$bin] as $pre) {
+              $prefix[] = $pre . '-';
+            }
+          }
+          // Otherwise just return a single prefixed key.
+          else {
+            $prefix = $prefixes[$bin][0] . '-';
+          }
+        }
       }
     }
     else {
       $prefix = $prefixes . '-';
     }
   }
-  // When simpletest is running, emulate the simpletest database prefix here
-  // to avoid the child site setting cache entries in the parent site.
-  if (isset($GLOBALS['drupal_test_info']['test_run_id'])) {
-    $prefix .= $GLOBALS['drupal_test_info']['test_run_id'];
+
+  if (!is_array($prefix)) {
+    $prefix = array($prefix);
   }
-  $full_key = urlencode($prefix . $bin . '-' . $key);
+  $full_keys = array();
+  foreach ($prefix as $p) {
+    // When simpletest is running, emulate the simpletest database prefix here
+    // to avoid the child site setting cache entries in the parent site.
+    if (isset($GLOBALS['drupal_test_info']['test_run_id'])) {
+      $p .= $GLOBALS['drupal_test_info']['test_run_id'];
+    }
+    $full_keys[] = urlencode($p . $bin . '-' . $key);
+  }
 
   // Memcache truncates keys longer than 250 characters[*]. This could lead to
   // cache collisions, so we hash keys that are longer than this while still
@@ -998,12 +1025,22 @@ function dmemcache_key($key, $bin = 'cache') {
   // keys by setting memcache_key_max_length in settings.php.
   // [*]https://github.com/memcached/memcached/blob/master/doc/protocol.txt#L47
   $maxlen = variable_get('memcache_key_max_length', 250);
-  if (strlen($full_key) > $maxlen) {
-    $full_key = urlencode($prefix . $bin) . '-' . hash(variable_get('memcache_key_hash_algorithm', 'sha1'), $key);
-    $full_key .= '-' . substr(urlencode($key), 0, ($maxlen - 1) - strlen($full_key) - 1);
+
+  foreach ($full_keys as $k => $full_key) {
+    if (strlen($full_key) > $maxlen) {
+      $full_keys[$k] = urlencode($prefix[$k] . $bin) . '-' . hash(variable_get('memcache_key_hash_algorithm', 'sha1'), $key);
+      $full_keys[$k] .= '-' . substr(urlencode($key), 0, ($maxlen - 1) - strlen($full_keys[$k]) - 1);
+    }
   }
 
-  return $full_key;
+  if ($multiple) {
+    // An array of prefixed keys.
+    return $full_keys;
+  }
+  else {
+    // A single prefixed key.
+    return array_shift($full_keys);
+  }
 }
 
 /**

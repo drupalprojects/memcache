@@ -312,6 +312,36 @@ except for the 'cache_page' bin which will use the 'something_else_unique'
 prefix. Not that if using a keyed array for specifying prefix, you must specify
 the 'default' prefix.
 
+It is also possible to specify multiple prefixes per bin. Only the first prefix
+will be used when setting/getting cache items, but all prefixes will be cleared
+when deleting cache items. This provides support for more complicated
+configurations such as a live instance and an administrative instance each with
+their own prefixes and therefore their own unique caches. Any time a cache item
+is deleted on either instance, it gets flushed on both -- thus, should an admin
+do something that flushes the page cache, it will appropriately get flushed on
+both instances. (For more discussion see the issue where support was added,
+https://www.drupal.org/node/1084448.) This feature is enabled when you configure
+prefixes as arrays within arrays. For example:
+
+  // Live instance.
+  $conf['memcache_key_prefix'] = array(
+    'default' => array(
+      'live_unique', // live cache prefix
+      'admin_unique', // admin cache prefix
+    ),
+  );
+
+The above would be the configuration of your live instance. Then, on your
+administrative instance you would flip the keys:
+
+  // Administrative instance.
+  $conf['memcache_key_prefix'] = array(
+    'default' => array(
+      'admin_unique', // admin cache prefix
+      'live_unique', // live cache prefix
+    ),
+  );
+
 ## EXPERIMENTAL - ALTERNATIVE SERIALIZE ##
 
 This is a new experimental feature added to the memcache module in version
