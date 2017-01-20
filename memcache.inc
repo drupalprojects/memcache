@@ -97,8 +97,8 @@ class MemCacheDrupal implements DrupalCacheInterface {
     // Clean-up the per-user cache expiration session data, so that the session
     // handler can properly clean-up the session data for anonymous users.
     if (isset($_SESSION['cache_flush'])) {
-      $expire = REQUEST_TIME - variable_get('cache_lifetime', 0);
       foreach ($_SESSION['cache_flush'] as $bin => $timestamp) {
+        $expire = REQUEST_TIME - variable_get('cache_lifetime_' . $this->bin, variable_get('cache_lifetime', 0));
         if ($timestamp < $expire) {
           unset($_SESSION['cache_flush'][$bin]);
         }
@@ -273,7 +273,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
       // whether or not the cached item is still valid.
       $this->cache_content_flush = time();
       $this->variable_set('cache_content_flush_' . $this->bin, $this->cache_content_flush);
-      if (variable_get('cache_lifetime', 0)) {
+      if (variable_get('cache_lifetime_' . $this->bin, variable_get('cache_lifetime', 0))) {
         // We store the time in the current user's session. We then simulate
         // that the cache was flushed for this user by not returning cached
         // data to this user that was cached before the timestamp.
@@ -601,7 +601,7 @@ class MemCacheDrupal implements DrupalCacheInterface {
   public function reloadVariables() {
     $this->wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
     $this->invalidate = variable_get('memcache_wildcard_invalidate', MEMCACHE_WILDCARD_INVALIDATE);
-    $this->cache_lifetime = variable_get('cache_lifetime', 0);
+    $this->cache_lifetime = variable_get('cache_lifetime_' . $this->bin, variable_get('cache_lifetime', 0));
     $this->cache_flush = variable_get('cache_flush_' . $this->bin);
     $this->cache_content_flush = variable_get('cache_content_flush_' . $this->bin, 0);
     $this->cache_temporary_flush = variable_get('cache_temporary_flush_' . $this->bin, 0);

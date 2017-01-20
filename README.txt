@@ -194,6 +194,19 @@ When adjusting these variables, be aware that:
    standard web server timeouts (i.e. 15 seconds vs. apache's default of
    30 seconds).
 
+## CACHE LIFETIME ##
+
+Memcache respects Drupal core's minimum cache lifetime configuration. This
+setting affects all cached items, not just pages. In some cases, it may
+be desirable to cache different types of items for different amounts of time.
+You can override the minimum cache lifetime on a per-bin basis in settings.php.
+For example:
+
+  // Cache pages for 60 seconds.
+  $conf['cache_lifetime_cache_page'] = 60;
+  // Cache menus for 10 minutes.
+  $conf['cache_lifetime_menu'] = 600;
+
 ## EXAMPLES ##
 
 Example 1:
