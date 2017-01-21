@@ -653,3 +653,31 @@ memcache_sasl_username and memcache_sasl_password in settings.php. For example:
   );
   $conf['memcache_sasl_username'] = 'yourSASLUsername';
   $conf['memcache_sasl_password'] = 'yourSASLPassword';
+
+## Amazon Elasticache
+
+You can use the Drupal Memcache module to talk with Amazon Elasticache, but to
+enable Automatic Discovery you must use Amazon's forked version of the PECL
+Memcached extension with Dynamic Client Mode enabled.
+
+Their PECL Memcached fork is maintained on GitHub:
+ - https://github.com/awslabs/aws-elasticache-cluster-client-memcached-for-php
+
+If you are using PHP 7 you need to select the php7 branch of their project.
+
+Once the extension is installed, you can enable Dynamic Client Mode as follows:
+
+  $conf['memcache_options'] = array(
+    Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
+    Memcached::OPT_CLIENT_MODE  => Memcached::DYNAMIC_CLIENT_MODE,
+  );
+
+You then configure the module normally. Amazon explains:
+  "If you use Automatic Discovery, you can use the cluster's configuration
+   endpoint to configure your Memcached client."
+
+If you don't want to use Automatic Discovery you don't need to install the
+forked PECL extension, Amazon explains:
+  "If you don't use Automatic Discovery, you must configure your client to use
+   the individual node endpoints for reads and writes. You must also keep track
+   of them as you add and remove nodes."
