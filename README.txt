@@ -207,6 +207,19 @@ For example:
   // Cache menus for 10 minutes.
   $conf['cache_lifetime_menu'] = 600;
 
+## CACHE HEADER ##
+
+Drupal core indicates whether or not a page was served out of the cache by
+setting the 'X-Drupal-Cache' response header with a value of HIT or MISS. If
+you'd like to confirm whether pages are actually being retreived from Memcache
+and not another backend, you can enable the following option:
+
+  $conf['memcache_pagecache_header'] = TRUE;
+
+When enabled, the Memcache module will add its own 'Drupal-PageCache-Memcache'
+header. When cached pages are served out of the cache the header will include an
+'age=' value indicating how many seconds ago the page was stored in the cache.
+
 ## EXAMPLES ##
 
 Example 1:

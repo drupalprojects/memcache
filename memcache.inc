@@ -197,7 +197,18 @@ class MemCacheDrupal implements DrupalCacheInterface {
       }
     }
 
-    return (bool) $cache;
+    $valid = (bool) $cache;
+
+    if (variable_get('memcache_pagecache_header', FALSE) && ($this->bin == 'cache_page')) {
+      // Per RFC-6648, don't start with X-
+      $header = t('Drupal-Pagecache-Memcache: !status', array('!status' => $valid ? t('HIT') : t('MISS')));
+      if ($valid) {
+        $header .= t(', age=!age', array('!age' => REQUEST_TIME - $cache->created));
+      }
+      header ($header);
+    }
+
+    return $valid;
   }
 
   /**
