@@ -726,14 +726,19 @@ function dmemcache_unserialize() {
 /**
  * Return a new memcache instance.
  */
-function dmemcache_instance() {
+function dmemcache_instance($bin = 'cache') {
   static $error = FALSE;
   $extension = dmemcache_extension();
   if ($extension == 'Memcache') {
     return new Memcache();
   }
   elseif ($extension == 'Memcached') {
-    $memcache = new Memcached();
+    if (variable_get('memcache_persistent', TRUE)) {
+      $memcache = new Memcached($bin);
+    }
+    else {
+      $memcache = new Memcached;
+    }
     $default_opts = array(
       Memcached::OPT_COMPRESSION => FALSE,
       Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
@@ -786,14 +791,11 @@ function dmemcache_connect($memcache, $server, $connection) {
     register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php. Please review README.txt for proper configuration.', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
   }
 
+  if (!isset($memcache_persistent)) {
+    $memcache_persistent = variable_get('memcache_persistent', TRUE);
+  }
+
   if ($extension == 'Memcache') {
-    // Allow persistent connection via Memcache extension -- note that this
-    // module currently doesn't support persistent connections with the
-    // Memcached extension. See http://drupal.org/node/822316#comment-4427676
-    // for details.
-    if (!isset($memcache_persistent)) {
-      $memcache_persistent = variable_get('memcache_persistent', FALSE);
-    }
 
     // Support unix sockets of the format 'unix:///path/to/socket'.
     if ($host == 'unix') {
@@ -839,7 +841,25 @@ function dmemcache_connect($memcache, $server, $connection) {
     else if (!isset($port)) {
       register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php which does not include a port. Please review README.txt for proper configuration. You must specify both a server address and port such as "!ip" or "!host", or a unix socket such as "!socket".', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
     }
-    $rc = $memcache->addServer($host, $port);
+    if ($memcache_persistent) {
+      $servers = $memcache->getServerList();
+      $match = FALSE;
+      foreach ($servers as $s) {
+        if ($s['host'] == $host && $s['port'] == $port) {
+          $match = TRUE;
+          break;
+        }
+      }
+      if (!$match) {
+        $rc = $memcache->addServer($host, $port);
+      }
+      else {
+        $rc = TRUE;
+      }
+    }
+    else {
+      $rc = $memcache->addServer($host, $port);
+    }
   }
   else {
     $rc = FALSE;
@@ -919,7 +939,7 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
     }
     else {
       // Create a new memcache object for each cluster.
-      $memcache = dmemcache_instance();
+      $memcache = dmemcache_instance($bin);
 
       // Track whether or not we've opened any memcache connections.
       $connection = FALSE;

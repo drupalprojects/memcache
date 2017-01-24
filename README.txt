@@ -220,6 +220,14 @@ When enabled, the Memcache module will add its own 'Drupal-PageCache-Memcache'
 header. When cached pages are served out of the cache the header will include an
 'age=' value indicating how many seconds ago the page was stored in the cache.
 
+## PERSISTENT CONNECTIONS ##
+
+As of 7.x-1.5, the memcache module uses peristent connections by default. If
+this causes you problems you can disable persistent connections by adding the
+following to your settings.php:
+
+  $conf['memcache_persistent'] = FALSE;
+
 ## EXAMPLES ##
 
 Example 1:
