@@ -694,8 +694,12 @@ Once the extension is installed, you can enable Dynamic Client Mode as follows:
   );
 
 You then configure the module normally. Amazon explains:
-  "If you use Automatic Discovery, you can use the cluster's configuration
-   endpoint to configure your Memcached client."
+  "If you use Automatic Discovery, you can use the cluster's Configuration
+   Endpoint to configure your Memcached client."
+
+It's been reported that the Configuration Endpoint must have 'cfg' in the name
+or it won't work. Further documentation can be found here:
+http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/Endpoints.html
 
 If you don't want to use Automatic Discovery you don't need to install the
 forked PECL extension, Amazon explains:
