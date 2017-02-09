@@ -416,6 +416,7 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
   // If $results is FALSE, convert it to an empty array.
   if (!$results) {
     $results = array();
+    _dmemcache_write_debug('getMulti', $bin, implode(',', $full_keys), FALSE);
   }
 
   if ($collect_stats) {
@@ -433,13 +434,12 @@ function dmemcache_get_multi($keys, $bin = 'cache', $mc = NULL) {
       $value = _dmemcache_get_pieces($value->data, $value->cid, $bin, $mc);
     }
     $cid_results[$cid_lookup[$key]] = $value;
+    _dmemcache_write_debug('getMulti', $bin, $key, TRUE);
   }
 
   if ($collect_stats) {
     dmemcache_stats_write('getMulti', $bin, $multi_stats);
   }
-
-  _dmemcache_write_debug('getMulti', $bin, $full_key, !empty($results));
 
   return $cid_results;
 }
