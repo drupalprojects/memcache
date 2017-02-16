@@ -637,14 +637,14 @@ function dmemcache_extension() {
   if ($extension === NULL) {
     // If an extension is specified in settings.php, use that when available.
     $preferred = variable_get('memcache_extension', NULL);
-    if (isset($preferred) && class_exists($preferred, FALSE)) {
+    if (isset($preferred) && class_exists($preferred)) {
       $extension = ucfirst(strtolower($preferred));
     }
     // If no extension is set, default to Memcache.
-    elseif (class_exists('Memcache', FALSE)) {
+    elseif (class_exists('Memcache')) {
       $extension = 'Memcache';
     }
-    elseif (class_exists('Memcached', FALSE)) {
+    elseif (class_exists('Memcached')) {
       $extension = 'Memcached';
     }
     else {
