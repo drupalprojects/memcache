@@ -32,6 +32,17 @@ function lock_initialize() {
 function lock_acquire($name, $timeout = 30) {
   global $locks;
 
+  // Special case variable_init, as on memcache errors we can get stuck in an
+  // infinite loop.
+  static $variable_init = 0;
+  if ($name == 'variable_init') {
+    if ($variable_init > 25) {
+      register_shutdown_function('watchdog', 'memcache', 'Broke out of loop trying to grab lock for variable_init.');
+      return TRUE;
+    }
+    $variable_init++;
+  }
+
   // Ensure that the timeout is at least 1 sec. This is a limitation
   // imposed by memcached.
   $timeout = (int) max($timeout, 1);

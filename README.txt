@@ -102,6 +102,15 @@ to $conf; memcache_servers and memcache_bins. The arrays follow this pattern:
    binS => clusterS
 )
 
+You can optionally assign a weight to each server, favoring one server more than
+another. For example, to make it 10 times more likely to store an item on
+server1 versus server2:
+
+'memcache_servers' => array(
+  server1:port => array('cluster' => cluster1, 'weight' => 10),
+  server2:port => array('cluster' => cluster2, 'weight' => 1'),
+)
+
 The bin/cluster/server model can be described as follows:
 
 - Servers are memcached instances identified by host:port.

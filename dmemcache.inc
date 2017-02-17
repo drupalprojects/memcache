@@ -579,7 +579,17 @@ function dmemcache_stats($stats_bin = 'cache', $stats_type = 'default', $aggrega
         // passed to the Memcache memcache_get_extended_stats() function.
         elseif ($mc instanceof Memcache) {
           if ($stats_type == 'default' || $stats_type == '') {
-            $stats[$bin] = $mc->getExtendedStats();
+            $rc = $mc->getExtendedStats();
+            if (is_array($rc)) {
+              foreach ($rc as $server => $data) {
+                if (empty($data)) {
+                  unset($rc[$server]);
+                }
+              }
+              if (!empty($rc)) {
+                $stats[$bin] = $rc;
+              }
+            }
           }
           // If $slab isn't zero, then we are dumping the contents of a
           // specific cache slab.
@@ -777,14 +787,13 @@ function dmemcache_instance($bin = 'cache') {
  * @param string $server
  *   A server string of the format "localhost:11211" or
  *   "unix:///path/to/socket".
- * @param bool $connection
- *   TRUE or FALSE, whether the $memcache instance already has at least one
- *   open connection.
+ * @param integer $weight
+ *   Weighted probability of talking to this server.
  *
  * @return bool
  *   TRUE or FALSE if connection was successful.
  */
-function dmemcache_connect($memcache, $server, $connection) {
+function dmemcache_connect($memcache, $server, $weight) {
   static $memcache_persistent = NULL;
 
   $extension = dmemcache_extension();
@@ -798,8 +807,8 @@ function dmemcache_connect($memcache, $server, $connection) {
     $memcache_persistent = variable_get('memcache_persistent', TRUE);
   }
 
+  $port_error = FALSE;
   if ($extension == 'Memcache') {
-
     // Support unix sockets of the format 'unix:///path/to/socket'.
     if ($host == 'unix') {
       // Use full protocol and path as expected by Memcache extension.
@@ -807,31 +816,7 @@ function dmemcache_connect($memcache, $server, $connection) {
       $port = 0;
     }
     else if (!isset($port)) {
-      register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php which does not include a port. Please review README.txt for proper configuration. You must specify both a server address and port such as "!ip" or "!host", or a unix socket such as "!socket".', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
-    }
-
-    // When using the PECL memcache extension, we must use ->(p)connect
-    // for the first connection.
-    if (!$connection) {
-      $track_errors = ini_set('track_errors', '1');
-      $php_errormsg = '';
-
-      // The Memcache extension requires us to use (p)connect for the first
-      // server we connect to.
-      if ($memcache_persistent) {
-        $rc = @$memcache->pconnect($host, $port);
-      }
-      else {
-        $rc = @$memcache->connect($host, $port);
-      }
-      if (!empty($php_errormsg)) {
-        register_shutdown_function('watchdog', 'memcache', 'Exception caught in dmemcache_connect while connecting to !host:!port: !msg', array('!host' => $host, '!port' => $port, '!msg' => $php_errormsg), WATCHDOG_WARNING);
-        $php_errormsg = '';
-      }
-      ini_set('track_errors', $track_errors);
-    }
-    else {
-      $rc = $memcache->addServer($host, $port, $memcache_persistent);
+      $port_error = TRUE;
     }
   }
   elseif ($extension == 'Memcached') {
@@ -842,26 +827,33 @@ function dmemcache_connect($memcache, $server, $connection) {
       $port = 0;
     }
     else if (!isset($port)) {
-      register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php which does not include a port. Please review README.txt for proper configuration. You must specify both a server address and port such as "!ip" or "!host", or a unix socket such as "!socket".', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
+      $port_error = TRUE;
     }
+  }
+
+  if ($port_error) {
+    register_shutdown_function('watchdog', 'memcache', 'You have specified an invalid address of "!server" in settings.php which does not include a port. Please review README.txt for proper configuration. You must specify both a server address and port such as "!ip" or "!host", or a unix socket such as "!socket".', array('!server' => $server, '!ip' => t('127.0.0.1:11211'), '!host' => t('localhost:11211'), '!socket' => t('unix:///path/to/socket')), WATCHDOG_WARNING);
+  }
+
+  if ($extension == 'Memcache') {
+    $rc = $memcache->addServer($host, $port, $memcache_persistent, $weight);
+  }
+  elseif ($extension == 'Memcached') {
+    $match = FALSE;
     if ($memcache_persistent) {
       $servers = $memcache->getServerList();
-      $match = FALSE;
       foreach ($servers as $s) {
         if ($s['host'] == $host && $s['port'] == $port) {
           $match = TRUE;
           break;
         }
       }
-      if (!$match) {
-        $rc = $memcache->addServer($host, $port);
-      }
-      else {
-        $rc = TRUE;
-      }
+    }
+    if (!$match) {
+      $rc = $memcache->addServer($host, $port);
     }
     else {
-      $rc = $memcache->addServer($host, $port);
+      $rc = TRUE;
     }
   }
   else {
@@ -946,22 +938,23 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
 
       // Track whether or not we've opened any memcache connections.
       $connection = FALSE;
-
       // Link all the servers to this cluster.
-      foreach ($memcache_servers as $server => $c) {
-        if ($c == $cluster && !isset($failed_connections[$server])) {
-          $rc = dmemcache_connect($memcache, $server, $connection);
-          if ($rc !== FALSE) {
-            // We've made at least one successful connection.
-            $connection = TRUE;
-          }
-          else {
-            // Memcache connection failure. We can't log to watchdog directly
-            // because we're in an early Drupal bootstrap phase where watchdog
-            // is non-functional. Instead, register a shutdown handler so it
-            // gets recorded at the end of the page load.
-            register_shutdown_function('watchdog', 'memcache', 'Failed to connect to memcache server: !server', array('!server' => $server), WATCHDOG_ERROR);
-            $failed_connections[$server] = FALSE;
+      foreach ($memcache_servers as $server => $b) {
+        if ($c = dmemcache_object_cluster($b)) {
+          if ($c['cluster'] == $cluster && !isset($failed_connections[$server])) {
+            $rc = dmemcache_connect($memcache, $server, $c['weight'], $connection);
+            if ($rc) {
+              // We've made at least one connection.
+              $connection = TRUE;
+            }
+            else {
+              // Memcache connection failure. We can't log to watchdog directly
+              // because we're in an early Drupal bootstrap phase where watchdog
+              // is non-functional. Instead, register a shutdown handler so it
+              // gets recorded at the end of the page load.
+              register_shutdown_function('watchdog', 'memcache', 'Failed to connect to memcache server: !server', array('!server' => $server), WATCHDOG_ERROR);
+              $failed_connections[$server] = FALSE;
+            }
           }
         }
       }
@@ -982,6 +975,29 @@ function dmemcache_object($bin = NULL, $flush = FALSE) {
   }
 
   return empty($memcache_cache[$bin]) ? FALSE : $memcache_cache[$bin];
+}
+
+/**
+ * Ensure that we're working with a proper cluster array.
+ */
+function dmemcache_object_cluster($cluster) {
+  if (!is_array($cluster)) {
+    // Set defaults.
+    $cluster = array(
+      'cluster' => $cluster,
+      'weight' => 1,
+    );
+  }
+  if (!isset($cluster['cluster']) || !is_string($cluster['cluster'])) {
+    // Cluster is required, complain if it's missing or invalid.
+    register_shutdown_function('watchdog', 'memcache', 'Ignoring invalid or missing cluster definition, review your memcache_servers configuration.', array(), WATCHDOG_ERROR);
+    return FALSE;
+  }
+  if (!isset($cluster['weight']) || !is_int($cluster['weight']) || $cluster['weight'] < 1) {
+    // Weight is optional.
+    $cluster['weight'] = 1;
+  }
+  return $cluster;
 }
 
 /**
