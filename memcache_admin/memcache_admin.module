@@ -61,8 +61,9 @@ function memcache_admin_menu() {
   $clusters = array();
   foreach ($memcache_servers as $server => $bin) {
     if ($cluster = dmemcache_object_cluster($bin)) {
-      $clusters[$cluster]['servers'][] = $server;
-      $clusters[$cluster]['bin'] = _memcache_admin_get_bin_for_cluster($cluster['cluster']);
+      $name = $cluster['cluster'];
+      $clusters[$name]['servers'][] = $server;
+      $clusters[$name]['bin'] = _memcache_admin_get_bin_for_cluster($cluster['cluster']);
     }
   }
 
