@@ -231,7 +231,7 @@ header. When cached pages are served out of the cache the header will include an
 
 ## PERSISTENT CONNECTIONS ##
 
-As of 7.x-1.5, the memcache module uses peristent connections by default. If
+As of 7.x-1.6, the memcache module uses peristent connections by default. If
 this causes you problems you can disable persistent connections by adding the
 following to your settings.php:
 
@@ -352,7 +352,7 @@ Using a per-bin prefix:
 
 In the above example, the 'something_unique' prefix will be used for all bins
 except for the 'cache_page' bin which will use the 'something_else_unique'
-prefix. Not that if using a keyed array for specifying prefix, you must specify
+prefix. Note that if using a keyed array for specifying prefix, you must specify
 the 'default' prefix.
 
 It is also possible to specify multiple prefixes per bin. Only the first prefix
@@ -510,8 +510,8 @@ settings.php:
   $conf['memcache_debug_log'] = '/path/to/file.log';
 
 By default, only the following memcache actions are logged: 'set', 'add',
-'delete', and 'flush'. If you'd like to also log 'get' actions, enble verbose
-logging:
+'delete', and 'flush'. If you'd like to also log 'get' and 'getMulti' actions,
+enble verbose logging:
   $conf['memcache_debug_verbose'] = TRUE;
 
 This file needs to be writable by the web server (and/or by drush) or you will
@@ -706,8 +706,8 @@ You then configure the module normally. Amazon explains:
   "If you use Automatic Discovery, you can use the cluster's Configuration
    Endpoint to configure your Memcached client."
 
-It's been reported that the Configuration Endpoint must have 'cfg' in the name
-or it won't work. Further documentation can be found here:
+The Configuration Endpoint must have 'cfg' in the name or it won't work. Further
+documentation can be found here:
 http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/Endpoints.html
 
 If you don't want to use Automatic Discovery you don't need to install the
