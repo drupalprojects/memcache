@@ -158,7 +158,18 @@ the default in this case but could be set using:
 
 ## LOCKS ##
 
-Locks have not yet been implemented using the memcache module.
+Memcache locks can be enabled through the services.yml file.
+
+  services:
+    # Replaces the default lock backend with a memcache implementation.
+    lock:
+      class: Drupal\Core\Lock\LockBackendInterface
+      factory: memcache.lock.factory:get
+
+    # Replaces the default persistent lock backend with a memcache implementation.
+    lock.persistent:
+      class: Drupal\Core\Lock\LockBackendInterface
+      factory: memcache.lock.factory:getPersistent
 
 ## TROUBLESHOOTING ##
 
