@@ -48,7 +48,7 @@ class DrupalMemcached extends DrupalMemcacheBase {
 
     if ($host == 'unix') {
       // Memcached expects just the path to the socket without the protocol
-      $host = substr($host, 7);
+      $host = substr($server_path, 7);
       // Port is always 0 for unix sockets.
       $port = 0;
     }
