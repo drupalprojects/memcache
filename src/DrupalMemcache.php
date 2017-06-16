@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Psr\Log\LogLevel;
+use Psr\Log\LoggerInterface;
 
 /**
  * Class DrupalMemcache.
@@ -17,8 +17,8 @@ class DrupalMemcache extends DrupalMemcacheBase {
   /**
    * {@inheritdoc}
    */
-  public function __construct(DrupalMemcacheConfig $settings) {
-    parent::__construct($settings);
+  public function __construct(DrupalMemcacheConfig $settings, LoggerInterface $logger) {
+    parent::__construct($settings, $logger);
 
     $this->memcache = new \Memcache();
   }
@@ -91,7 +91,7 @@ class DrupalMemcache extends DrupalMemcacheBase {
     $results = @$this->memcache->get($full_keys);
 
     if (!empty($php_errormsg)) {
-      register_shutdown_function('memcache_log_warning', LogLevel::WARNING, 'Exception caught in DrupalMemcache::getMulti: !msg', array('!msg' => $php_errormsg));
+      $this->logger->warning('Exception caught in DrupalMemcache::getMulti: !msg', ['!msg' => $php_errormsg]);
       $php_errormsg = '';
     }
 

@@ -4,10 +4,13 @@ services:
     arguments: ['@settings']
   memcache.factory:
     class: Drupal\memcache\DrupalMemcacheFactory
-    arguments: ['@memcache.config']
+    arguments: ['@memcache.config', '@logger.channel.memcache']
   cache.backend.memcache:
     class: Drupal\memcache\MemcacheBackendFactory
     arguments: ['@lock', '@memcache.config', '@memcache.factory', '@cache_tags.invalidator.checksum']
   memcache.lock.factory:
     class: Drupal\memcache\Lock\MemcacheLockFactory
     arguments: ['@memcache.factory']
+  logger.channel.memcache:
+    parent: logger.channel_base
+    arguments: ['memcache']

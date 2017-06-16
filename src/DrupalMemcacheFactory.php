@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Psr\Log\LogLevel;
+use Psr\Log\LoggerInterface;
 
 /**
  * Factory class for creation of Memcache objects.
@@ -52,13 +52,23 @@ class DrupalMemcacheFactory {
   protected $failedConnectionCache = array();
 
   /**
+   * A logger instance.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
+
+  /**
    * Constructs a DrupalMemcacheFactory object.
    *
    * @param \Drupal\memcache\DrupalMemcacheConfig $settings
+   *   A Settings Object.
+   * @param \Psr\Log\LoggerInterface $logger
+   *   A logger instance.
    */
-  public function __construct(DrupalMemcacheConfig $settings) {
+  public function __construct(DrupalMemcacheConfig $settings, LoggerInterface $logger) {
     $this->settings = $settings;
-
+    $this->logger = $logger;
     $this->initialize();
   }
 
@@ -95,10 +105,10 @@ class DrupalMemcacheFactory {
         // object.
         // @todo Can't add a custom memcache class here yet.
         if ($this->extension == 'Memcached') {
-          $memcache = new DrupalMemcached($this->settings);
+          $memcache = new DrupalMemcached($this->settings, $this->logger);
         }
         elseif ($this->extension == 'Memcache') {
-          $memcache = new DrupalMemcache($this->settings);
+          $memcache = new DrupalMemcache($this->settings, $this->logger);
         }
 
         // A variable to track whether we've connected to the first server.
@@ -112,10 +122,7 @@ class DrupalMemcacheFactory {
             }
 
             if (!$init) {
-              // We can't use watchdog because this happens in a bootstrap phase
-              // where watchdog is non-functional. Register a shutdown handler
-              // instead so it gets recorded at the end of page load.
-              register_shutdown_function('memcache_log_warning', LogLevel::ERROR, 'Failed to connect to memcache server: !server', array('!server' => $s));
+              $this->logger->warning('Failed to connect to memcache server: !server', ['!server' => $s]);
               $this->failedConnectionCache[$s] = FALSE;
             }
           }
