@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /**
  * Factory class for creation of Memcache objects.
@@ -52,23 +52,13 @@ class DrupalMemcacheFactory {
   protected $failedConnectionCache = array();
 
   /**
-   * A logger instance.
-   *
-   * @var \Psr\Log\LoggerInterface
-   */
-  protected $logger;
-
-  /**
    * Constructs a DrupalMemcacheFactory object.
    *
    * @param \Drupal\memcache\DrupalMemcacheConfig $settings
-   *   A Settings Object.
-   * @param \Psr\Log\LoggerInterface $logger
-   *   A logger instance.
    */
-  public function __construct(DrupalMemcacheConfig $settings, LoggerInterface $logger) {
+  public function __construct(DrupalMemcacheConfig $settings) {
     $this->settings = $settings;
-    $this->logger = $logger;
+
     $this->initialize();
   }
 
@@ -105,10 +95,10 @@ class DrupalMemcacheFactory {
         // object.
         // @todo Can't add a custom memcache class here yet.
         if ($this->extension == 'Memcached') {
-          $memcache = new DrupalMemcached($this->settings, $this->logger);
+          $memcache = new DrupalMemcached($this->settings);
         }
         elseif ($this->extension == 'Memcache') {
-          $memcache = new DrupalMemcache($this->settings, $this->logger);
+          $memcache = new DrupalMemcache($this->settings);
         }
 
         // A variable to track whether we've connected to the first server.
@@ -122,7 +112,6 @@ class DrupalMemcacheFactory {
             }
 
             if (!$init) {
-              $this->logger->warning('Failed to connect to memcache server: !server', ['!server' => $s]);
               $this->failedConnectionCache[$s] = FALSE;
             }
           }

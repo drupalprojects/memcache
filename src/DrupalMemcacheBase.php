@@ -7,7 +7,7 @@
 
 namespace Drupal\memcache;
 
-use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /**
  * Class DrupalMemcacheBase.
@@ -44,27 +44,16 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
   protected $prefix;
 
   /**
-   * A logger instance.
-   *
-   * @var \Psr\Log\LoggerInterface
-   */
-  protected $logger;
-
-  /**
    * Constructs a DrupalMemcacheBase object.
    *
-   * @param \Drupal\memcache\DrupalMemcacheConfig $settings
+   * @param \Drupal\memcache\DrupalMemcacheConfig
    *   The memcache config object.
-   * @param \Psr\Log\LoggerInterface $logger
-   *   A logger instance.
    */
-  public function __construct(DrupalMemcacheConfig $settings, LoggerInterface $logger) {
+  public function __construct(DrupalMemcacheConfig $settings) {
     $this->settings = $settings;
 
     $this->hashAlgorithm = $this->settings->get('key_hash_algorithm', 'sha1');
     $this->prefix = $this->settings->get('key_prefix', '');
-
-    $this->logger = $logger;
   }
 
   /**
@@ -72,18 +61,7 @@ abstract class DrupalMemcacheBase implements DrupalMemcacheInterface {
    */
   public function get($key) {
     $full_key = $this->key($key);
-
-    $track_errors = ini_set('track_errors', '1');
-    $php_errormsg = '';
-    $result = @$this->memcache->get($full_key);
-
-    if (!empty($php_errormsg)) {
-      $this->logger->warning('Exception caught in DrupalMemcacheBase::get: !msg', ['!msg' => $php_errormsg]);
-      $php_errormsg = '';
-    }
-    ini_set('track_errors', $track_errors);
-
-    return $result;
+    return $this->memcache->get($full_key);
   }
 
   /**
