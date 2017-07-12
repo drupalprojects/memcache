@@ -430,6 +430,7 @@ function memcache_wildcards($cid, $table, $flush = FALSE) {
       // along with cache consistency.
       if ($length < $key_length) {
         $wildcard_flushes[$table] = array();
+        memcache_variable_set("cache_flush_${table}", time());
       }
       $key = substr($cid, 0, $key_length);
       $wildcard_flushes[$table][$key][$length] = $_SERVER['REQUEST_TIME'];
