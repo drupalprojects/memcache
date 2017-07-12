@@ -37,6 +37,20 @@ function cache_get($cid, $table = 'cache') {
     return _cache_get($cid, $table);
   }
 
+  // Clean-up the per-user cache expiration session data, so that the session
+  // handler can properly clean-up the session data for anonymous users.
+  if (isset($_SESSION['cache_flush'])) {
+    $expire = $_SERVER['REQUEST_TIME'] - variable_get('cache_lifetime', 0);
+    foreach ($_SESSION['cache_flush'] as $bin => $timestamp) {
+      if ($timestamp < $expire) {
+        unset($_SESSION['cache_flush'][$bin]);
+      }
+    }
+    if (!$_SESSION['cache_flush']) {
+      unset($_SESSION['cache_flush']);
+    }
+  }
+
   // Retrieve the item from the cache.
   $cache = dmemcache_get($cid, $table);
 
