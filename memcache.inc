@@ -472,6 +472,11 @@ function memcache_clone($object) {
 function memcache_variable_set($name, $value) {
   global $conf;
 
+  // If the value appears unchanged, do nothing.
+  if (isset($conf[$name]) && $conf[$name] === $value) {
+    return;
+  }
+
   $serialized_value = serialize($value);
   db_query("UPDATE {variable} SET value = '%s' WHERE name = '%s'", $serialized_value, $name);
   if (!db_affected_rows()) {
