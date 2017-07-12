@@ -800,6 +800,9 @@ function dmemcache_piece_cache_set($cid, $exp = NULL) {
   // Always refresh cached copy to minimize multi-thread race window.
   $piece_cache = &dmemcache_static('dmemcache_piece_cache', array());
   $piece_cache = dmemcache_get('__dmemcache_piece_cache');
+  if (!is_array($piece_cache)) {
+    $piece_cache = array();
+  }
 
   if (isset($exp)) {
     if ($exp <= 0) {
