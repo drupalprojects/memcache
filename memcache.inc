@@ -333,6 +333,11 @@ function memcache_wildcard_flushes($cid, $table) {
 function memcache_wildcards($cid, $table, $flush = FALSE) {
   static $wildcards = array();
   $matching = array();
+  if (!is_string($cid) && !is_int($cid)) {
+    register_shutdown_function('watchdog', 'memcache', 'Invalid cache id received in memcache.inc wildcards() of type !type.', array('!type' => gettype($cid)), WATCHDOG_ERROR);
+    return $matching;
+  }
+
   $length = strlen($cid);
 
   $wildcard_flushes = variable_get('memcache_wildcard_flushes', array());
