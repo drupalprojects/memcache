@@ -155,7 +155,7 @@ function _dmemcache_set_pieces($key, $value, $exp = 0, $bin = 'cache', $mc = NUL
   $cache = new stdClass;
   // $key gets run through dmemcache_key() later inside dmemcache_set().
   $cache->cid = $key;
-  $cache->created = REQUEST_TIME;
+  $cache->created = $_SERVER['REQUEST_TIME'];
   $cache->expire = $exp;
   $cache->data = new stdClass;
   $cache->data->serialized = $serialized;
@@ -167,7 +167,7 @@ function _dmemcache_set_pieces($key, $value, $exp = 0, $bin = 'cache', $mc = NUL
   foreach ($pieces as $id => $piece) {
     $cache = new stdClass;
     $cache->cid = _dmemcache_key_piece($key, $id);
-    $cache->created = REQUEST_TIME;
+    $cache->created = $_SERVER['REQUEST_TIME'];
     $cache->expire = $exp;
     $cache->data = $piece;
     $cache->multi_part_piece = TRUE;
@@ -454,7 +454,7 @@ function dmemcache_delete($key, $bin = 'cache') {
         $gc_counter = 0;
         $piece_cache = &dmemcache_static('dmemcache_piece_cache', array());
         foreach ($piece_cache as $cid => $expires) {
-          if (REQUEST_TIME > $expires) {
+          if ($_SERVER['REQUEST_TIME'] > $expires) {
             $gc_counter++;
             dmemcache_piece_cache_set($cid, NULL);
           }
@@ -804,7 +804,7 @@ function dmemcache_piece_cache_set($cid, $exp = NULL) {
   if (isset($exp)) {
     if ($exp <= 0) {
       // If no expiration time is set, defaults to 30 days.
-      $exp = REQUEST_TIME + 2592000;
+      $exp = $_SERVER['REQUEST_TIME'] + 2592000;
     }
     $piece_cache[$cid] = $exp;
   }
