@@ -166,6 +166,56 @@ Memcache locks can be enabled through the services.yml file.
       class: Drupal\Core\Lock\LockBackendInterface
       factory: memcache.lock.factory:getPersistent
 
+## Cache Container on bootstrap ##
+By default Drupal starts the cache_container on the database, in order to override that you can use the following code on your settings.php file. Make sure that the $class_load->addPsr4 is poiting to the right location of memcache (on this case modules/contrib/memcache/src)
+
+$memcache_exists = class_exists('Memcache', FALSE);
+$memcached_exists = class_exists('Memcached', FALSE);
+if ($memcache_exists || $memcached_exists) {
+  $class_loader->addPsr4('Drupal\\memcache\\', 'modules/contrib/memcache/src');
+
+  // Define custom bootstrap container definition to use Memcache for cache.container.
+  $settings['bootstrap_container_definition'] = [
+    'parameters' => [],
+    'services' => [
+      'database' => [
+        'class' => 'Drupal\Core\Database\Connection',
+        'factory' => 'Drupal\Core\Database\Database::getConnection',
+        'arguments' => ['default'],
+      ],
+      'settings' => [
+        'class' => 'Drupal\Core\Site\Settings',
+        'factory' => 'Drupal\Core\Site\Settings::getInstance',
+      ],
+      'memcache.config' => [
+        'class' => 'Drupal\memcache\DrupalMemcacheConfig',
+        'arguments' => ['@settings'],
+      ],
+      'memcache.backend.cache.factory' => [
+        'class' => 'Drupal\memcache\DrupalMemcacheFactory',
+        'arguments' => ['@memcache.config']
+      ],
+      'memcache.backend.cache.container' => [
+        'class' => 'Drupal\memcache\DrupalMemcacheFactory',
+        'factory' => ['@memcache.backend.cache.factory', 'get'],
+        'arguments' => ['container'],
+      ],
+      'lock.container' => [
+        'class' => 'Drupal\memcache\Lock\MemcacheLockBackend',
+        'arguments' => ['container', '@memcache.backend.cache.container'],
+      ],
+      'cache_tags_provider.container' => [
+        'class' => 'Drupal\Core\Cache\DatabaseCacheTagsChecksum',
+        'arguments' => ['@database'],
+      ],
+      'cache.container' => [
+        'class' => 'Drupal\memcache\MemcacheBackend',
+        'arguments' => ['container', '@memcache.backend.cache.container', '@lock.container', '@memcache.config', '@cache_tags_provider.container'],
+      ],
+    ],
+  ];
+}
+
 ## TROUBLESHOOTING ##
 
 PROBLEM:
