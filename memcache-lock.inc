@@ -13,10 +13,10 @@ require_once dirname(__FILE__) . '/dmemcache.inc';
 // http://drupal.org/node/1225404
 $lock_file = dirname(__FILE__) . '/memcache-lock-code.inc';
 $mc = dmemcache_object('semaphore');
-// dmemcache_object always returns TRUE, we don't need these stats but it forces
+// dmemcache_object may return FALSE, we don't need these stats but it forces
 // us to try and connect to memcache. If this fails, we can't store locks in
 // memcache.
-if (!$mc->getStats()) {
+if (!$mc || !$mc->getStats()) {
   $lock_file = DRUPAL_ROOT . '/includes/lock.inc';
 }
 require_once $lock_file;
