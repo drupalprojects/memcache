@@ -10,8 +10,13 @@ the 7.x-1.x version of this module!
 - PHP 5.5 or greater
 - Availability of a memcached daemon: http://memcached.org/
 - One of the two PECL memcache packages:
-  - http://pecl.php.net/package/memcache (recommended)
+  - http://pecl.php.net/package/memcache 
   - http://pecl.php.net/package/memcached
+
+### How to choose between these 2 packages ? ###
+http://pecl.php.net/package/memcache is recommended if you have deamon running on the same instance as your php server and that your php major version allows it. 
+http://pecl.php.net/package/memcached is recommended if your daemon is not on the same instance and if your php major version is 7.
+
 
 For more detailed instructions on installing a memcached daemon or either of the
 memcache PECL extensions, please see the documentation online at
